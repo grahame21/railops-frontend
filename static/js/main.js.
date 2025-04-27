@@ -1,0 +1,127 @@
+let map;
+let trainLayer;
+let trainSource;
+let refreshInterval;
+let trainsVisible = true;
+let useIcons = false;
+
+function initMap() {
+    trainSource = new ol.source.Vector();
+
+    trainLayer = new ol.layer.Vector({
+        source: trainSource
+    });
+
+    map = new ol.Map({
+        target: 'map',
+        layers: [
+            new ol.layer.Tile({
+                source: new ol.source.OSM()
+            }),
+            trainLayer
+        ],
+        view: new ol.View({
+            center: ol.proj.fromLonLat([134.5, -25]),
+            zoom: 4.5
+        })
+    });
+
+    // Add Toggle Button
+    const toggleButton = document.createElement('button');
+    toggleButton.innerHTML = getToggleButtonText();
+    toggleButton.style.position = 'absolute';
+    toggleButton.style.top = '10px';
+    toggleButton.style.right = '10px';
+    toggleButton.style.zIndex = '1000';
+    toggleButton.style.padding = '8px';
+    toggleButton.style.background = '#0077cc';
+    toggleButton.style.color = '#fff';
+    toggleButton.style.border = 'none';
+    toggleButton.style.borderRadius = '5px';
+    toggleButton.style.cursor = 'pointer';
+    document.body.appendChild(toggleButton);
+
+    toggleButton.addEventListener('click', () => {
+        useIcons = !useIcons;
+        localStorage.setItem('useIcons', useIcons);
+        toggleButton.innerHTML = getToggleButtonText();
+        loadTrains();
+    });
+
+    // Load preference from storage
+    if (localStorage.getItem('useIcons') !== null) {
+        useIcons = localStorage.getItem('useIcons') === 'true';
+    }
+
+    loadTrains();
+    refreshInterval = setInterval(loadTrains, 30000); // every 30 seconds
+}
+
+function getToggleButtonText() {
+    return useIcons ? "Show Arrows" : "Show Icons";
+}
+
+function loadTrains() {
+    fetch('/static/assets/trains.json')
+        .then(response => response.json())
+        .then(data => {
+            trainSource.clear();
+            data.forEach(train => {
+                if (!train.lon || !train.lat) return;
+
+                const coords = ol.proj.fromLonLat([train.lon, train.lat]);
+                const speed = train.speed || 0;
+                const heading = train.heading || 0;
+                const loco = train.loco || "";
+
+                let feature = new ol.Feature({
+                    geometry: new ol.geom.Point(coords),
+                    name: loco
+                });
+
+                if (useIcons && train.icon) {
+                    feature.setStyle(new ol.style.Style({
+                        image: new ol.style.Icon({
+                            src: train.icon,
+                            scale: 0.1,
+                            rotation: heading * Math.PI / 180
+                        })
+                    }));
+                } else {
+                    if (speed < 1) {
+                        feature.setStyle(new ol.style.Style({
+                            image: new ol.style.Circle({
+                                radius: 7,
+                                fill: new ol.style.Fill({ color: 'darkblue' }),
+                                stroke: new ol.style.Stroke({ color: '#fff', width: 1 })
+                            })
+                        }));
+                    } else {
+                        feature.setStyle(new ol.style.Style({
+                            image: new ol.style.RegularShape({
+                                points: 3,
+                                radius: 10,
+                                rotation: heading * Math.PI / 180,
+                                angle: 0,
+                                fill: new ol.style.Fill({ color: getSpeedColor(speed) }),
+                                stroke: new ol.style.Stroke({ color: '#fff', width: 1 })
+                            })
+                        }));
+                    }
+                }
+
+                trainSource.addFeature(feature);
+            });
+        })
+        .catch(error => console.error('Error loading trains:', error));
+}
+
+function getSpeedColor(speed) {
+    if (speed >= 115) return 'blue';
+    if (speed >= 90) return 'green';
+    if (speed >= 60) return 'yellow';
+    if (speed >= 30) return 'orange';
+    return 'red';
+}
+
+window.onload = initMap;
