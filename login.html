@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Grahame's RailOps Login</title>
+    <link rel="stylesheet" href="static/css/style.css">
+    <link rel="icon" href="static/assets/logo.png" type="image/png">
+</head>
+<body class="login-page">
+    <div class="login-container">
+        <h1>Grahame's RailOps Login</h1>
+        <form id="loginForm" onsubmit="return login();">
+            <input type="text" id="username" placeholder="Username" required><br>
+            <input type="password" id="password" placeholder="Password" required><br>
+            <button type="submit">Login</button>
+        </form>
+    </div>
+    <script>
+        function login() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            if ((user === "admin" && pass === "trainops123")) {
+                window.location.href = "admin.html";
+            } else {
+                alert("Invalid login. Please try again.");
+            }
+            return false;
+        }
+    </script>
+</body>
+</html>
