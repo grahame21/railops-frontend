@@ -1,64 +1,38 @@
-// Initialize map
-const map = new ol.Map({
-  target: 'map',
+// Initialize OpenLayers map
+var map = new ol.Map({
+  target: 'map', // ID of your <div>
   layers: [
     new ol.layer.Tile({
       source: new ol.source.OSM()
     })
   ],
   view: new ol.View({
-    center: ol.proj.fromLonLat([133.7751, -25.2744]),
-    zoom: 5
+    center: ol.proj.fromLonLat([133.7751, -25.2744]), // Start centered over Australia
+    zoom: 4,
+    rotation: 0 // Lock rotation (north always up)
+  }),
+  controls: ol.control.defaults({
+    rotate: false, // Disable rotation control button
+    attributionOptions: {
+      collapsible: false
+    }
+  }),
+  interactions: ol.interaction.defaults({
+    altShiftDragRotate: false, // Disable drag-rotate with alt+shift
+    pinchRotate: false // Disable rotate with two-finger pinch
   })
 });
 
-let trainLayer; // Global layer for toggling
-
-// Function to load trains
-function loadTrains() {
-  fetch('/trains.json')
-    .then(response => response.json())
-    .then(data => {
-      if (trainLayer) {
-        map.removeLayer(trainLayer);
-      }
-
-      const features = data.map(train => {
-        const speed = train.speed || 0;
-        let color = 'gray';
-        if (speed > 115) color = 'blue';
-        else if (speed > 90) color = 'green';
-        else if (speed > 60) color = 'yellow';
-        else if (speed > 30) color = 'orange';
-        else if (speed > 0) color = 'red';
-
-        return new ol.Feature({
-          geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat])),
-          name: train.name,
-          style: new ol.style.Style({
-            image: new ol.style.Circle({
-              radius: 6,
-              fill: new ol.style.Fill({ color }),
-              stroke: new ol.style.Stroke({ color: 'black', width: 1 })
-            })
-          })
-        });
-      });
-
-      trainLayer = new ol.layer.Vector({
-        source: new ol.source.Vector({
-          features: features
-        }),
-        style: feature => feature.get('style')
-      });
-
-      map.addLayer(trainLayer);
-    })
-    .catch(error => {
-      console.error('Error loading trains:', error);
-    });
+// Try to center map on user location
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(function(position) {
+    var userLon = position.coords.longitude;
+    var userLat = position.coords.latitude;
+    map.getView().setCenter(ol.proj.fromLonLat([userLon, userLat]));
+    map.getView().setZoom(11); // About 50 km radius
+  }, function(error) {
+    console.error('Geolocation error:', error);
+  });
+} else {
+  console.error('Geolocation not supported');
 }
-
-// Load initially and refresh every 30 sec
-loadTrains();
-setInterval(loadTrains, 30000);
