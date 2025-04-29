@@ -1,9 +1,8 @@
-/* Blue theme styling for login page */
-
 body {
     margin: 0;
     padding: 0;
-    background: #e6f0ff; /* soft blue background */
+    background: url('/static/assets/login_bg.jpg') no-repeat center center fixed;
+    background-size: cover;
     font-family: Arial, sans-serif;
     height: 100vh;
     display: flex;
@@ -12,18 +11,18 @@ body {
 }
 
 .login-box {
-    background: white;
+    background: rgba(255, 255, 255, 0.9); /* slight transparency */
     padding: 40px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    box-shadow: 0 0 10px rgba(0,0,0,0.2);
     border-radius: 8px;
     text-align: center;
     width: 300px;
-    border-top: 6px solid #007BFF; /* bright blue top border */
+    border-top: 6px solid #007BFF;
 }
 
 .login-box h1 {
     margin-bottom: 24px;
-    color: #007BFF; /* blue heading text */
+    color: #007BFF;
 }
 
 .login-box input[type="text"],
