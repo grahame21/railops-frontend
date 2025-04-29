@@ -55,11 +55,11 @@ function loadTrains() {
             features: [marker]
           });
 
-          var vectorLayer = new ol.layer.Vector({
+          var markerLayer = new ol.layer.Vector({
             source: vectorSource
           });
 
-          map.addLayer(vectorLayer);
+          map.addLayer(markerLayer);
         });
       }
     });
