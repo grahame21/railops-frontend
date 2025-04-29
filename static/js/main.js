@@ -1,4 +1,3 @@
-// Initialize OpenLayers map
 var map = new ol.Map({
   target: 'map',
   layers: [
@@ -7,9 +6,9 @@ var map = new ol.Map({
     })
   ],
   view: new ol.View({
-    center: ol.proj.fromLonLat([133.7751, -25.2744]), // Center Australia
+    center: ol.proj.fromLonLat([133.7751, -25.2744]),
     zoom: 4,
-    rotation: 0 // Lock rotation (north up)
+    rotation: 0
   }),
   controls: ol.control.defaults({
     rotate: false,
@@ -23,69 +22,48 @@ var map = new ol.Map({
   })
 });
 
-// Center map on user's location
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(function(position) {
-    var userLon = position.coords.longitude;
-    var userLat = position.coords.latitude;
-    map.getView().setCenter(ol.proj.fromLonLat([userLon, userLat]));
-    map.getView().setZoom(11); // Around 50km radius
-  }, function(error) {
-    console.error('Geolocation error:', error);
+    var lon = position.coords.longitude;
+    var lat = position.coords.latitude;
+    map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
+    map.getView().setZoom(11);
   });
-} else {
-  console.error('Geolocation not supported');
 }
 
-// Function to add live trains
 function loadTrains() {
-  fetch('trains.json?nocache=' + new Date().getTime()) // prevent caching
+  fetch('trains.json?nocache=' + new Date().getTime())
     .then(response => response.json())
     .then(data => {
-      if (!data || !data.trains || !Array.isArray(data.trains)) {
-        console.error('Invalid trains.json format');
-        return;
-      }
-
-      // Clear previous layers except base
       map.getLayers().getArray().slice(1).forEach(layer => map.removeLayer(layer));
 
-      // Add train markers
-      data.trains.forEach(train => {
-        if (!train.lon || !train.lat) return; // skip invalid
+      if (data.trains) {
+        data.trains.forEach(train => {
+          if (!train.lon || !train.lat) return;
+          var marker = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
+          });
+          var markerStyle = new ol.style.Style({
+            image: new ol.style.Icon({
+              src: 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Train_font_awesome.svg',
+              scale: 0.05
+            })
+          });
+          marker.setStyle(markerStyle);
 
-        var marker = new ol.Feature({
-          geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
+          var vectorSource = new ol.source.Vector({
+            features: [marker]
+          });
+
+          var vectorLayer = new ol.layer.Vector({
+            source: vectorSource
+          });
+
+          map.addLayer(vectorLayer);
         });
-
-        var markerStyle = new ol.style.Style({
-          image: new ol.style.Icon({
-            anchor: [0.5, 1],
-            src: 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Train_font_awesome.svg', // simple train icon
-            scale: 0.05
-          })
-        });
-
-        marker.setStyle(markerStyle);
-
-        var vectorSource = new ol.source.Vector({
-          features: [marker]
-        });
-
-        var vectorLayer = new ol.layer.Vector({
-          source: vectorSource
-        });
-
-        map.addLayer(vectorLayer);
-      });
-    })
-    .catch(error => {
-      console.error('Error loading trains:', error);
+      }
     });
 }
 
-// Load trains initially
 loadTrains();
-
-// Refresh trains every 30 seconds
 setInterval(loadTrains, 30000);
