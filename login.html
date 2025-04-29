@@ -1,21 +1,64 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>RailOps Login</title>
-    <link rel="stylesheet" href="/static/css/style.css">
+  <meta charset="UTF-8">
+  <title>RailOps Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body {
+      background: url('/static/assets/login_bg.jpg') no-repeat center center fixed;
+      background-size: cover;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .admin-box {
+      background: rgba(255, 255, 255, 0.9);
+      padding: 40px;
+      border-radius: 8px;
+      text-align: center;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+      border-top: 6px solid #007BFF;
+      width: 300px;
+    }
+
+    .admin-box h1 {
+      color: #007BFF;
+      margin-bottom: 20px;
+    }
+
+    .admin-button {
+      display: block;
+      background: #007BFF;
+      color: white;
+      border: none;
+      padding: 12px;
+      margin: 10px 0;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+
+    .admin-button:hover {
+      background: #0056b3;
+    }
+  </style>
 </head>
+
 <body>
 
-<div class="login-box">
-    <h1>Login</h1>
-    <form id="loginForm" onsubmit="return login();">
-        <input type="text" id="username" placeholder="Username" required>
-        <input type="password" id="password" placeholder="Password" required>
-        <input type="submit" value="Login">
-    </form>
+<div class="admin-box">
+  <h1>RailOps Admin</h1>
+  <a class="admin-button" href="dashboard.html">View Train Map</a>
+  <a class="admin-button" href="flights.html">View Flight Tracker</a>
+  <a class="admin-button" href="login.html">Logout</a>
 </div>
 
-<script src="/static/js/main.js"></script>
 </body>
 </html>
