@@ -1,26 +1,38 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Grahame's RailOps Admin</title>
-    <link rel="stylesheet" href="static/css/style.css">
-    <link rel="icon" href="static/assets/logo.png" type="image/png">
+  <meta charset="UTF-8">
+  <title>RailOps Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f8f8f8;
+    }
+    h1 {
+      color: #333;
+    }
+    .button {
+      display: inline-block;
+      margin: 10px;
+      padding: 15px 25px;
+      background: #4CAF50;
+      color: white;
+      text-decoration: none;
+      border-radius: 5px;
+      font-size: 18px;
+    }
+  </style>
 </head>
+
 <body>
-    <div class="admin-header">
-        <h1>Grahame's</h1>
-        <h2>RailOps Admin Page</h2>
-    </div>
 
-    <div class="admin-controls">
-        <button onclick="window.location.href='dashboard.html'">Train Tracker</button>
-        <button onclick="window.location.href='flights.html'">Flight Tracker</button>
-        <button onclick="generateGuestAccount()">Generate Guest Login</button>
-        <button onclick="generateGuestToken()">Generate Guest Token</button>
-        <button onclick="manualUpdateLocos()">Manual Loco Icon Update</button>
-        <button onclick="logout()">Logout</button>
-    </div>
+<h1>RailOps Admin Panel</h1>
 
-    <script src="static/js/admin.js"></script>
+<a class="button" href="dashboard.html">View Train Map</a>
+<a class="button" href="flights.html">View Flight Map</a>
+<a class="button" href="login.html">Logout</a>
+
 </body>
 </html>
