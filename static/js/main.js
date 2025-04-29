@@ -3,13 +3,13 @@ var map = new ol.Map({
   target: 'map',
   layers: [
     new ol.layer.Tile({
-      source: new ol.source.OSM() // OpenStreetMap background
+      source: new ol.source.OSM()
     })
   ],
   view: new ol.View({
-    center: ol.proj.fromLonLat([133.7751, -25.2744]), // Centered on Australia
+    center: ol.proj.fromLonLat([133.7751, -25.2744]),
     zoom: 4,
-    rotation: 0 // North always up
+    rotation: 0
   }),
   controls: ol.control.defaults({
     rotate: false,
@@ -35,18 +35,22 @@ if (navigator.geolocation) {
   console.error('Geolocation not supported');
 }
 
-// Load live trains from trains.json
+// Load trains from trains.json
 fetch('/trains.json')
   .then(response => response.json())
   .then(data => {
     if (data && data.trains && Array.isArray(data.trains)) {
       data.trains.forEach(train => {
+        if (!train.lon || !train.lat) return;
+
         var coords = ol.proj.fromLonLat([train.lon, train.lat]);
         var marker = new ol.Feature(new ol.geom.Point(coords));
+
         marker.setStyle(new ol.style.Style({
           image: new ol.style.Icon({
-            src: '/static/assets/train_icon.png', // Put your small train icon here
-            scale: 0.05
+            src: 'https://upload.wikimedia.org/wikipedia/commons/3/3b/Simple_arrow_up.svg',
+            scale: 0.05,
+            rotation: 0 // For now, static. Later we rotate using heading!
           })
         }));
 
