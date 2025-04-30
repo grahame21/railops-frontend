@@ -7,13 +7,15 @@ var map = new ol.Map({
     })
   ],
   view: new ol.View({
-    center: ol.proj.fromLonLat([133.7751, -25.2744]),
+    center: ol.proj.fromLonLat([133.7751, -25.2744]), // center on Australia
     zoom: 4,
     rotation: 0
   }),
   controls: ol.control.defaults({
     rotate: false,
-    attributionOptions: { collapsible: false }
+    attributionOptions: {
+      collapsible: false
+    }
   }),
   interactions: ol.interaction.defaults({
     altShiftDragRotate: false,
@@ -21,51 +23,40 @@ var map = new ol.Map({
   })
 });
 
-// Try to center map on user location
+// Try to center on user's current location
 if (navigator.geolocation) {
   navigator.geolocation.getCurrentPosition(function(position) {
-    var userLon = position.coords.longitude;
-    var userLat = position.coords.latitude;
+    const userLon = position.coords.longitude;
+    const userLat = position.coords.latitude;
     map.getView().setCenter(ol.proj.fromLonLat([userLon, userLat]));
-    map.getView().setZoom(11); // About 50km radius
-  }, function(error) {
-    console.error('Geolocation error:', error);
+    map.getView().setZoom(11); // 50 km radius approx
   });
-} else {
-  console.error('Geolocation not supported');
 }
 
-// Load trains from trains.json
+// Load train data
 fetch('/trains.json')
   .then(response => response.json())
   .then(data => {
-    if (data && data.trains && Array.isArray(data.trains)) {
+    if (Array.isArray(data.trains)) {
       data.trains.forEach(train => {
-        if (!train.lon || !train.lat) return;
+        if (!train.lat || !train.lon) return;
 
-        var coords = ol.proj.fromLonLat([train.lon, train.lat]);
-        var marker = new ol.Feature(new ol.geom.Point(coords));
+        const feature = new ol.Feature({
+          geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
+        });
 
-        marker.setStyle(new ol.style.Style({
+        feature.setStyle(new ol.style.Style({
           image: new ol.style.Icon({
             src: 'https://upload.wikimedia.org/wikipedia/commons/3/3b/Simple_arrow_up.svg',
             scale: 0.05,
-            rotation: 0 // For now, static. Later we rotate using heading!
+            rotation: 0 // rotation later from heading
           })
         }));
 
-        var vectorSource = new ol.source.Vector({
-          features: [marker]
-        });
-
-        var vectorLayer = new ol.layer.Vector({
-          source: vectorSource
-        });
-
+        const vectorSource = new ol.source.Vector({ features: [feature] });
+        const vectorLayer = new ol.layer.Vector({ source: vectorSource });
         map.addLayer(vectorLayer);
       });
     }
   })
-  .catch(error => {
-    console.error('Error loading trains.json:', error);
-  });
+  .catch(error => console.error('Error loading trains:', error));
