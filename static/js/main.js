@@ -20,7 +20,7 @@ if (typeof ol === 'undefined') {
     console.log("Attempting to load trains.json...");
 
     try {
-      const res = await fetch('trains.json');
+      const res = await fetch('live-trains.json');
       const data = await res.json();
       console.log("Train data loaded:", data);
 
