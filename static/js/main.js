@@ -1,8 +1,7 @@
 console.log("main.js is running");
 
-// Ensure OpenLayers is loaded
 if (typeof ol === 'undefined') {
-  alert("Map failed to load: OpenLayers library is missing");
+  alert("Map failed to load: OpenLayers library missing");
 } else {
   const map = new ol.Map({
     target: 'map',
@@ -13,13 +12,7 @@ if (typeof ol === 'undefined') {
     ],
     view: new ol.View({
       center: ol.proj.fromLonLat([133.7751, -25.2744]),
-      zoom: 4,
-      rotation: 0
-    }),
-    controls: ol.control.defaults({ rotate: false }),
-    interactions: ol.interaction.defaults({
-      altShiftDragRotate: false,
-      pinchRotate: false
+      zoom: 4
     })
   });
 
@@ -31,8 +24,8 @@ if (typeof ol === 'undefined') {
       const data = await res.json();
       console.log("Train data loaded:", data);
 
-      if (!data.trains || data.trains.length === 0) {
-        console.warn("No trains in the list.");
+      if (!data.trains || !Array.isArray(data.trains)) {
+        console.warn("No valid trains found.");
         return;
       }
 
@@ -60,7 +53,7 @@ if (typeof ol === 'undefined') {
       map.addLayer(trainLayer);
 
     } catch (err) {
-      console.error("Error loading train markers:", err);
+      console.error("Failed to load trains.json:", err);
     }
   }
 
