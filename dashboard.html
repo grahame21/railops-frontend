@@ -15,27 +15,23 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      background: none !important;
     }
 
     #map {
+      width: 100vw;
+      height: 100vh;
       position: absolute;
       top: 0;
       left: 0;
-      width: 100% !important;
-      height: 100% !important;
-      z-index: 0;
+      z-index: 1;
     }
   </style>
 </head>
 <body>
 
-  <!-- Map container -->
   <div id="map"></div>
 
   <script>
-    alert("Script is working");
-
     const map = new ol.Map({
       target: 'map',
       layers: [
@@ -46,11 +42,6 @@
       view: new ol.View({
         center: ol.proj.fromLonLat([133.7751, -25.2744]),
         zoom: 4
-      }),
-      controls: ol.control.defaults({ rotate: false }),
-      interactions: ol.interaction.defaults({
-        altShiftDragRotate: false,
-        pinchRotate: false
       })
     });
   </script>
