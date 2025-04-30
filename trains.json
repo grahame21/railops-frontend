@@ -1,16 +1,9 @@
 {
-  "trains": [
-    {
-      "lat": -37.8136,
-      "lon": 144.9631,
-      "dir": 90,
-      "label": "Test Train 1"
-    },
-    {
-      "lat": -33.8688,
-      "lon": 151.2093,
-      "dir": 270,
-      "label": "Test Train 2"
-    }
-  ]
+  "favs": null,
+  "alerts": null,
+  "places": null,
+  "tts": null,
+  "webcams": null,
+  "atcsGomi": null,
+  "atcsObj": null
 }
