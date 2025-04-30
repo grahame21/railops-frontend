@@ -5,9 +5,9 @@
   <title>RailOps Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- OpenLayers v6.15.1 (working CDN) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v6.15.1/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@v6.15.1/dist/ol.js"></script>
+  <!-- OpenLayers from UNPKG CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/ol@6.15.1/ol.css">
+  <script src="https://unpkg.com/ol@6.15.1/dist/ol.js"></script>
 
   <style>
     html, body {
@@ -28,7 +28,7 @@
 
   <script>
     if (typeof ol === 'undefined') {
-      alert("OpenLayers failed to load.");
+      alert("Map failed to load: OpenLayers library missing");
     } else {
       const map = new ol.Map({
         target: 'map',
