@@ -7,7 +7,7 @@ var map = new ol.Map({
     })
   ],
   view: new ol.View({
-    center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
+    center: ol.proj.fromLonLat([133.7751, -25.2744]), // center on Australia
     zoom: 4,
     rotation: 0
   }),
@@ -18,19 +18,30 @@ var map = new ol.Map({
   })
 });
 
-// Load train data
+// Try to center on user's current location
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(function(position) {
+    const userLon = position.coords.longitude;
+    const userLat = position.coords.latitude;
+    map.getView().setCenter(ol.proj.fromLonLat([userLon, userLat]));
+    map.getView().setZoom(10);
+  });
+}
+
+// Load train data and show markers
 fetch('trains.json')
   .then(response => response.json())
   .then(data => {
     if (!data.trains || data.trains.length === 0) return;
 
     const features = data.trains.map(train => {
+      if (!train.lat || !train.lon) return null;
+
       const feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat])),
-        name: train.label
+        name: train.label || ''
       });
 
-      // Directional arrow style
       const iconStyle = new ol.style.Style({
         image: new ol.style.Icon({
           src: 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Red_triangle_arrow_up.svg',
@@ -48,7 +59,7 @@ fetch('trains.json')
 
       feature.setStyle(iconStyle);
       return feature;
-    });
+    }).filter(Boolean); // remove any nulls
 
     const vectorSource = new ol.source.Vector({
       features: features
@@ -59,14 +70,5 @@ fetch('trains.json')
     });
 
     map.addLayer(vectorLayer);
-  });
-
-// Try to center map on user location
-if (navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(function(position) {
-    var userLon = position.coords.longitude;
-    var userLat = position.coords.latitude;
-    map.getView().setCenter(ol.proj.fromLonLat([userLon, userLat]));
-    map.getView().setZoom(10);
-  });
-}
+  })
+  .catch(err => console.error('Failed to load trains.json:', err));
