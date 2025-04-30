@@ -1,20 +1,9 @@
 {
-  "trains": [
-    {
-      "id": "NR84",
-      "lat": -34.9285,
-      "lon": 138.6007,
-      "direction": 90,
-      "operator": "Pacific National",
-      "status": "on time"
-    },
-    {
-      "id": "DL43",
-      "lat": -33.8688,
-      "lon": 151.2093,
-      "direction": 270,
-      "operator": "Aurizon",
-      "status": "delayed"
-    }
-  ]
+  "favs": null,
+  "alerts": null,
+  "places": null,
+  "tts": null,
+  "webcams": null,
+  "atcsGomi": null,
+  "atcsObj": null
 }
