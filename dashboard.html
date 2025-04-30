@@ -6,14 +6,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <!-- OpenLayers CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.css">
+  <link rel="stylesheet" href="static/ol/ol.css">
 
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      background: none !important;
     }
 
     #map {
@@ -26,9 +25,28 @@
   <div id="map"></div>
 
   <!-- OpenLayers JS -->
-  <script src="https://cdn.jsdelivr.net/npm/ol@7.3.0/dist/ol.js"></script>
+  <script src="static/ol/ol.js"></script>
 
-  <!-- Your map logic -->
-  <script src="static/js/main.js"></script>
+  <script>
+    alert("Script is working");
+
+    const map = new ol.Map({
+      target: 'map',
+      layers: [
+        new ol.layer.Tile({
+          source: new ol.source.OSM()
+        })
+      ],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([133.7751, -25.2744]),
+        zoom: 4
+      }),
+      controls: ol.control.defaults({ rotate: false }),
+      interactions: ol.interaction.defaults({
+        altShiftDragRotate: false,
+        pinchRotate: false
+      })
+    });
+  </script>
 </body>
 </html>
