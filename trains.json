@@ -1,12 +1,9 @@
 {
-  "trains": [
-    {
-      "id": "NR84",
-      "lat": -34.9285,
-      "lon": 138.6007,
-      "direction": 90,
-      "operator": "Pacific National",
-      "status": "on time"
-    }
-  ]
+  "favs": null,
+  "alerts": null,
+  "places": null,
+  "tts": null,
+  "webcams": null,
+  "atcsGomi": null,
+  "atcsObj": null
 }
