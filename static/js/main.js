@@ -11,21 +11,20 @@ if (typeof ol === 'undefined') {
       })
     ],
     view: new ol.View({
-      center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
+      center: ol.proj.fromLonLat([133.7751, -25.2744]),
       zoom: 4
     })
   });
 
   async function loadTrains() {
-    console.log("Fetching live-trains.json...");
-
+    console.log("Loading live-trains.json...");
     try {
-      const response = await fetch("live-trains.json");
-      const data = await response.json();
-      console.log("Train data loaded:", data);
+      const res = await fetch('live-trains.json');
+      const data = await res.json();
+      console.log("Trains loaded:", data.trains);
 
       if (!Array.isArray(data.trains)) {
-        console.warn("No valid trains array found.");
+        console.warn("Invalid train list.");
         return;
       }
 
@@ -39,12 +38,10 @@ if (typeof ol === 'undefined') {
           return null;
         }
 
-        const point = new ol.Feature({
-          geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat])),
-          name: train.id
-        });
+        const coords = ol.proj.fromLonLat([lon, lat]);
+        const feature = new ol.Feature(new ol.geom.Point(coords));
 
-        point.setStyle(new ol.style.Style({
+        feature.setStyle(new ol.style.Style({
           image: new ol.style.Icon({
             src: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
             scale: 0.06,
@@ -52,19 +49,16 @@ if (typeof ol === 'undefined') {
           })
         }));
 
-        return point;
+        return feature;
       }).filter(f => f !== null);
 
-      const vectorLayer = new ol.layer.Vector({
-        source: new ol.source.Vector({
-          features: features
-        })
-      });
+      const vectorSource = new ol.source.Vector({ features });
+      const layer = new ol.layer.Vector({ source: vectorSource });
+      map.addLayer(layer);
 
-      map.addLayer(vectorLayer);
-      console.log(`Train markers added: ${features.length}`);
+      console.log("Train markers added:", features.length);
     } catch (err) {
-      console.error("Error fetching train data:", err);
+      console.error("Failed to load train data:", err);
     }
   }
 
