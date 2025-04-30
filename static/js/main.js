@@ -1,7 +1,7 @@
 console.log("main.js is running");
 
 if (typeof ol === 'undefined') {
-  alert("Map failed to load: OpenLayers library missing");
+  alert("OpenLayers is missing");
 } else {
   const map = new ol.Map({
     target: 'map',
@@ -11,49 +11,54 @@ if (typeof ol === 'undefined') {
       })
     ],
     view: new ol.View({
-      center: ol.proj.fromLonLat([133.7751, -25.2744]),
+      center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
       zoom: 4
     })
   });
 
   async function loadTrains() {
-    console.log("Attempting to load trains.json...");
-
+    console.log("Loading live-trains.json...");
     try {
       const res = await fetch('live-trains.json');
       const data = await res.json();
-      console.log("Train data loaded:", data);
+      console.log("Trains loaded:", data.trains);
 
-      if (!data.trains || !Array.isArray(data.trains)) {
-        console.warn("No valid trains found.");
+      if (!Array.isArray(data.trains)) {
+        console.warn("No valid train list");
         return;
       }
 
       const features = data.trains.map(train => {
-        const coords = ol.proj.fromLonLat([train.lon, train.lat]);
+        const lat = parseFloat(train.lat);
+        const lon = parseFloat(train.lon);
+        const dir = parseFloat(train.direction || 0);
 
-        const feature = new ol.Feature({
-          geometry: new ol.geom.Point(coords),
-          name: train.id
-        });
+        if (isNaN(lat) || isNaN(lon)) {
+          console.warn("Invalid coordinates for train:", train.id);
+          return null;
+        }
+
+        const coords = ol.proj.fromLonLat([lon, lat]);
+        const feature = new ol.Feature(new ol.geom.Point(coords));
 
         feature.setStyle(new ol.style.Style({
           image: new ol.style.Icon({
             src: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
             scale: 0.06,
-            rotation: (train.direction || 0) * Math.PI / 180
+            rotation: dir * Math.PI / 180
           })
         }));
 
         return feature;
-      });
+      }).filter(f => f !== null);
 
       const vectorSource = new ol.source.Vector({ features });
-      const trainLayer = new ol.layer.Vector({ source: vectorSource });
-      map.addLayer(trainLayer);
+      const layer = new ol.layer.Vector({ source: vectorSource });
+      map.addLayer(layer);
 
+      console.log("Train markers added:", features.length);
     } catch (err) {
-      console.error("Failed to load trains.json:", err);
+      console.error("Error fetching train data:", err);
     }
   }
 
