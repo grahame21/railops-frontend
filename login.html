@@ -4,18 +4,34 @@
   <meta charset="UTF-8">
   <title>Grahame's RailOps Login</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
 <body>
 
 <div class="login-box">
   <h1>Grahame's RailOps Login</h1>
-  <form id="loginForm" onsubmit="return login();">
+  <form onsubmit="return login();">
     <input type="text" id="username" placeholder="Username" required>
     <input type="password" id="password" placeholder="Password" required>
     <input type="submit" value="Login">
   </form>
 </div>
 
-<script src="/static/js/main.js"></script>
+<script>
+  function login() {
+    const user = document.getElementById('username').value;
+    const pass = document.getElementById('password').value;
+
+    if (user === "admin" && pass === "railops") {
+      window.location.href = "admin.html";
+    } else if (user === "guest" && pass === "guestpass") {
+      window.location.href = "dashboard.html";
+    } else {
+      alert("Invalid login");
+    }
+    return false;
+  }
+</script>
+
 </body>
 </html>
