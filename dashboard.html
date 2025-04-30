@@ -5,15 +5,15 @@
   <title>RailOps Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- Correct OpenLayers version -->
+  <!-- OpenLayers CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@7.3.0/ol.js"></script>
 
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
+      background: none !important;
     }
 
     #map {
@@ -23,32 +23,12 @@
   </style>
 </head>
 <body>
-
-  <!-- Map container -->
   <div id="map"></div>
 
-  <script>
-    alert("Script is working");
+  <!-- OpenLayers JS -->
+  <script src="https://cdn.jsdelivr.net/npm/ol@7.3.0/dist/ol.js"></script>
 
-    // Create the map
-    const map = new ol.Map({
-      target: 'map',
-      layers: [
-        new ol.layer.Tile({
-          source: new ol.source.OSM()
-        })
-      ],
-      view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Center on Australia
-        zoom: 4
-      }),
-      controls: ol.control.defaults({ rotate: false }),
-      interactions: ol.interaction.defaults({
-        altShiftDragRotate: false,
-        pinchRotate: false
-      })
-    });
-  </script>
-
+  <!-- Your map logic -->
+  <script src="static/js/main.js"></script>
 </body>
 </html>
