@@ -1,21 +1,18 @@
 alert("main.js is working");
 
-// Create the map
+// Initialize OpenLayers map
 var map = new ol.Map({
   target: 'map',
   layers: [
     new ol.layer.Tile({
-      source: new ol.source.OSM() // OpenStreetMap base layer
+      source: new ol.source.OSM() // Base map layer
     })
   ],
   view: new ol.View({
     center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
-    zoom: 4,
-    rotation: 0
+    zoom: 4
   }),
-  controls: ol.control.defaults({
-    rotate: false
-  }),
+  controls: ol.control.defaults({ rotate: false }),
   interactions: ol.interaction.defaults({
     altShiftDragRotate: false,
     pinchRotate: false
