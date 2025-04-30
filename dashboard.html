@@ -3,34 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <title>RailOps Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <!-- OpenLayers from UNPKG CDN -->
-  <link rel="stylesheet" href="https://unpkg.com/ol@6.15.1/ol.css">
-  <script src="https://unpkg.com/ol@6.15.1/dist/ol.js"></script>
+  <!-- OpenLayers local CSS -->
+  <link rel="stylesheet" href="static/css/ol.css">
 
+  <!-- Map and page styles -->
   <style>
     html, body {
       margin: 0;
       padding: 0;
       height: 100%;
-      background: none;
+      background: none !important;
     }
     #map {
       width: 100%;
-      height: 100%;
-      border: 3px solid red;
+      height: 100vh;
+      border: 3px dashed red;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <!-- OpenLayers local JS -->
+  <script src="static/js/ol.js"></script>
+
+  <!-- Your custom JS -->
   <script>
-    if (typeof ol === 'undefined') {
-      alert("Map failed to load: OpenLayers library missing");
-    } else {
-      const map = new ol.Map({
+    try {
+      // Initialize map
+      var map = new ol.Map({
         target: 'map',
         layers: [
           new ol.layer.Tile({
@@ -39,9 +42,30 @@
         ],
         view: new ol.View({
           center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
-          zoom: 4
+          zoom: 4,
+          rotation: 0
+        }),
+        controls: ol.control.defaults({
+          rotate: false,
+          attributionOptions: { collapsible: false }
+        }),
+        interactions: ol.interaction.defaults({
+          altShiftDragRotate: false,
+          pinchRotate: false
         })
       });
+
+      // Geolocation
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(function(position) {
+          const lon = position.coords.longitude;
+          const lat = position.coords.latitude;
+          map.getView().setCenter(ol.proj.fromLonLat([lon, lat]));
+          map.getView().setZoom(11);
+        });
+      }
+    } catch (e) {
+      alert("Map failed to load: " + e.message);
     }
   </script>
 </body>
