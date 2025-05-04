@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>RailOps Viewer</title>
+  <title>RailOps Viewer - Live Trains</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="stylesheet" href="static/css/ol.css">
   <style>
@@ -10,58 +10,106 @@
       margin: 0;
       padding: 0;
       height: 100%;
+      font-family: sans-serif;
     }
     #map {
       width: 100%;
       height: 100vh;
     }
+    #last-updated {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(255,255,255,0.8);
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 4px;
+      z-index: 999;
+    }
   </style>
 </head>
 <body>
+  <div id="last-updated">Last updated: never</div>
   <div id="map"></div>
 
   <script src="static/js/ol.js"></script>
   <script>
     const map = new ol.Map({
       target: 'map',
-      layers: [
-        new ol.layer.Tile({
-          source: new ol.source.OSM()
-        })
-      ],
+      layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
       view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
+        center: ol.proj.fromLonLat([133.7751, -25.2744]),
         zoom: 5
       })
     });
 
-    const dummyTrains = [
-      { Lat: -33.8688, Lng: 151.2093 }, // Sydney
-      { Lat: -37.8136, Lng: 144.9631 }  // Melbourne
-    ];
+    let markerLayer;
 
-    dummyTrains.forEach(train => {
-      const marker = new ol.Feature({
-        geometry: new ol.geom.Point(ol.proj.fromLonLat([train.Lng, train.Lat]))
+    function updateTimestamp() {
+      const now = new Date();
+      document.getElementById("last-updated").innerText =
+        "Last updated: " + now.toLocaleTimeString();
+    }
+
+    function loadTrainMarkers(data) {
+      if (markerLayer) map.removeLayer(markerLayer);
+
+      const features = [];
+
+      data.forEach(train => {
+        if (!train.Lat || !train.Lng) return;
+
+        const marker = new ol.Feature({
+          geometry: new ol.geom.Point(ol.proj.fromLonLat([train.Lng, train.Lat])),
+        });
+
+        const popupText = train.Loco || "Train";
+
+        marker.setStyle(new ol.style.Style({
+          image: new ol.style.Icon({
+            src: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+            scale: 0.05
+          }),
+          text: new ol.style.Text({
+            text: popupText,
+            offsetY: 20,
+            font: "12px sans-serif",
+            fill: new ol.style.Fill({ color: "#000" }),
+            stroke: new ol.style.Stroke({ color: "#fff", width: 2 })
+          })
+        }));
+
+        features.push(marker);
       });
 
-      marker.setStyle(new ol.style.Style({
-        image: new ol.style.Icon({
-          src: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
-          scale: 0.05
+      const vectorSource = new ol.source.Vector({ features });
+      markerLayer = new ol.layer.Vector({ source: vectorSource });
+      map.addLayer(markerLayer);
+    }
+
+    function fetchTrainData() {
+      fetch("https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json")
+        .then(res => res.json())
+        .then(data => {
+          if (Array.isArray(data) && data.length > 0) {
+            loadTrainMarkers(data);
+          } else {
+            throw new Error("Empty or invalid data");
+          }
+          updateTimestamp();
         })
-      }));
+        .catch(err => {
+          console.warn("Using dummy fallback:", err);
+          loadTrainMarkers([
+            { Lat: -33.8688, Lng: 151.2093, Loco: "Dummy 1" },
+            { Lat: -37.8136, Lng: 144.9631, Loco: "Dummy 2" }
+          ]);
+          updateTimestamp();
+        });
+    }
 
-      const vectorSource = new ol.source.Vector({
-        features: [marker]
-      });
-
-      const vectorLayer = new ol.layer.Vector({
-        source: vectorSource
-      });
-
-      map.addLayer(vectorLayer);
-    });
+    fetchTrainData();
+    setInterval(fetchTrainData, 30000); // refresh every 30 sec
   </script>
 </body>
 </html>
