@@ -1,3 +1,5 @@
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>RailOps Viewer</title>
@@ -19,5 +21,47 @@
   <div id="map"></div>
 
   <script src="static/js/ol.js"></script>
-  <!-- your map code here -->
+  <script>
+    const map = new ol.Map({
+      target: 'map',
+      layers: [
+        new ol.layer.Tile({
+          source: new ol.source.OSM()
+        })
+      ],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
+        zoom: 5
+      })
+    });
+
+    const dummyTrains = [
+      { Lat: -33.8688, Lng: 151.2093 }, // Sydney
+      { Lat: -37.8136, Lng: 144.9631 }  // Melbourne
+    ];
+
+    dummyTrains.forEach(train => {
+      const marker = new ol.Feature({
+        geometry: new ol.geom.Point(ol.proj.fromLonLat([train.Lng, train.Lat]))
+      });
+
+      marker.setStyle(new ol.style.Style({
+        image: new ol.style.Icon({
+          src: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+          scale: 0.05
+        })
+      }));
+
+      const vectorSource = new ol.source.Vector({
+        features: [marker]
+      });
+
+      const vectorLayer = new ol.layer.Vector({
+        source: vectorSource
+      });
+
+      map.addLayer(vectorLayer);
+    });
+  </script>
 </body>
+</html>
