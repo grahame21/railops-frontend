@@ -2,114 +2,59 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>RailOps Viewer - Live Trains</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailOps Dashboard</title>
   <link rel="stylesheet" href="static/css/ol.css">
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      font-family: sans-serif;
-    }
-    #map {
-      width: 100%;
-      height: 100vh;
-    }
-    #last-updated {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: rgba(255,255,255,0.8);
-      padding: 4px 8px;
-      font-size: 12px;
-      border-radius: 4px;
-      z-index: 999;
-    }
+    html, body { margin: 0; padding: 0; height: 100%; }
+    #map { width: 100%; height: 100vh; }
   </style>
 </head>
 <body>
-  <div id="last-updated">Last updated: never</div>
   <div id="map"></div>
 
   <script src="static/js/ol.js"></script>
   <script>
+    const trainsURL = "https://traintrackeroz.netlify.app/trains.json"; // Updated to use Netlify
+
     const map = new ol.Map({
       target: 'map',
-      layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
+      layers: [
+        new ol.layer.Tile({
+          source: new ol.source.OSM()
+        })
+      ],
       view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]),
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Center of Australia
         zoom: 5
       })
     });
 
-    let markerLayer;
+    fetch(trainsURL)
+      .then(res => res.json())
+      .then(data => {
+        data.forEach(train => {
+          const feature = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
+          });
 
-    function updateTimestamp() {
-      const now = new Date();
-      document.getElementById("last-updated").innerText =
-        "Last updated: " + now.toLocaleTimeString();
-    }
+          const style = new ol.style.Style({
+            image: new ol.style.Circle({
+              radius: 6,
+              fill: new ol.style.Fill({ color: 'red' }),
+              stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+            })
+          });
 
-    function loadTrainMarkers(data) {
-      if (markerLayer) map.removeLayer(markerLayer);
+          feature.setStyle(style);
 
-      const features = [];
-
-      data.forEach(train => {
-        if (!train.Lat || !train.Lng) return;
-
-        const marker = new ol.Feature({
-          geometry: new ol.geom.Point(ol.proj.fromLonLat([train.Lng, train.Lat])),
+          const vectorSource = new ol.source.Vector({ features: [feature] });
+          const vectorLayer = new ol.layer.Vector({ source: vectorSource });
+          map.addLayer(vectorLayer);
         });
-
-        const popupText = train.Loco || "Train";
-
-        marker.setStyle(new ol.style.Style({
-          image: new ol.style.Icon({
-            src: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
-            scale: 0.05
-          }),
-          text: new ol.style.Text({
-            text: popupText,
-            offsetY: 20,
-            font: "12px sans-serif",
-            fill: new ol.style.Fill({ color: "#000" }),
-            stroke: new ol.style.Stroke({ color: "#fff", width: 2 })
-          })
-        }));
-
-        features.push(marker);
+      })
+      .catch(err => {
+        console.error("❌ Failed to load train data:", err);
       });
-
-      const vectorSource = new ol.source.Vector({ features });
-      markerLayer = new ol.layer.Vector({ source: vectorSource });
-      map.addLayer(markerLayer);
-    }
-
-    function fetchTrainData() {
-      fetch("https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json")
-        .then(res => res.json())
-        .then(data => {
-          if (Array.isArray(data) && data.length > 0) {
-            loadTrainMarkers(data);
-          } else {
-            throw new Error("Empty or invalid data");
-          }
-          updateTimestamp();
-        })
-        .catch(err => {
-          console.warn("Using dummy fallback:", err);
-          loadTrainMarkers([
-            { Lat: -33.8688, Lng: 151.2093, Loco: "Dummy 1" },
-            { Lat: -37.8136, Lng: 144.9631, Loco: "Dummy 2" }
-          ]);
-          updateTimestamp();
-        });
-    }
-
-    fetchTrainData();
-    setInterval(fetchTrainData, 30000); // refresh every 30 sec
   </script>
 </body>
 </html>
