@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>RailOps Live Viewer</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@6.15.1/dist/ol.css">
   <style>
     html, body {
       margin: 0;
@@ -20,7 +20,7 @@
 <body>
   <div id="map"></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/ol@latest/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ol@6.15.1/dist/ol.js"></script>
   <script>
     const map = new ol.Map({
       target: 'map',
@@ -30,42 +30,58 @@
         })
       ],
       view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Center on Australia
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
         zoom: 5
       })
     });
 
+    function addTrainMarkers(data) {
+      data.forEach((train) => {
+        if (!train.Lat || !train.Lng) return;
+
+        const marker = new ol.Feature({
+          geometry: new ol.geom.Point(ol.proj.fromLonLat([train.Lng, train.Lat])),
+        });
+
+        marker.setStyle(new ol.style.Style({
+          image: new ol.style.Icon({
+            src: "https://cdn-icons-png.flaticon.com/512/684/684908.png",
+            scale: 0.05
+          })
+        }));
+
+        const vectorSource = new ol.source.Vector({
+          features: [marker]
+        });
+
+        const markerLayer = new ol.layer.Vector({
+          source: vectorSource
+        });
+
+        map.addLayer(markerLayer);
+      });
+    }
+
     fetch("https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json")
       .then((response) => response.json())
       .then((data) => {
-        console.log("Train data loaded", data);
-
-        data.forEach((train) => {
-          if (!train.Lat || !train.Lng) return;
-
-          const marker = new ol.Feature({
-            geometry: new ol.geom.Point(ol.proj.fromLonLat([train.Lng, train.Lat])),
-          });
-
-          marker.setStyle(new ol.style.Style({
-            image: new ol.style.Icon({
-              src: "https://cdn-icons-png.flaticon.com/512/684/684908.png", // train icon
-              scale: 0.05
-            })
-          }));
-
-          const vectorSource = new ol.source.Vector({
-            features: [marker]
-          });
-
-          const markerLayer = new ol.layer.Vector({
-            source: vectorSource
-          });
-
-          map.addLayer(markerLayer);
-        });
+        if (Array.isArray(data) && data.length > 0) {
+          addTrainMarkers(data);
+        } else {
+          console.warn("Empty or invalid data from trains.json, using dummy fallback.");
+          addTrainMarkers([
+            { Lat: -33.8688, Lng: 151.2093 },  // Sydney
+            { Lat: -37.8136, Lng: 144.9631 }   // Melbourne
+          ]);
+        }
       })
-      .catch((err) => console.error("Failed to load train data:", err));
+      .catch((err) => {
+        console.error("Failed to load live data, using dummy fallback:", err);
+        addTrainMarkers([
+          { Lat: -33.8688, Lng: 151.2093 },  // Sydney
+          { Lat: -37.8136, Lng: 144.9631 }   // Melbourne
+        ]);
+      });
   </script>
 </body>
 </html>
