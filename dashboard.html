@@ -5,24 +5,39 @@
   <title>Train Tracker 2.0</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
   <style>
-    html, body { height:100%; margin:0; }
-    #map { width:100%; height:100vh; }
+    html, body { height: 100%; margin: 0; }
+    /* This is the big one: give the map a real height */
+    #map { width: 100%; height: 100vh; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
+  <!-- OpenLayers core (must be before any OL code) -->
   <script src="https://cdn.jsdelivr.net/npm/ol@latest/ol.js"></script>
 
+  <!-- Create the map BEFORE loading trains.js -->
   <script>
+    // Sanity: ensure OpenLayers is available
+    console.log("OL present:", typeof ol);
+
+    // Make the map
     const map = new ol.Map({
       target: 'map',
       layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
-      view: new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 5 })
+      view: new ol.View({
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
+        zoom: 5
+      })
     });
+    console.log("Map created");
   </script>
 
+  <!-- Your trains script -->
   <script src="/trains.js"></script>
-  <script> TrainLayer.init(map); </script>
+  <script>
+    // Start the train layer after map exists
+    TrainLayer.init(map);
+  </script>
 </body>
 </html>
