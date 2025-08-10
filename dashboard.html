@@ -3,36 +3,173 @@
 <head>
   <meta charset="utf-8" />
   <title>Train Tracker 2.0</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+
+  <!-- OpenLayers (global `ol`) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.css">
   <style>
-    html, body { height: 100%; margin: 0; }
-    #map { width: 100%; height: 100vh; }
+    html, body { height:100%; margin:0; background:#f6f7fb; }
+    #map { width:100%; height:100vh; }
+    .tt-popup { user-select:text; background:#fff; padding:8px 10px; border-radius:10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.2); border:1px solid rgba(0,0,0,.1); min-width:180px; position:relative; }
+    .tt-popup:after { content:""; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%);
+      border-width:8px 8px 0 8px; border-style:solid; border-color:#fff transparent transparent transparent;
+      filter:drop-shadow(0 2px 2px rgba(0,0,0,.1)); }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Load OpenLayers first -->
-  <script src="https://cdn.jsdelivr.net/npm/ol@latest/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
 
-  <!-- Map init -->
   <script>
+    // --- Config ---
+    const DATA_URL = "https://brilliant-crepe-a70c64.netlify.app/trains.json"; // <-- your live data
+    const REFRESH_MS = 30_000;  // fetch every 30s
+    const MAX_AGE_MIN = 120;    // grey if older than N mins
+
+    // --- Build the base map ---
     const map = new ol.Map({
       target: 'map',
       layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
       view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
         zoom: 5
       })
     });
-  </script>
 
-  <!-- Load your train layer script -->
-  <script src="./trains.js"></script>
+    // --- Train layer (inline, no external file needed) ---
+    (function (){
+      const source = new ol.source.Vector();
+      const layer  = new ol.layer.Vector({ source, zIndex: 20, renderBuffer: 512 });
+      map.addLayer(layer);
 
-  <!-- Start the train layer -->
-  <script>
-    TrainLayer.init(map);
+      const idIndex = new Map();
+      const to3857 = (lon, lat) => ol.proj.fromLonLat([lon, lat]);
+      const pf = v => Number.isFinite(+v) ? +v : (typeof v === "string" ? (Number.isFinite(+v) ? +v : null) : null);
+      const headingOf = r => pf(r.heading ?? r.Heading ?? r.bearing ?? r.Bearing ?? r.course ?? r.Course) ?? 0;
+      const speedOf   = r => pf(r.speed   ?? r.Speed   ?? r.velocity ?? r.Velocity);
+      const idOf = (r,i) => r.id||r.ID||r.Id||r.locoId||r.LocoId||r.LocomotiveId||r.Unit||r.Name||`train_${i}`;
+      const latOf = r => pf(r.lat ?? r.Lat ?? r.latitude ?? r.Latitude ?? r.y ?? r.Y);
+      const lonOf = r => pf(r.lon ?? r.Lon ?? r.longitude ?? r.Longitude ?? r.x ?? r.X);
+      const labelOf = r => r.label||r.Label||r.title||r.Title||r.loco||r.Loco||r.Locomotive||r.Service||r.ServiceNumber||r.Operator||r.operator||"";
+      const operatorOf = r => r.operator||r.Operator||r.company||r.Company||"";
+      const updatedTs = r => {
+        const c = r.timestamp || r.Timestamp || r.updated || r.Updated || r.LastSeen || r.lastSeen;
+        const t = Date.parse(c||""); return Number.isNaN(t) ? null : t;
+      };
+      const minsAgo = t => t==null ? null : (Date.now()-t)/60000;
+
+      function extractTrains(d){
+        if(!d) return [];
+        if(Array.isArray(d)) return d;
+        for(const k of ["trains","Trains","markers","Markers","items","Items","results","Results","features"]){
+          if(Array.isArray(d[k])) return d[k];
+        }
+        if(d.type==="FeatureCollection" && Array.isArray(d.features)) return d.features;
+        if(d.data) return extractTrains(d.data);
+        if(d.payload) return extractTrains(d.payload);
+        for(const v of Object.values(d)){ if(Array.isArray(v) && v.length && typeof v[0]==="object") return v; }
+        return [];
+      }
+
+      function norm(rec, i){
+        // GeoJSON feature
+        if(rec && rec.type==="Feature" && rec.geometry?.type==="Point"){
+          const [lo, la] = rec.geometry.coordinates || [];
+          const p = rec.properties || {};
+          return { id:idOf(p,i), lon:pf(lo), lat:pf(la), heading:headingOf(p), speed:speedOf(p),
+                   label:labelOf(p), operator:operatorOf(p), updatedAt:updatedTs(p) };
+        }
+        // Plain record
+        return { id:idOf(rec,i), lon:lonOf(rec), lat:latOf(rec), heading:headingOf(rec), speed:speedOf(rec),
+                 label:labelOf(rec), operator:operatorOf(rec), updatedAt:updatedTs(rec) };
+      }
+
+      function styleFor(f){
+        const age = f.get("ageMin");
+        const hd  = f.get("heading") ?? 0;
+        let col = [0,120,255,0.9];
+        if(age!=null){ if(age>MAX_AGE_MIN) col=[130,130,130,0.7]; else if(age>30) col=[255,165,0,0.9]; }
+        return new ol.style.Style({
+          image: new ol.style.RegularShape({
+            points: 3, radius: 10, rotation: (hd*Math.PI)/180,
+            fill: new ol.style.Fill({ color: col }),
+            stroke: new ol.style.Stroke({ color: [0,0,0,0.6], width: 1 })
+          }),
+          text: new ol.style.Text({
+            text: f.get("label") || "",
+            offsetY: -18, font: "600 12px system-ui, sans-serif",
+            fill: new ol.style.Fill({ color: "#111" }),
+            stroke: new ol.style.Stroke({ color: "rgba(255,255,255,0.9)", width: 3 })
+          })
+        });
+      }
+
+      // Popup (optional)
+      const popupEl = document.createElement("div");
+      popupEl.className = "tt-popup";
+      const popup = new ol.Overlay({ element: popupEl, autoPan: { animation: { duration: 250 } },
+                                     offset:[0,-12], positioning:"bottom-center" });
+      map.addOverlay(popup);
+      map.on("singleclick",(evt)=>{
+        let found=null;
+        map.forEachFeatureAtPixel(evt.pixel,(f,l)=>{ if(l===layer) found=f; });
+        if(!found){ popup.setPosition(undefined); return; }
+        const p = found.getProperties();
+        const ut = p.updatedAt ? new Date(p.updatedAt).toLocaleString() : "unknown";
+        popupEl.innerHTML =
+          `<div style="font-weight:700">${p.label||p.id||"Unknown"}</div>
+           <div>${p.operator||""}</div>
+           <div>Speed: ${p.speed??"?"} | Heading: ${Math.round(p.heading??0)}°</div>
+           <div>Updated: ${ut}</div>
+           <div style="color:#666">(${p.lat?.toFixed?.(5)??"?"}, ${p.lon?.toFixed?.(5)??"?"})</div>`;
+        popup.setPosition(found.getGeometry().getCoordinates());
+      });
+
+      function upsert(n){
+        if(n.lat==null || n.lon==null) return;
+        const key = String(n.id);
+        let f = idIndex.get(key);
+        const coord = to3857(n.lon, n.lat);
+        const age = minsAgo(n.updatedAt);
+        if(!f){
+          f = new ol.Feature({ geometry: new ol.geom.Point(coord), id: key });
+          idIndex.set(key, f); source.addFeature(f);
+        } else {
+          f.getGeometry().setCoordinates(coord);
+        }
+        f.setProperties({
+          label: n.label || key,
+          operator: n.operator || "",
+          speed: n.speed ?? null,
+          heading: n.heading ?? 0,
+          updatedAt: n.updatedAt ?? null,
+          lon: n.lon, lat: n.lat,
+          ageMin: age ?? null
+        }, true);
+        f.setStyle(styleFor(f));
+      }
+
+      async function refresh(){
+        try{
+          const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: "no-store" });
+          if(!res.ok) throw new Error(`HTTP ${res.status}`);
+          const raw = await res.json();
+          const arr = extractTrains(raw).map(norm).filter(r=>r.lat!=null && r.lon!=null);
+          const seen = new Set();
+          for(let i=0;i<arr.length;i++){ upsert(arr[i]); seen.add(String(arr[i].id)); }
+          // Optionally remove old ones (disabled):
+          // source.getFeatures().forEach(f=>{ if(!seen.has(String(f.get("id")))) { source.removeFeature(f); idIndex.delete(String(f.get("id"))); } });
+          source.getFeatures().forEach(f=>f.setStyle(styleFor(f))); // refresh age coloring
+        } catch(e){
+          console.error("[TrainLayer] refresh error:", e);
+        }
+      }
+
+      // kick off
+      refresh();
+      setInterval(refresh, REFRESH_MS);
+    })();
   </script>
 </body>
 </html>
