@@ -2,205 +2,166 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Train Tracker 2.0</title>
-
-  <!-- OpenLayers (correct CDN paths) -->
+  <title>Train Tracker 2.0 (Simple)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
   <style>
-    html, body { height:100%; margin:0; background:#f6f7fb; }
-    #map { width:100%; height:100vh; }
-    .tt-popup { user-select:text; background:#fff; padding:8px 10px; border-radius:10px;
-      box-shadow:0 8px 24px rgba(0,0,0,.2); border:1px solid rgba(0,0,0,.1); min-width:180px; position:relative; }
-    .tt-popup:after { content:""; position:absolute; bottom:-8px; left:50%; transform:translateX(-50%);
-      border-width:8px 8px 0 8px; border-style:solid; border-color:#fff transparent transparent transparent;
-      filter:drop-shadow(0 2px 2px rgba(0,0,0,.1)); }
+    html,body{height:100%;margin:0;background:#f6f7fb;font:14px system-ui,sans-serif}
+    #status{position:absolute;z-index:9999;left:10px;top:10px;background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-width:520px}
+    #map{width:100%;height:100vh}
+    .tt-popup{user-select:text;background:#fff;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);border:1px solid rgba(0,0,0,.1);min-width:180px;position:relative}
+    .tt-popup:after{content:"";position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-width:8px 8px 0 8px;border-style:solid;border-color:#fff transparent transparent transparent;filter:drop-shadow(0 2px 2px rgba(0,0,0,.1))}
   </style>
 </head>
 <body>
+  <div id="status">Loading…</div>
   <div id="map"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
-
   <script>
-    // === Config ===
+    // ---- CONFIG ----
     const DATA_URL = "https://brilliant-crepe-a70c64.netlify.app/trains.json"; // your live data
-    const REFRESH_MS = 30_000;   // fetch every 30s
-    const MAX_AGE_MIN = 120;     // grey markers older than N mins
+    const REFRESH_MS = 30000;
 
-    // === Base map ===
+    // ---- UI helpers ----
+    const $status = document.getElementById('status');
+    const say = (msg) => { $status.innerHTML = msg; };
+
+    // ---- Base map ----
     const map = new ol.Map({
       target: 'map',
       layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
       view: new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 5 })
     });
 
-    // === Train layer with deep auto-detect ===
-    (function(){
-      const source = new ol.source.Vector();
-      const layer  = new ol.layer.Vector({ source, zIndex: 20, renderBuffer: 512 });
-      map.addLayer(layer);
+    // ---- Train layer ----
+    const source = new ol.source.Vector();
+    const layer  = new ol.layer.Vector({ source, zIndex:20 });
+    map.addLayer(layer);
 
-      const idIndex = new Map();
-      const to3857 = (lon, lat) => ol.proj.fromLonLat([lon, lat]);
-      const num = v => (typeof v === "number" ? v : (v!=null && !Number.isNaN(+v) ? +v : null));
-      const get = (o, ...keys) => keys.find(k => o && k in o) && o[keys.find(k => o && k in o)];
+    // Popup
+    const popupEl = document.createElement("div");
+    popupEl.className = "tt-popup";
+    const popup = new ol.Overlay({ element: popupEl, autoPan:{animation:{duration:250}}, offset:[0,-12], positioning:"bottom-center" });
+    map.addOverlay(popup);
+    map.on("singleclick",(evt)=>{
+      let f=null; map.forEachFeatureAtPixel(evt.pixel,(feat,lyr)=>{ if(lyr===layer) f=feat; });
+      if(!f){ popup.setPosition(undefined); return; }
+      const p=f.getProperties();
+      popupEl.innerHTML = `<div style="font-weight:700">${p.label||p.id||"Unknown"}</div>
+        <div>${p.operator||""}</div>
+        <div>Speed: ${p.speed??"?"} | Heading: ${Math.round(p.heading??0)}°</div>
+        <div>${p.lat?.toFixed?.(5)??"?"}, ${p.lon?.toFixed?.(5)??"?"}</div>`;
+      popup.setPosition(f.getGeometry().getCoordinates());
+    });
 
-      // Field mappers
-      const latOf = r => num(get(r,"lat","Lat","latitude","Latitude","y","Y","LatDD"));
-      const lonOf = r => num(get(r,"lon","Lon","longitude","Longitude","x","X","LonDD"));
-      const headOf = r => num(get(r,"heading","Heading","bearing","Bearing","course","Course","dir","Direction")) ?? 0;
-      const speedOf = r => num(get(r,"speed","Speed","velocity","Velocity","kph","kmh","KPH","KMH"));
-      const idOf = (r,i) => get(r,"id","ID","Id","locoId","LocoId","LocomotiveId","Unit","Name","UnitNo","ServiceNumber") ?? `train_${i}`;
-      const labelOf = r => get(r,"label","Label","title","Title","loco","Loco","Locomotive","Service","ServiceNumber","Operator","operator") ?? "";
-      const opOf = r => get(r,"operator","Operator","company","Company","Owner","owner") ?? "";
-      const tsOf = r => {
-        const c = get(r,"timestamp","Timestamp","updated","Updated","LastSeen","lastSeen","time","Time");
-        const t = c ? Date.parse(c) : NaN; return Number.isNaN(t) ? null : t;
-      };
-      const minsAgo = t => t==null ? null : (Date.now()-t)/60000;
+    // ---- Extract + normalize (simple) ----
+    const num = v => (v==null?null : Number.isFinite(+v)? +v : null);
+    const get = (o,...ks)=> ks.find(k=>o&&k in o) && o[ks.find(k=>o&&k in o)];
+    const latOf = r => num(get(r,"lat","Lat","latitude","Latitude","y","Y","LatDD"));
+    const lonOf = r => num(get(r,"lon","Lon","longitude","Longitude","x","X","LonDD"));
+    const headOf = r => num(get(r,"heading","Heading","bearing","Bearing","course","Course","Direction","dir")) ?? 0;
+    const speedOf= r => num(get(r,"speed","Speed","velocity","Velocity","kmh","KMH","kph","KPH"));
+    const idOf   = (r,i)=> get(r,"id","ID","Id","locoId","LocoId","LocomotiveId","Unit","Name","ServiceNumber") ?? `train_${i}`;
+    const labelOf= r => get(r,"label","Label","title","Title","loco","Loco","Locomotive","Service","ServiceNumber","Operator","operator") ?? "";
+    const opOf   = r => get(r,"operator","Operator","company","Company","Owner","owner") ?? "";
 
-      // Score a record for "looks like a train"
-      function scoreRecord(rec){
-        if (!rec || typeof rec !== "object") return 0;
-        let s = 0;
-        if (latOf(rec) != null && lonOf(rec) != null) s += 5;
-        if ("heading" in rec || "Heading" in rec || "bearing" in rec || "Bearing" in rec) s += 2;
-        if ("speed" in rec || "Speed" in rec || "velocity" in rec || "Velocity" in rec) s += 1;
-        if ("Service" in rec || "ServiceNumber" in rec || "Loco" in rec || "Locomotive" in rec) s += 1;
-        return s;
+    function normalize(rec,i){
+      if (rec && rec.type==="Feature" && rec.geometry?.type==="Point") {
+        const [lo,la] = rec.geometry.coordinates||[]; const p = rec.properties||{};
+        return {id:idOf(p,i), lon:num(lo), lat:num(la), heading:headOf(p), speed:speedOf(p), label:labelOf(p), operator:opOf(p)};
       }
+      return {id:idOf(rec,i), lon:lonOf(rec), lat:latOf(rec), heading:headOf(rec), speed:speedOf(rec), label:labelOf(rec), operator:opOf(rec)};
+    }
 
-      // Deeply search any arrays in the object and pick the best candidate
-      function deepFindArrayCandidates(obj, path="$", out=[]){
-        if (Array.isArray(obj)) {
-          out.push({ path, arr: obj });
-          return out;
-        }
-        if (obj && typeof obj === "object") {
-          for (const [k,v] of Object.entries(obj)) deepFindArrayCandidates(v, `${path}.${k}`, out);
-        }
-        return out;
-      }
-
-      function pickBestArray(payload){
-        if (!payload) return [];
-        if (Array.isArray(payload)) return payload;
-
-        // Prefer common keys quickly
-        for (const k of ["trains","Trains","markers","Markers","items","Items","results","Results","features"]) {
-          if (payload[k] && Array.isArray(payload[k])) return payload[k];
-        }
-        if (payload.type==="FeatureCollection" && Array.isArray(payload.features)) return payload.features;
-        if (payload.data) return pickBestArray(payload.data);
-        if (payload.payload) return pickBestArray(payload.payload);
-
-        // Deep search
-        const cands = deepFindArrayCandidates(payload);
-        // Score each array by its first few elements
-        let best = null, bestScore = -1, bestPath = "";
-        for (const c of cands) {
-          const sample = c.arr.slice(0, 10);
-          let score = 0;
-          for (const rec of sample) {
-            if (rec && rec.type === "Feature" && rec.geometry?.type === "Point") { score += 6; continue; }
-            score += scoreRecord(rec);
-          }
-          if (score > bestScore) { bestScore = score; best = c.arr; bestPath = c.path; }
-        }
-        console.log("[TrainLayer] picked array at", bestPath, "score:", bestScore, "len:", best?.length ?? 0);
-        return best || [];
-      }
-
-      // Normalization (handles both plain objects and GeoJSON Points)
-      function normalize(rec, i){
-        if (rec && rec.type==="Feature" && rec.geometry?.type==="Point") {
-          const [lo, la] = rec.geometry.coordinates || [];
-          const p = rec.properties || {};
-          return { id:idOf(p,i), lon:num(lo), lat:num(la), heading:headOf(p), speed:speedOf(p),
-                   label:labelOf(p), operator:opOf(p), updatedAt:tsOf(p) };
-        }
-        return { id:idOf(rec,i), lon:lonOf(rec), lat:latOf(rec), heading:headOf(rec), speed:speedOf(rec),
-                 label:labelOf(rec), operator:opOf(rec), updatedAt:tsOf(rec) };
-      }
-
-      function styleFor(f){
-        const age = f.get("ageMin"), hd = f.get("heading") ?? 0;
-        let col = [0,120,255,0.9]; if (age!=null) { if (age>MAX_AGE_MIN) col=[130,130,130,0.7]; else if (age>30) col=[255,165,0,0.9]; }
-        return new ol.style.Style({
-          image: new ol.style.RegularShape({
-            points: 3, radius: 10, rotation: (hd*Math.PI)/180,
-            fill: new ol.style.Fill({ color: col }),
-            stroke: new ol.style.Stroke({ color: [0,0,0,0.6], width: 1 })
-          }),
-          text: new ol.style.Text({
-            text: f.get("label") || "",
-            offsetY: -18, font: "600 12px system-ui, sans-serif",
-            fill: new ol.style.Fill({ color: "#111" }),
-            stroke: new ol.style.Stroke({ color: "rgba(255,255,255,0.9)", width: 3 })
-          })
-        });
-      }
-
-      // Popup
-      const popupEl = document.createElement("div");
-      popupEl.className = "tt-popup";
-      const popup = new ol.Overlay({ element: popupEl, autoPan: { animation: { duration: 250 } },
-                                     offset:[0,-12], positioning:"bottom-center" });
-      map.addOverlay(popup);
-      map.on("singleclick",(evt)=>{
-        let f=null; map.forEachFeatureAtPixel(evt.pixel,(feat,lyr)=>{ if (lyr===layer) f=feat; });
-        if(!f){ popup.setPosition(undefined); return; }
-        const p=f.getProperties(); const ut=p.updatedAt?new Date(p.updatedAt).toLocaleString():"unknown";
-        popupEl.innerHTML = `
-          <div style="font-weight:700">${p.label||p.id||"Unknown"}</div>
-          <div>${p.operator||""}</div>
-          <div>Speed: ${p.speed??"?"} | Heading: ${Math.round(p.heading??0)}°</div>
-          <div>Updated: ${ut}</div>
-          <div style="color:#666">(${p.lat?.toFixed?.(5)??"?"}, ${p.lon?.toFixed?.(5)??"?"})</div>`;
-        popup.setPosition(f.getGeometry().getCoordinates());
+    function styleFor(hd){
+      return new ol.style.Style({
+        image:new ol.style.RegularShape({
+          points:3, radius:10, rotation:(hd*Math.PI)/180,
+          fill:new ol.style.Fill({color:[0,120,255,0.9]}),
+          stroke:new ol.style.Stroke({color:[0,0,0,0.6], width:1})
+        })
       });
+    }
 
-      function upsert(n){
-        if(n.lat==null || n.lon==null) return;
-        const key=String(n.id), coord=to3857(n.lon,n.lat), age=minsAgo(n.updatedAt);
-        let f=idIndex.get(key);
-        if(!f){ f=new ol.Feature({ geometry:new ol.geom.Point(coord), id:key }); idIndex.set(key,f); source.addFeature(f); }
-        else { f.getGeometry().setCoordinates(coord); }
-        f.setProperties({ label:n.label||key, operator:n.operator||"", speed:n.speed??null, heading:n.heading??0,
-                          updatedAt:n.updatedAt??null, lon:n.lon, lat:n.lat, ageMin:age??null }, true);
-        f.setStyle(styleFor(f));
-      }
+    function draw(trains){
+      source.clear();
+      trains.forEach(t=>{
+        if (t.lat==null || t.lon==null) return;
+        const f=new ol.Feature({ geometry:new ol.geom.Point(ol.proj.fromLonLat([t.lon,t.lat])), id:t.id,
+          label:t.label||t.id, operator:t.operator||"", speed:t.speed??null, heading:t.heading??0, lon:t.lon, lat:t.lat });
+        f.setStyle(styleFor(t.heading??0));
+        source.addFeature(f);
+      });
+      say(`✅ Loaded ${trains.length} trains`);
+    }
 
-      async function refresh(){
-        try{
-          const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: "no-store" });
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const raw = await res.json();
+    // ---- Find the right array (simple + messages) ----
+    const PREFERRED_PATHS = [
+      ["ViewPortData","Trains"],
+      ["ViewPortData","Markers"],
+      ["ViewPortData","Items"],
+      ["Trains"], ["Markers"], ["Items"], ["Results"],
+      ["data","Trains"], ["data","Markers"]
+    ];
 
-          // Auto-detect the array of trains robustly
-          const arrRaw = pickBestArray(raw);
-          const arr = arrRaw.map(normalize).filter(r=>r.lat!=null && r.lon!=null);
-
-          console.log("[TrainLayer] trains detected:", arr.length);
-          if (arr.length && arr[0]) {
-            console.log("[TrainLayer] sample:", {
-              id: arr[0].id, lat: arr[0].lat, lon: arr[0].lon,
-              heading: arr[0].heading, speed: arr[0].speed,
-              label: arr[0].label, operator: arr[0].operator
-            });
-          }
-
-          const seen = new Set();
-          for (let i=0;i<arr.length;i++){ upsert(arr[i]); seen.add(String(arr[i].id)); }
-          source.getFeatures().forEach(f => f.setStyle(styleFor(f))); // refresh age colouring
-        } catch(e) {
-          console.error("[TrainLayer] refresh error:", e);
+    function pickArray(obj){
+      // 1) try preferred paths
+      for (const path of PREFERRED_PATHS){
+        let cur=obj; let ok=true;
+        for(const k of path){ if(!cur || typeof cur!=="object" || !(k in cur)){ ok=false; break;} cur=cur[k]; }
+        if (ok && Array.isArray(cur) && cur.length){
+          say(`Using path: $.${path.join(".")} (len ${cur.length})`);
+          return cur;
         }
       }
+      // 2) common keys at top-level
+      const topKeys = ["trains","Trains","markers","Markers","items","Items","results","Results","features"];
+      for (const k of topKeys){ if (Array.isArray(obj?.[k]) && obj[k].length){ say(`Using key: ${k} (len ${obj[k].length})`); return obj[k]; } }
+      // 3) wrappers
+      if (obj?.type==="FeatureCollection" && Array.isArray(obj.features)) { say(`Using FeatureCollection.features (len ${obj.features.length})`); return obj.features; }
+      if (obj?.data) return pickArray(obj.data);
+      if (obj?.payload) return pickArray(obj.payload);
+      // 4) fallback: scan shallow arrays to avoid false picks like $.favs
+      const arrays = Object.entries(obj||{}).filter(([k,v])=>Array.isArray(v));
+      if (arrays.length){
+        // score by having lat/lon-looking keys
+        let best=null, bestScore=-1, bestName="";
+        for (const [name,arr] of arrays){
+          let s=0; const sample=arr.slice(0,8);
+          for(const rec of sample){
+            if (rec && typeof rec==="object"){
+              const hasLat = ("lat" in rec)||("Lat" in rec)||("Latitude" in rec)||("LatDD" in rec);
+              const hasLon = ("lon" in rec)||("Lon" in rec)||("Longitude" in rec)||("LonDD" in rec);
+              if (hasLat && hasLon) s+=5;
+              if (("heading" in rec)||("Heading" in rec)||("bearing" in rec)||("Bearing" in rec)) s+=2;
+              if (("speed" in rec)||("Speed" in rec)||("velocity" in rec)||("Velocity" in rec)) s+=1;
+            }
+          }
+          if (s>bestScore){ bestScore=s; best=arr; bestName=name; }
+        }
+        say(`Picked array: $.${bestName} (score ${bestScore}, len ${best?.length||0})`);
+        return best||[];
+      }
+      // 5) give up
+      say(`⚠️ Couldn't find trains in JSON. Top-level keys: ${Object.keys(obj||{}).join(", ")}`);
+      return [];
+    }
 
-      refresh();                // immediate load
-      setInterval(refresh, REFRESH_MS);
-    })();
+    async function refresh(){
+      try{
+        say("Fetching data…");
+        const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
+        if(!res.ok){ say(`❌ HTTP ${res.status}`); return; }
+        const raw = await res.json();
+        const arr = pickArray(raw).map(normalize).filter(r=>r.lat!=null && r.lon!=null);
+        draw(arr);
+      }catch(e){
+        say(`❌ Error: ${e}`);
+      }
+    }
+
+    refresh();
+    setInterval(refresh, REFRESH_MS);
   </script>
 </body>
 </html>
