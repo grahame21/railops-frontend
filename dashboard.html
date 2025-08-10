@@ -2,11 +2,11 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Train Tracker 2.0 (Simple)</title>
+  <title>Train Tracker 2.0 (Auto-detect v2)</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
   <style>
     html,body{height:100%;margin:0;background:#f6f7fb;font:14px system-ui,sans-serif}
-    #status{position:absolute;z-index:9999;left:10px;top:10px;background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-width:520px}
+    #status{position:absolute;z-index:9999;left:10px;top:10px;background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-width:640px;white-space:pre-wrap}
     #map{width:100%;height:100vh}
     .tt-popup{user-select:text;background:#fff;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);border:1px solid rgba(0,0,0,.1);min-width:180px;position:relative}
     .tt-popup:after{content:"";position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-width:8px 8px 0 8px;border-style:solid;border-color:#fff transparent transparent transparent;filter:drop-shadow(0 2px 2px rgba(0,0,0,.1))}
@@ -19,12 +19,12 @@
   <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
   <script>
     // ---- CONFIG ----
-    const DATA_URL = "https://brilliant-crepe-a70c64.netlify.app/trains.json"; // your live data
+    const DATA_URL = "https://brilliant-crepe-a70c64.netlify.app/trains.json";
     const REFRESH_MS = 30000;
 
     // ---- UI helpers ----
     const $status = document.getElementById('status');
-    const say = (msg) => { $status.innerHTML = msg; };
+    const say = (msg) => { $status.textContent = msg; };
 
     // ---- Base map ----
     const map = new ol.Map({
@@ -54,23 +54,114 @@
       popup.setPosition(f.getGeometry().getCoordinates());
     });
 
-    // ---- Extract + normalize (simple) ----
+    // ---- Extract + normalize (improved) ----
     const num = v => (v==null?null : Number.isFinite(+v)? +v : null);
-    const get = (o,...ks)=> ks.find(k=>o&&k in o) && o[ks.find(k=>o&&k in o)];
-    const latOf = r => num(get(r,"lat","Lat","latitude","Latitude","y","Y","LatDD"));
-    const lonOf = r => num(get(r,"lon","Lon","longitude","Longitude","x","X","LonDD"));
+    const has = (o,k)=> !!(o && typeof o==="object" && k in o);
+    const get = (o,...ks)=> ks.find(k=>has(o,k)) && o[ks.find(k=>has(o,k))];
+
+    // Nested lat/lon detection (handles many shapes)
+    function latLonFromAny(obj){
+      if (!obj || typeof obj!=="object") return [null,null];
+
+      // 1) Direct fields
+      let lat = get(obj,"lat","Lat","latitude","Latitude","LatDD","LatitudeDD");
+      let lon = get(obj,"lon","Lon","lng","Lng","longitude","Longitude","LonDD","LongitudeDD","Long","LONG");
+      lat = num(lat); lon = num(lon);
+      if (lat!=null && lon!=null) return [lat,lon];
+
+      // 2) Nested objects like position/coords/location
+      const nestedKeys = ["position","pos","coords","coord","location","geo","Geo","geometry"];
+      for (const k of nestedKeys){
+        const v = obj[k];
+        if (!v || typeof v!=="object") continue;
+
+        // 2a) Nested direct fields
+        let nlat = get(v,"lat","Lat","latitude","Latitude","LatDD","LatitudeDD");
+        let nlon = get(v,"lon","Lon","lng","Lng","longitude","Longitude","LonDD","LongitudeDD","Long","LONG");
+        nlat = num(nlat); nlon = num(nlon);
+        if (nlat!=null && nlon!=null) return [nlat,nlon];
+
+        // 2b) Arrays: [lon,lat] or [lat,lon]
+        if (Array.isArray(v)) {
+          if (v.length>=2){
+            // Guess order by magnitude (Australia lon ~ 110..155, lat ~ -45..-10)
+            const a = num(v[0]), b = num(v[1]);
+            if (a!=null && b!=null){
+              // if first looks like lon range, assume [lon,lat], else [lat,lon]
+              const looksLon = Math.abs(a) >= 60 && Math.abs(a) <= 180;
+              return looksLon ? [b,a] : [a,b];
+            }
+          }
+        }
+
+        // 2c) GeoJSON Point
+        if (has(v,"type") && v.type==="Point" && Array.isArray(v.coordinates)) {
+          const [lo,la] = v.coordinates;
+          return [num(la), num(lo)];
+        }
+      }
+
+      // 3) GeoJSON Feature
+      if (obj.type==="Feature" && obj.geometry?.type==="Point" && Array.isArray(obj.geometry.coordinates)) {
+        const [lo,la] = obj.geometry.coordinates;
+        return [num(la), num(lo)];
+      }
+
+      return [null,null];
+    }
+
     const headOf = r => num(get(r,"heading","Heading","bearing","Bearing","course","Course","Direction","dir")) ?? 0;
     const speedOf= r => num(get(r,"speed","Speed","velocity","Velocity","kmh","KMH","kph","KPH"));
     const idOf   = (r,i)=> get(r,"id","ID","Id","locoId","LocoId","LocomotiveId","Unit","Name","ServiceNumber") ?? `train_${i}`;
     const labelOf= r => get(r,"label","Label","title","Title","loco","Loco","Locomotive","Service","ServiceNumber","Operator","operator") ?? "";
     const opOf   = r => get(r,"operator","Operator","company","Company","Owner","owner") ?? "";
 
-    function normalize(rec,i){
-      if (rec && rec.type==="Feature" && rec.geometry?.type==="Point") {
-        const [lo,la] = rec.geometry.coordinates||[]; const p = rec.properties||{};
-        return {id:idOf(p,i), lon:num(lo), lat:num(la), heading:headOf(p), speed:speedOf(p), label:labelOf(p), operator:opOf(p)};
+    // Array picking with preferred paths + shallow scan (avoids $.favs)
+    const PREFERRED_PATHS = [
+      ["ViewPortData","Trains"], ["ViewPortData","Markers"], ["ViewPortData","Items"],
+      ["Trains"], ["Markers"], ["Items"], ["Results"], ["data","Trains"], ["data","Markers"]
+    ];
+    function pickArray(obj){
+      // Preferred
+      for (const path of PREFERRED_PATHS){
+        let cur=obj; let ok=true;
+        for(const k of path){ if(!has(cur,k)){ ok=false; break; } cur=cur[k]; }
+        if (ok && Array.isArray(cur) && cur.length){ return {arr:cur, path:"$."+path.join(".")}; }
       }
-      return {id:idOf(rec,i), lon:lonOf(rec), lat:latOf(rec), heading:headOf(rec), speed:speedOf(rec), label:labelOf(rec), operator:opOf(rec)};
+      // Top-level common keys
+      for (const k of ["trains","Trains","markers","Markers","items","Items","results","Results","features"]){
+        if (Array.isArray(obj?.[k]) && obj[k].length) return {arr:obj[k], path:"$."+k};
+      }
+      // Wrappers
+      if (obj?.type==="FeatureCollection" && Array.isArray(obj.features)) return {arr:obj.features, path:"$.features"};
+      if (obj?.data){ const r=pickArray(obj.data); if (r.arr.length) return {arr:r.arr, path:"$.data"+r.path.slice(1)}; }
+      if (obj?.payload){ const r=pickArray(obj.payload); if (r.arr.length) return {arr:r.arr, path:"$.payload"+r.path.slice(1)}; }
+
+      // Shallow arrays only (avoid deep side arrays)
+      const arrays = Object.entries(obj||{}).filter(([k,v])=>Array.isArray(v));
+      let best=null, bestScore=-1, bestName="";
+      for (const [name,arr] of arrays){
+        let s=0; const sample=arr.slice(0,8);
+        for(const rec of sample){
+          if (rec && typeof rec==="object"){
+            const [la,lo]=latLonFromAny(rec);
+            if (la!=null && lo!=null) s+=5;
+            if (("heading" in rec)||("Heading" in rec)||("bearing" in rec)||("Bearing" in rec)) s+=2;
+            if (("speed" in rec)||("Speed" in rec)||("velocity" in rec)||("Velocity" in rec)) s+=1;
+          }
+        }
+        if (s>bestScore){ bestScore=s; best=arr; bestName=name; }
+      }
+      return {arr:best||[], path: best? "$."+bestName : "$"};
+    }
+
+    function normalize(rec,i){
+      const [la,lo] = latLonFromAny(rec);
+      return {
+        id: idOf(rec,i), lat: la, lon: lo,
+        heading: headOf(rec), speed: speedOf(rec),
+        label: labelOf(rec), operator: opOf(rec)
+      };
     }
 
     function styleFor(hd){
@@ -87,64 +178,15 @@
       source.clear();
       trains.forEach(t=>{
         if (t.lat==null || t.lon==null) return;
-        const f=new ol.Feature({ geometry:new ol.geom.Point(ol.proj.fromLonLat([t.lon,t.lat])), id:t.id,
-          label:t.label||t.id, operator:t.operator||"", speed:t.speed??null, heading:t.heading??0, lon:t.lon, lat:t.lat });
+        const f=new ol.Feature({
+          geometry:new ol.geom.Point(ol.proj.fromLonLat([t.lon,t.lat])),
+          id:t.id, label:t.label||t.id, operator:t.operator||"", speed:t.speed??null, heading:t.heading??0,
+          lon:t.lon, lat:t.lat
+        });
         f.setStyle(styleFor(t.heading??0));
         source.addFeature(f);
       });
       say(`✅ Loaded ${trains.length} trains`);
-    }
-
-    // ---- Find the right array (simple + messages) ----
-    const PREFERRED_PATHS = [
-      ["ViewPortData","Trains"],
-      ["ViewPortData","Markers"],
-      ["ViewPortData","Items"],
-      ["Trains"], ["Markers"], ["Items"], ["Results"],
-      ["data","Trains"], ["data","Markers"]
-    ];
-
-    function pickArray(obj){
-      // 1) try preferred paths
-      for (const path of PREFERRED_PATHS){
-        let cur=obj; let ok=true;
-        for(const k of path){ if(!cur || typeof cur!=="object" || !(k in cur)){ ok=false; break;} cur=cur[k]; }
-        if (ok && Array.isArray(cur) && cur.length){
-          say(`Using path: $.${path.join(".")} (len ${cur.length})`);
-          return cur;
-        }
-      }
-      // 2) common keys at top-level
-      const topKeys = ["trains","Trains","markers","Markers","items","Items","results","Results","features"];
-      for (const k of topKeys){ if (Array.isArray(obj?.[k]) && obj[k].length){ say(`Using key: ${k} (len ${obj[k].length})`); return obj[k]; } }
-      // 3) wrappers
-      if (obj?.type==="FeatureCollection" && Array.isArray(obj.features)) { say(`Using FeatureCollection.features (len ${obj.features.length})`); return obj.features; }
-      if (obj?.data) return pickArray(obj.data);
-      if (obj?.payload) return pickArray(obj.payload);
-      // 4) fallback: scan shallow arrays to avoid false picks like $.favs
-      const arrays = Object.entries(obj||{}).filter(([k,v])=>Array.isArray(v));
-      if (arrays.length){
-        // score by having lat/lon-looking keys
-        let best=null, bestScore=-1, bestName="";
-        for (const [name,arr] of arrays){
-          let s=0; const sample=arr.slice(0,8);
-          for(const rec of sample){
-            if (rec && typeof rec==="object"){
-              const hasLat = ("lat" in rec)||("Lat" in rec)||("Latitude" in rec)||("LatDD" in rec);
-              const hasLon = ("lon" in rec)||("Lon" in rec)||("Longitude" in rec)||("LonDD" in rec);
-              if (hasLat && hasLon) s+=5;
-              if (("heading" in rec)||("Heading" in rec)||("bearing" in rec)||("Bearing" in rec)) s+=2;
-              if (("speed" in rec)||("Speed" in rec)||("velocity" in rec)||("Velocity" in rec)) s+=1;
-            }
-          }
-          if (s>bestScore){ bestScore=s; best=arr; bestName=name; }
-        }
-        say(`Picked array: $.${bestName} (score ${bestScore}, len ${best?.length||0})`);
-        return best||[];
-      }
-      // 5) give up
-      say(`⚠️ Couldn't find trains in JSON. Top-level keys: ${Object.keys(obj||{}).join(", ")}`);
-      return [];
     }
 
     async function refresh(){
@@ -153,7 +195,17 @@
         const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
         if(!res.ok){ say(`❌ HTTP ${res.status}`); return; }
         const raw = await res.json();
-        const arr = pickArray(raw).map(normalize).filter(r=>r.lat!=null && r.lon!=null);
+
+        const picked = pickArray(raw);
+        const arr = picked.arr.map(normalize).filter(r=>r.lat!=null && r.lon!=null);
+
+        // show helpful debug for you
+        let sampleKeys = "";
+        if (picked.arr.length && typeof picked.arr[0]==="object") {
+          sampleKeys = Object.keys(picked.arr[0]).slice(0,12).join(", ");
+        }
+        say(`Using: ${picked.path}\nRecords: ${picked.arr.length}\nAfter lat/lon normalize: ${arr.length}\nSample keys: ${sampleKeys}`);
+
         draw(arr);
       }catch(e){
         say(`❌ Error: ${e}`);
