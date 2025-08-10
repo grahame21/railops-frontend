@@ -2,38 +2,47 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Train Tracker 2.0 (Auto-detect v2)</title>
+  <title>Train Tracker 2.0 — Path Picker</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
   <style>
     html,body{height:100%;margin:0;background:#f6f7fb;font:14px system-ui,sans-serif}
-    #status{position:absolute;z-index:9999;left:10px;top:10px;background:#fff;border:1px solid #ddd;border-radius:10px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-width:640px;white-space:pre-wrap}
+    #panel{position:absolute;z-index:9999;left:10px;top:10px;background:#fff;border:1px solid #ddd;border-radius:12px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-width:720px}
+    #panel *{font:14px system-ui,sans-serif}
     #map{width:100%;height:100vh}
     .tt-popup{user-select:text;background:#fff;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);border:1px solid rgba(0,0,0,.1);min-width:180px;position:relative}
     .tt-popup:after{content:"";position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-width:8px 8px 0 8px;border-style:solid;border-color:#fff transparent transparent transparent;filter:drop-shadow(0 2px 2px rgba(0,0,0,.1))}
+    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
   </style>
 </head>
 <body>
-  <div id="status">Loading…</div>
+  <div id="panel">
+    <div><b>Data source</b>:
+      <span class="mono" id="dataUrl">https://brilliant-crepe-a70c64.netlify.app/trains.json</span>
+      <button id="refreshBtn">Refresh</button>
+    </div>
+    <div style="margin-top:8px">
+      <b>Pick array:</b>
+      <select id="pathSelect" style="min-width:420px"></select>
+      <button id="useBtn">Use</button>
+      <span id="summary" class="mono" style="margin-left:8px;color:#444"></span>
+    </div>
+    <div id="sample" class="mono" style="margin-top:6px;color:#666;white-space:pre-wrap"></div>
+  </div>
+
   <div id="map"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
   <script>
-    // ---- CONFIG ----
+    // ===== Config =====
     const DATA_URL = "https://brilliant-crepe-a70c64.netlify.app/trains.json";
     const REFRESH_MS = 30000;
 
-    // ---- UI helpers ----
-    const $status = document.getElementById('status');
-    const say = (msg) => { $status.textContent = msg; };
-
-    // ---- Base map ----
+    // ===== Map =====
     const map = new ol.Map({
       target: 'map',
       layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
       view: new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 5 })
     });
-
-    // ---- Train layer ----
     const source = new ol.source.Vector();
     const layer  = new ol.layer.Vector({ source, zIndex:20 });
     map.addLayer(layer);
@@ -54,59 +63,56 @@
       popup.setPosition(f.getGeometry().getCoordinates());
     });
 
-    // ---- Extract + normalize (improved) ----
-    const num = v => (v==null?null : Number.isFinite(+v)? +v : null);
+    // ===== UI =====
+    const $url = document.getElementById('dataUrl');
+    const $sel = document.getElementById('pathSelect');
+    const $summary = document.getElementById('summary');
+    const $sample = document.getElementById('sample');
+    document.getElementById('refreshBtn').onclick = () => loadAndList();
+    document.getElementById('useBtn').onclick = () => renderSelected();
+    $url.textContent = DATA_URL;
+
+    // ===== JSON exploration =====
     const has = (o,k)=> !!(o && typeof o==="object" && k in o);
+    const num = v => (v==null?null : Number.isFinite(+v)? +v : null);
     const get = (o,...ks)=> ks.find(k=>has(o,k)) && o[ks.find(k=>has(o,k))];
 
-    // Nested lat/lon detection (handles many shapes)
+    function deepArrays(obj, path="$", out=[]){
+      if (Array.isArray(obj)) { out.push({path, arr:obj}); return out; }
+      if (obj && typeof obj === "object") {
+        for (const [k,v] of Object.entries(obj)) deepArrays(v, `${path}.${k}`, out);
+      }
+      return out;
+    }
+
+    function prettySample(item){
+      if (!item || typeof item!=="object") return String(item);
+      const keys = Object.keys(item).slice(0,12).join(", ");
+      return `keys: ${keys}`;
+    }
+
+    // ===== Lat/Lon extraction (handles lots of shapes) =====
     function latLonFromAny(obj){
       if (!obj || typeof obj!=="object") return [null,null];
-
-      // 1) Direct fields
+      // direct
       let lat = get(obj,"lat","Lat","latitude","Latitude","LatDD","LatitudeDD");
       let lon = get(obj,"lon","Lon","lng","Lng","longitude","Longitude","LonDD","LongitudeDD","Long","LONG");
-      lat = num(lat); lon = num(lon);
-      if (lat!=null && lon!=null) return [lat,lon];
-
-      // 2) Nested objects like position/coords/location
-      const nestedKeys = ["position","pos","coords","coord","location","geo","Geo","geometry"];
-      for (const k of nestedKeys){
+      lat = num(lat); lon = num(lon); if (lat!=null && lon!=null) return [lat,lon];
+      // nested
+      for (const k of ["position","pos","coords","coord","location","geo","Geo","geometry"]){
         const v = obj[k];
         if (!v || typeof v!=="object") continue;
-
-        // 2a) Nested direct fields
         let nlat = get(v,"lat","Lat","latitude","Latitude","LatDD","LatitudeDD");
         let nlon = get(v,"lon","Lon","lng","Lng","longitude","Longitude","LonDD","LongitudeDD","Long","LONG");
-        nlat = num(nlat); nlon = num(nlon);
-        if (nlat!=null && nlon!=null) return [nlat,nlon];
-
-        // 2b) Arrays: [lon,lat] or [lat,lon]
-        if (Array.isArray(v)) {
-          if (v.length>=2){
-            // Guess order by magnitude (Australia lon ~ 110..155, lat ~ -45..-10)
-            const a = num(v[0]), b = num(v[1]);
-            if (a!=null && b!=null){
-              // if first looks like lon range, assume [lon,lat], else [lat,lon]
-              const looksLon = Math.abs(a) >= 60 && Math.abs(a) <= 180;
-              return looksLon ? [b,a] : [a,b];
-            }
-          }
+        nlat = num(nlat); nlon = num(nlon); if (nlat!=null && nlon!=null) return [nlat,nlon];
+        if (Array.isArray(v) && v.length>=2){
+          const a=num(v[0]), b=num(v[1]); if (a!=null && b!=null){ const looksLon=Math.abs(a)>=60&&Math.abs(a)<=180; return looksLon?[b,a]:[a,b]; }
         }
-
-        // 2c) GeoJSON Point
-        if (has(v,"type") && v.type==="Point" && Array.isArray(v.coordinates)) {
-          const [lo,la] = v.coordinates;
-          return [num(la), num(lo)];
-        }
+        if (v.type==="Point" && Array.isArray(v.coordinates)){ const [lo,la]=v.coordinates; return [num(la),num(lo)]; }
       }
-
-      // 3) GeoJSON Feature
-      if (obj.type==="Feature" && obj.geometry?.type==="Point" && Array.isArray(obj.geometry.coordinates)) {
-        const [lo,la] = obj.geometry.coordinates;
-        return [num(la), num(lo)];
+      if (obj.type==="Feature" && obj.geometry?.type==="Point" && Array.isArray(obj.geometry.coordinates)){
+        const [lo,la]=obj.geometry.coordinates; return [num(la),num(lo)];
       }
-
       return [null,null];
     }
 
@@ -116,52 +122,9 @@
     const labelOf= r => get(r,"label","Label","title","Title","loco","Loco","Locomotive","Service","ServiceNumber","Operator","operator") ?? "";
     const opOf   = r => get(r,"operator","Operator","company","Company","Owner","owner") ?? "";
 
-    // Array picking with preferred paths + shallow scan (avoids $.favs)
-    const PREFERRED_PATHS = [
-      ["ViewPortData","Trains"], ["ViewPortData","Markers"], ["ViewPortData","Items"],
-      ["Trains"], ["Markers"], ["Items"], ["Results"], ["data","Trains"], ["data","Markers"]
-    ];
-    function pickArray(obj){
-      // Preferred
-      for (const path of PREFERRED_PATHS){
-        let cur=obj; let ok=true;
-        for(const k of path){ if(!has(cur,k)){ ok=false; break; } cur=cur[k]; }
-        if (ok && Array.isArray(cur) && cur.length){ return {arr:cur, path:"$."+path.join(".")}; }
-      }
-      // Top-level common keys
-      for (const k of ["trains","Trains","markers","Markers","items","Items","results","Results","features"]){
-        if (Array.isArray(obj?.[k]) && obj[k].length) return {arr:obj[k], path:"$."+k};
-      }
-      // Wrappers
-      if (obj?.type==="FeatureCollection" && Array.isArray(obj.features)) return {arr:obj.features, path:"$.features"};
-      if (obj?.data){ const r=pickArray(obj.data); if (r.arr.length) return {arr:r.arr, path:"$.data"+r.path.slice(1)}; }
-      if (obj?.payload){ const r=pickArray(obj.payload); if (r.arr.length) return {arr:r.arr, path:"$.payload"+r.path.slice(1)}; }
-
-      // Shallow arrays only (avoid deep side arrays)
-      const arrays = Object.entries(obj||{}).filter(([k,v])=>Array.isArray(v));
-      let best=null, bestScore=-1, bestName="";
-      for (const [name,arr] of arrays){
-        let s=0; const sample=arr.slice(0,8);
-        for(const rec of sample){
-          if (rec && typeof rec==="object"){
-            const [la,lo]=latLonFromAny(rec);
-            if (la!=null && lo!=null) s+=5;
-            if (("heading" in rec)||("Heading" in rec)||("bearing" in rec)||("Bearing" in rec)) s+=2;
-            if (("speed" in rec)||("Speed" in rec)||("velocity" in rec)||("Velocity" in rec)) s+=1;
-          }
-        }
-        if (s>bestScore){ bestScore=s; best=arr; bestName=name; }
-      }
-      return {arr:best||[], path: best? "$."+bestName : "$"};
-    }
-
     function normalize(rec,i){
       const [la,lo] = latLonFromAny(rec);
-      return {
-        id: idOf(rec,i), lat: la, lon: lo,
-        heading: headOf(rec), speed: speedOf(rec),
-        label: labelOf(rec), operator: opOf(rec)
-      };
+      return { id:idOf(rec,i), lat:la, lon:lo, heading:headOf(rec), speed:speedOf(rec), label:labelOf(rec), operator:opOf(rec) };
     }
 
     function styleFor(hd){
@@ -186,34 +149,85 @@
         f.setStyle(styleFor(t.heading??0));
         source.addFeature(f);
       });
-      say(`✅ Loaded ${trains.length} trains`);
+      $summary.textContent = `✅ Rendering ${trains.length} trains`;
     }
 
-    async function refresh(){
-      try{
-        say("Fetching data…");
-        const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
-        if(!res.ok){ say(`❌ HTTP ${res.status}`); return; }
-        const raw = await res.json();
+    let lastPayload = null;
 
-        const picked = pickArray(raw);
-        const arr = picked.arr.map(normalize).filter(r=>r.lat!=null && r.lon!=null);
+    async function loadAndList(){
+      $summary.textContent = "Fetching…";
+      $sample.textContent = "";
+      const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
+      if (!res.ok) { $summary.textContent = `HTTP ${res.status}`; return; }
+      const json = await res.json();
+      lastPayload = json;
 
-        // show helpful debug for you
-        let sampleKeys = "";
-        if (picked.arr.length && typeof picked.arr[0]==="object") {
-          sampleKeys = Object.keys(picked.arr[0]).slice(0,12).join(", ");
+      // Build array list
+      const arrays = deepArrays(json);
+      // Score arrays: prefer those with lat/lon-looking records
+      const scored = arrays.map(c=>{
+        let s=0; const sample=c.arr.slice(0,8);
+        for(const rec of sample){
+          const [la,lo]=latLonFromAny(rec||{});
+          if (la!=null && lo!=null) s+=5;
+          if (rec && (("heading" in rec)||("Heading" in rec)||("bearing" in rec)||("Bearing" in rec))) s+=2;
+          if (rec && (("speed" in rec)||("Speed" in rec)||("velocity" in rec)||("Velocity" in rec))) s+=1;
         }
-        say(`Using: ${picked.path}\nRecords: ${picked.arr.length}\nAfter lat/lon normalize: ${arr.length}\nSample keys: ${sampleKeys}`);
+        return { path:c.path, len:c.arr.length, score:s, sample: sample[0] };
+      }).sort((a,b)=> b.score-a.score || b.len-a.len);
 
-        draw(arr);
-      }catch(e){
-        say(`❌ Error: ${e}`);
+      // Fill dropdown
+      $sel.innerHTML = "";
+      scored.forEach((c,i)=>{
+        const opt = document.createElement("option");
+        opt.value = c.path;
+        const sk = c.sample && typeof c.sample==="object" ? Object.keys(c.sample).slice(0,8).join(", ") : String(c.sample);
+        opt.textContent = `${c.path}  (len=${c.len}, score=${c.score})  sample: { ${sk} }`;
+        $sel.appendChild(opt);
+      });
+
+      if (scored.length) {
+        $sel.selectedIndex = 0;
+        $summary.textContent = `Found ${scored.length} arrays. Pick one above (top is best guess).`;
+        $sample.textContent = "";
+      } else {
+        $summary.textContent = "No arrays found in JSON.";
+        $sample.textContent = "";
       }
     }
 
-    refresh();
-    setInterval(refresh, REFRESH_MS);
+    function getByPath(root, path){
+      if (!path || !path.startsWith("$")) return undefined;
+      const parts = path.split(".").slice(1); // drop $
+      let cur = root;
+      for (const p of parts){
+        if (p==="" || p===" ") continue;
+        if (!cur || typeof cur!=="object") return undefined;
+        cur = cur[p];
+      }
+      return cur;
+    }
+
+    function renderSelected(){
+      const path = $sel.value;
+      const arr = getByPath(lastPayload, path) || [];
+      const trains = arr.map(normalize).filter(r=>r.lat!=null && r.lon!=null);
+      draw(trains);
+      $sample.textContent = `Using ${path}\nRecords: ${arr.length}\nAfter normalize: ${trains.length}\nFirst record:\n` +
+        (arr[0] ? JSON.stringify(arr[0], null, 2).slice(0, 1200) : "(none)");
+    }
+
+    // Kick off
+    loadAndList();
+    setInterval(async ()=>{
+      // periodic refresh if we already picked something
+      if (!lastPayload) return;
+      if (!$sel.value) return;
+      const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
+      if (!res.ok) return;
+      lastPayload = await res.json();
+      renderSelected();
+    }, REFRESH_MS);
   </script>
 </body>
 </html>
