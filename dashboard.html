@@ -1,60 +1,346 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>RailOps Dashboard</title>
-  <link rel="stylesheet" href="static/css/ol.css">
-  <style>
-    html, body { margin: 0; padding: 0; height: 100%; }
-    #map { width: 100%; height: 100vh; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
+// trains.js — Train Tracker 2.0 frontend loader (OpenLayers)
+// Requirements: window.map is an ol/Map instance; OpenLayers loaded
 
-  <script src="static/js/ol.js"></script>
-  <script>
-    const trainsURL = "https://traintrackeroz.netlify.app/trains.json"; // Updated to use Netlify
+const TrainLayer = (() => {
+  // === CONFIG ===
+  const DATA_URL = "https://brilliant-crepe-a70c64.netlify.app/trains.json"; // <-- change if needed
+  const REFRESH_MS = 30_000; // 30s
+  const MAX_AGE_MIN = 120;   // grey-out trains older than N minutes
+  const ENABLE_POPUPS = true;
 
-    const map = new ol.Map({
-      target: 'map',
-      layers: [
-        new ol.layer.Tile({
-          source: new ol.source.OSM()
-        })
-      ],
-      view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Center of Australia
-        zoom: 5
-      })
+  // === Internal state ===
+  let map = null;
+  let source = null;
+  let layer = null;
+  let popupOverlay = null;
+  let popupEl = null;
+  const idIndex = new Map(); // id -> feature
+
+  // --- Helpers ---
+  const to3857 = (lon, lat) => ol.proj.fromLonLat([lon, lat]);
+  const nowTs = () => Date.now();
+
+  function parseFloatSafe(v) {
+    const n = typeof v === "string" ? parseFloat(v) : v;
+    return Number.isFinite(n) ? n : null;
+  }
+
+  function toHeadingDeg(rec) {
+    // try typical fields
+    const cand = rec.heading ?? rec.Heading ?? rec.bearing ?? rec.Bearing ?? rec.course ?? rec.Course;
+    const n = parseFloatSafe(cand);
+    if (n !== null) return n;
+    // compute from delta if present
+    if (rec.vx != null && rec.vy != null) {
+      return (Math.atan2(rec.vx, rec.vy) * 180) / Math.PI;
+    }
+    return 0;
+  }
+
+  function toSpeed(rec) {
+    const cand = rec.speed ?? rec.Speed ?? rec.velocity ?? rec.Velocity;
+    const n = parseFloatSafe(cand);
+    return n ?? null;
+  }
+
+  function toId(rec, i) {
+    return (
+      rec.id || rec.ID || rec.Id || rec.locoId || rec.LocoId ||
+      rec.LocomotiveId || rec.Unit || rec.Name || `train_${i}`
+    );
+  }
+
+  function toLat(rec) {
+    return parseFloatSafe(rec.lat ?? rec.Lat ?? rec.latitude ?? rec.Latitude ?? rec.y ?? rec.Y);
+  }
+  function toLon(rec) {
+    return parseFloatSafe(rec.lon ?? rec.Lon ?? rec.longitude ?? rec.Longitude ?? rec.x ?? rec.X);
+  }
+
+  function toLabel(rec) {
+    return (
+      rec.label || rec.Label || rec.title || rec.Title || rec.loco || rec.Loco ||
+      rec.Locomotive || rec.Service || rec.ServiceNumber || rec.Operator || rec.operator || ""
+    );
+  }
+
+  function toOperator(rec) {
+    return rec.operator || rec.Operator || rec.company || rec.Company || "";
+  }
+
+  function toUpdatedAt(rec) {
+    const cand = rec.timestamp || rec.Timestamp || rec.updated || rec.Updated || rec.LastSeen || rec.lastSeen;
+    if (!cand) return null;
+    const ts = Date.parse(cand);
+    return Number.isNaN(ts) ? null : ts;
+  }
+
+  function minutesAgo(ts) {
+    if (!ts) return null;
+    return (nowTs() - ts) / 60000;
+  }
+
+  // Extract an array of raw train records from any of the common payload shapes
+  function extractTrains(payload) {
+    if (!payload) return [];
+    if (Array.isArray(payload)) return payload;
+
+    // Common shapes we’ve seen across TrainFinder variants
+    const tryKeys = [
+      "trains", "Trains",
+      "markers", "Markers",
+      "items", "Items",
+      "results", "Results",
+      "features", // GeoJSON FeatureCollection.features
+    ];
+    for (const k of tryKeys) {
+      if (payload[k] && Array.isArray(payload[k])) return payload[k];
+    }
+    // GeoJSON FeatureCollection nested
+    if (payload.type === "FeatureCollection" && Array.isArray(payload.features)) return payload.features;
+
+    // Sometimes nested under data or payload
+    if (payload.data) return extractTrains(payload.data);
+    if (payload.payload) return extractTrains(payload.payload);
+
+    // Fallback: scan arrays inside object
+    for (const v of Object.values(payload)) {
+      if (Array.isArray(v) && v.length && typeof v[0] === "object") return v;
+    }
+    return [];
+  }
+
+  // Normalize any raw record (or GeoJSON feature) into a unified model
+  function normalizeRecord(rec, i) {
+    // GeoJSON Feature with coordinates in geometry
+    if (rec && rec.type === "Feature" && rec.geometry && rec.geometry.type === "Point") {
+      const coords = rec.geometry.coordinates; // [lon, lat]
+      const p = rec.properties || {};
+      return {
+        id: toId(p, i),
+        lon: parseFloatSafe(coords[0]),
+        lat: parseFloatSafe(coords[1]),
+        heading: toHeadingDeg(p),
+        speed: toSpeed(p),
+        label: toLabel(p),
+        operator: toOperator(p),
+        updatedAt: toUpdatedAt(p),
+        raw: rec,
+      };
+    }
+
+    // Plain record
+    const lat = toLat(rec);
+    const lon = toLon(rec);
+    return {
+      id: toId(rec, i),
+      lon,
+      lat,
+      heading: toHeadingDeg(rec),
+      speed: toSpeed(rec),
+      label: toLabel(rec),
+      operator: toOperator(rec),
+      updatedAt: toUpdatedAt(rec),
+      raw: rec,
+    };
+  }
+
+  // OL style with rotation and age colouring
+  function styleForFeature(feature) {
+    const ageMin = feature.get("ageMin");
+    const heading = feature.get("heading") ?? 0;
+
+    // Color by freshness
+    let fill = [0, 120, 255, 0.9]; // fresh blue
+    if (ageMin != null) {
+      if (ageMin > MAX_AGE_MIN) fill = [130, 130, 130, 0.7]; // stale grey
+      else if (ageMin > 30) fill = [255, 165, 0, 0.9]; // orange mid-stale
+    }
+
+    const circle = new ol.style.RegularShape({
+      points: 3,
+      radius: 10,
+      rotation: (heading * Math.PI) / 180, // pointy triangle rotated by heading
+      fill: new ol.style.Fill({ color: fill }),
+      stroke: new ol.style.Stroke({ color: [0, 0, 0, 0.6], width: 1 }),
     });
 
-    fetch(trainsURL)
-      .then(res => res.json())
-      .then(data => {
-        data.forEach(train => {
-          const feature = new ol.Feature({
-            geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
-          });
+    const text = new ol.style.Text({
+      text: feature.get("label") || "",
+      offsetY: -18,
+      font: "600 12px system-ui, sans-serif",
+      fill: new ol.style.Fill({ color: "#111" }),
+      stroke: new ol.style.Stroke({ color: "rgba(255,255,255,0.9)", width: 3 }),
+    });
 
-          const style = new ol.style.Style({
-            image: new ol.style.Circle({
-              radius: 6,
-              fill: new ol.style.Fill({ color: 'red' }),
-              stroke: new ol.style.Stroke({ color: 'white', width: 2 })
-            })
-          });
+    return new ol.style.Style({ image: circle, text });
+  }
 
-          feature.setStyle(style);
+  function ensurePopup() {
+    if (!ENABLE_POPUPS || popupOverlay) return;
 
-          const vectorSource = new ol.source.Vector({ features: [feature] });
-          const vectorLayer = new ol.layer.Vector({ source: vectorSource });
-          map.addLayer(vectorLayer);
-        });
-      })
-      .catch(err => {
-        console.error("❌ Failed to load train data:", err);
+    popupEl = document.createElement("div");
+    popupEl.className = "tt-popup";
+    Object.assign(popupEl.style, {
+      background: "white",
+      padding: "8px 10px",
+      borderRadius: "10px",
+      boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
+      border: "1px solid rgba(0,0,0,0.1)",
+      minWidth: "180px",
+    });
+    popupOverlay = new ol.Overlay({
+      element: popupEl,
+      autoPan: { animation: { duration: 250 } },
+      offset: [0, -12],
+      positioning: "bottom-center",
+    });
+    map.addOverlay(popupOverlay);
+
+    map.on("singleclick", (evt) => {
+      let found = null;
+      map.forEachFeatureAtPixel(evt.pixel, (f, l) => {
+        if (l === layer) found = f;
       });
-  </script>
-</body>
-</html>
+      if (!found) {
+        popupOverlay.setPosition(undefined);
+        return;
+      }
+      const p = found.getProperties();
+      const updatedText = p.updatedAt
+        ? new Date(p.updatedAt).toLocaleString()
+        : "unknown";
+
+      popupEl.innerHTML = `
+        <div style="font-weight:700">${p.label || p.id || "Unknown"}</div>
+        <div>${p.operator || ""}</div>
+        <div>Speed: ${p.speed ?? "?"} | Heading: ${Math.round(p.heading ?? 0)}°</div>
+        <div>Updated: ${updatedText}</div>
+        <div style="color:#666">(${p.lat?.toFixed?.(5) ?? "?"}, ${p.lon?.toFixed?.(5) ?? "?"})</div>
+      `;
+      popupOverlay.setPosition(found.getGeometry().getCoordinates());
+    });
+  }
+
+  function upsertFeature(n) {
+    if (n.lat == null || n.lon == null) return;
+
+    const key = String(n.id);
+    let feat = idIndex.get(key);
+
+    const coord = to3857(n.lon, n.lat);
+    const ageMin = minutesAgo(n.updatedAt);
+
+    if (!feat) {
+      feat = new ol.Feature({
+        geometry: new ol.geom.Point(coord),
+        id: key,
+      });
+      idIndex.set(key, feat);
+      source.addFeature(feat);
+    } else {
+      feat.getGeometry().setCoordinates(coord);
+    }
+
+    feat.setProperties(
+      {
+        label: n.label || key,
+        operator: n.operator || "",
+        speed: n.speed ?? null,
+        heading: n.heading ?? 0,
+        updatedAt: n.updatedAt ?? null,
+        lon: n.lon,
+        lat: n.lat,
+        ageMin: ageMin ?? null,
+      },
+      true
+    );
+    feat.setStyle(styleForFeature(feat));
+  }
+
+  async function fetchDataOnce() {
+    const url = `${DATA_URL}?t=${Date.now()}`;
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  async function refresh() {
+    try {
+      const raw = await fetchDataOnce();
+      const arr = extractTrains(raw).map(normalizeRecord).filter(r => r.lat != null && r.lon != null);
+
+      // Index existing IDs to mark stale ones
+      const seen = new Set();
+      for (let i = 0; i < arr.length; i++) {
+        const n = arr[i];
+        upsertFeature(n);
+        seen.add(String(n.id));
+      }
+
+      // Optionally: remove features not seen in current payload (commented out by default)
+      // source.getFeatures().forEach(f => {
+      //   const id = String(f.get("id"));
+      //   if (!seen.has(id)) { source.removeFeature(f); idIndex.delete(id); }
+      // });
+
+      // Re-style everything (age color)
+      source.getFeatures().forEach(f => f.setStyle(styleForFeature(f)));
+    } catch (err) {
+      console.error("[TrainLayer] refresh error:", err);
+    }
+  }
+
+  function makeLayer() {
+    source = new ol.source.Vector();
+    layer = new ol.layer.Vector({
+      source,
+      zIndex: 20,
+      renderBuffer: 512,
+    });
+    map.addLayer(layer);
+  }
+
+  function ensureCssOnce() {
+    if (document.getElementById("tt-css")) return;
+    const style = document.createElement("style");
+    style.id = "tt-css";
+    style.textContent = `
+      .tt-popup { user-select: text; }
+      .tt-popup:after {
+        content: "";
+        position: absolute;
+        bottom: -8px; left: 50%; transform: translateX(-50%);
+        border-width: 8px 8px 0 8px; border-style: solid;
+        border-color: white transparent transparent transparent;
+        filter: drop-shadow(0 2px 2px rgba(0,0,0,0.1));
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function startLoop() {
+    refresh(); // immediate
+    setInterval(refresh, REFRESH_MS);
+  }
+
+  // Public API
+  return {
+    init(olMapInstance) {
+      map = olMapInstance;
+      ensureCssOnce();
+      makeLayer();
+      ensurePopup();
+      startLoop();
+      console.log("[TrainLayer] started. Source:", DATA_URL);
+    },
+    setDataUrl(url) {
+      // optional runtime switch
+      if (typeof url === "string" && url.startsWith("http")) {
+        console.log("[TrainLayer] data URL set to", url);
+        // eslint-disable-next-line no-unused-vars
+        DATA_URL = url; // (note: const -> you can instead keep a separate mutable var)
+      }
+    },
+  };
+})();
