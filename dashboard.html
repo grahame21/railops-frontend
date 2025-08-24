@@ -17,7 +17,7 @@
 <body>
   <div id="panel">
     <div><b>Data source</b>:
-      <span class="mono" id="dataUrl">https://brilliant-crepe-a70c64.netlify.app/trains.json</span>
+      <span class="mono" id="dataUrl">https://railops-json.onrender.com/trains.json</span>
       <button id="refreshBtn">Refresh</button>
     </div>
     <div style="margin-top:8px">
@@ -34,14 +34,14 @@
   <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
   <script>
     // ===== Config =====
-    const DATA_URL = "https://brilliant-crepe-a70c64.netlify.app/trains.json";
-    const REFRESH_MS = 30000;
+    const DATA_URL = "https://railops-json.onrender.com/trains.json";
+    const REFRESH_MS = 60000; // match server UPDATE_INTERVAL_SECONDS
 
     // ===== Map =====
     const map = new ol.Map({
       target: 'map',
       layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
-      view: new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 5 })
+      view: new ol.View({ center: ol.proj.fromLonLat([138.60,-34.93]), zoom: 9 }) // Adelaide
     });
     const source = new ol.source.Vector();
     const layer  = new ol.layer.Vector({ source, zIndex:20 });
@@ -85,20 +85,11 @@
       return out;
     }
 
-    function prettySample(item){
-      if (!item || typeof item!=="object") return String(item);
-      const keys = Object.keys(item).slice(0,12).join(", ");
-      return `keys: ${keys}`;
-    }
-
-    // ===== Lat/Lon extraction (handles lots of shapes) =====
     function latLonFromAny(obj){
       if (!obj || typeof obj!=="object") return [null,null];
-      // direct
       let lat = get(obj,"lat","Lat","latitude","Latitude","LatDD","LatitudeDD");
       let lon = get(obj,"lon","Lon","lng","Lng","longitude","Longitude","LonDD","LongitudeDD","Long","LONG");
       lat = num(lat); lon = num(lon); if (lat!=null && lon!=null) return [lat,lon];
-      // nested
       for (const k of ["position","pos","coords","coord","location","geo","Geo","geometry"]){
         const v = obj[k];
         if (!v || typeof v!=="object") continue;
@@ -162,9 +153,7 @@
       const json = await res.json();
       lastPayload = json;
 
-      // Build array list
       const arrays = deepArrays(json);
-      // Score arrays: prefer those with lat/lon-looking records
       const scored = arrays.map(c=>{
         let s=0; const sample=c.arr.slice(0,8);
         for(const rec of sample){
@@ -176,7 +165,8 @@
         return { path:c.path, len:c.arr.length, score:s, sample: sample[0] };
       }).sort((a,b)=> b.score-a.score || b.len-a.len);
 
-      // Fill dropdown
+      const $sel = document.getElementById('pathSelect');
+      const $sample = document.getElementById('sample');
       $sel.innerHTML = "";
       scored.forEach((c,i)=>{
         const opt = document.createElement("option");
@@ -198,7 +188,7 @@
 
     function getByPath(root, path){
       if (!path || !path.startsWith("$")) return undefined;
-      const parts = path.split(".").slice(1); // drop $
+      const parts = path.split(".").slice(1);
       let cur = root;
       for (const p of parts){
         if (p==="" || p===" ") continue;
@@ -209,18 +199,27 @@
     }
 
     function renderSelected(){
+      const $sel = document.getElementById('pathSelect');
       const path = $sel.value;
       const arr = getByPath(lastPayload, path) || [];
       const trains = arr.map(normalize).filter(r=>r.lat!=null && r.lon!=null);
       draw(trains);
+      const $sample = document.getElementById('sample');
       $sample.textContent = `Using ${path}\nRecords: ${arr.length}\nAfter normalize: ${trains.length}\nFirst record:\n` +
         (arr[0] ? JSON.stringify(arr[0], null, 2).slice(0, 1200) : "(none)");
     }
 
-    // Kick off
-    loadAndList();
+    // Kick off + auto-use the top array
+    const $sel = document.getElementById('pathSelect');
+    loadAndList().then(() => {
+      if ($sel.options.length) {
+        $sel.selectedIndex = 0;
+        renderSelected();
+      }
+    });
+
+    // periodic refresh of the selected path
     setInterval(async ()=>{
-      // periodic refresh if we already picked something
       if (!lastPayload) return;
       if (!$sel.value) return;
       const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
