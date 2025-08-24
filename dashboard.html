@@ -5,71 +5,78 @@
   <title>RailOps — Live Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- OpenLayers v6 GLOBAL build -->
+  <!-- OpenLayers v6 global -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/openlayers-dist@6.12.0/ol.css">
   <style>
-    html, body { height: 100%; margin: 0; background: #f6f7fb; font: 14px system-ui, sans-serif; }
-    #map { height: 100vh; width: 100%; position: relative; }
+    html, body { height: 100%; margin: 0; background:#0b0c10; font:14px system-ui, sans-serif }
+    #map    { height: 100vh; width: 100%; position: relative }
     .status {
-      position: absolute; top: 10px; left: 10px; z-index: 1000;
-      background: #fff; border: 1px solid #ddd; border-radius: 10px; padding: 6px 10px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.08); font-size: 12px;
+      position:absolute; z-index:1000; left:10px; top:10px;
+      background:#fff; border:1px solid #ddd; border-radius:10px; padding:6px 10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.08); font-size:12px
     }
-    .status b { font-weight: 600; }
     .status small { color:#666 }
   </style>
 </head>
 <body>
-  <div id="map">
-    <div class="status"><span id="msg">Loading…</span> <small id="detail"></small></div>
-  </div>
+  <div id="map"><div class="status"><span id="msg">Loading…</span> <small id="detail"></small></div></div>
 
   <script src="https://cdn.jsdelivr.net/npm/openlayers-dist@6.12.0/ol.js"></script>
-
   <script>
-  // ========= Config =========
-  const DATA_URL   = 'https://railops-json.onrender.com/trains.json';
-  const REFRESH_MS = 60000;                        // 60s
-  const START = { lon: 138.60, lat: -34.93, z: 7 } // Adelaide-ish
-  // Australia bbox (lon/lat)
-  const BBOX = { minLon:112, maxLon:154, minLat:-44, maxLat:-9 };
+  if (!window.ol){ document.getElementById('msg').textContent = 'OpenLayers failed to load'; } else (function(){
 
-  // Optional: override field names via URL, e.g.
-  // dashboard.html?id=ServiceNumber&label=Headcode&lat=Lat&lon=Lon&heading=Direction&speed=KPH
-  const Q = new URLSearchParams(location.search);
+    // ================== CONFIG ==================
+    const DATA_URL   = 'https://railops-json.onrender.com/trains.json';
+    const REFRESH_MS = 60000;
+    const START      = { lon: 138.6, lat: -34.93, z: 7 }; // SA
+    // Australia bbox (lon/lat)
+    const BBOX       = { minLon:112, maxLon:154, minLat:-44, maxLat:-9 };
 
-  // Default field aliases (we try these in order if you don't specify via URL)
-  const FIELD_HINTS = {
-    id:      [Q.get('id'),'ServiceNumber','Headcode','HeadCode','TrainId','trainId','Number','Name','Unit','LocoId','LocomotiveId','id','ID','Id'].filter(Boolean),
-    label:   [Q.get('label'),'ServiceNumber','Headcode','Name','Train','label','Label','title','Title','Unit'].filter(Boolean),
-    operator:[Q.get('operator'),'operator','Operator','company','Company','owner','Owner'].filter(Boolean),
-    lat:     [Q.get('lat'),'lat','Lat','latitude','Latitude','LatDD','LatitudeDD','y','Y'].filter(Boolean),
-    lon:     [Q.get('lon'),'lon','Lon','lng','Lng','longitude','Longitude','LonDD','LongitudeDD','long','Long','x','X'].filter(Boolean),
-    heading: [Q.get('heading'),'heading','Heading','bearing','Bearing','course','Course','Direction','dir'].filter(Boolean),
-    speed:   [Q.get('speed'),'speed','Speed','velocity','Velocity','kmh','KMH','kph','KPH'].filter(Boolean)
-  };
+    // Optional field overrides via query:
+    //   ?id=ServiceNumber&label=Headcode&lat=Lat&lon=Lon&heading=Direction&speed=KPH&path=$.trains
+    const Q = new URLSearchParams(location.search);
 
-  const $msg = document.getElementById('msg');
-  const $detail = document.getElementById('detail');
-
-  if (!window.ol){
-    $msg.textContent = 'OpenLayers failed to load';
-  } else (function(){
-    // ===== Map =====
+    // ================== MAP ==================
     const map = new ol.Map({
       target: 'map',
-      layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
+      layers: [
+        new ol.layer.Tile({ source: new ol.source.OSM() }),
+        // Rail overlay so icons line up with track
+        new ol.layer.Tile({
+          source: new ol.source.XYZ({
+            url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
+            attributions: '© OpenRailwayMap contributors'
+          }),
+          opacity: 0.75
+        })
+      ],
       view: new ol.View({ center: ol.proj.fromLonLat([START.lon, START.lat]), zoom: START.z })
     });
+
     const source = new ol.source.Vector();
     const layer  = new ol.layer.Vector({ source, zIndex: 20 });
     map.addLayer(layer);
 
-    // ===== Utils =====
+    const $msg = document.getElementById('msg');
+    const $detail = document.getElementById('detail');
+
+    // ================== HELPERS ==================
     const num = v => (v==null ? null : Number.isFinite(+v) ? +v : null);
-    const has = (o,k) => !!(o && typeof o === 'object' && k in o);
+    const has = (o,k) => !!(o && typeof o==='object' && k in o);
     const get = (o, ks) => ks.find(k => has(o,k)) && o[ks.find(k => has(o,k))];
     const inBBox = (la,lo) => (lo>=BBOX.minLon && lo<=BBOX.maxLon && la>=BBOX.minLat && la<=BBOX.maxLat);
+
+    const FIELD_HINTS = {
+      id:      [Q.get('id'),'ServiceNumber','Headcode','HeadCode','TrainId','trainId','Number','Name','Unit','LocoId','LocomotiveId','id','ID','Id'].filter(Boolean),
+      label:   [Q.get('label'),'ServiceNumber','Headcode','Name','Train','label','Label','title','Title','Unit'].filter(Boolean),
+      operator:[Q.get('operator'),'operator','Operator','company','Company','owner','Owner'].filter(Boolean),
+      lat:     [Q.get('lat'),'lat','Lat','latitude','Latitude','LatDD','LatitudeDD','y','Y'].filter(Boolean),
+      lon:     [Q.get('lon'),'lon','Lon','lng','Lng','longitude','Longitude','LonDD','LongitudeDD','long','Long','x','X'].filter(Boolean),
+      heading: [Q.get('heading'),'heading','Heading','bearing','Bearing','course','Course','Direction','dir'].filter(Boolean),
+      speed:   [Q.get('speed'),'speed','Speed','velocity','Velocity','kmh','KMH','kph','KPH'].filter(Boolean),
+      // timestamp is optional, used for dedupe preference
+      time:    [Q.get('time'),'timestamp','Timestamp','time','Time','LastSeen','lastSeen','updated','Updated'].filter(Boolean)
+    };
 
     function latLonFromAny(obj){
       if (!obj || typeof obj!=='object') return [null,null];
@@ -79,13 +86,12 @@
       let lon = get(obj, FIELD_HINTS.lon);
       lat = num(lat); lon = num(lon);
       if (lat!=null && lon!=null){
-        if (inBBox(lat,lon)) return [lat,lon];
-        // try swap if outside bbox
-        if (inBBox(lon,lat)) return [lon,lat];
+        // if outside AU but swapped fits, swap
+        if (!inBBox(lat,lon) && inBBox(lon,lat)) return [lon,lat];
         return [lat,lon];
       }
 
-      // nested known containers
+      // common containers
       for (const k of ['position','pos','coords','coord','location','geo','Geo','geometry']){
         const v = obj[k]; if (!v || typeof v!=='object') continue;
 
@@ -93,30 +99,26 @@
         let nlon = get(v, FIELD_HINTS.lon);
         nlat = num(nlat); nlon = num(nlon);
         if (nlat!=null && nlon!=null){
-          if (inBBox(nlat,nlon)) return [nlat,nlon];
-          if (inBBox(nlon,nlat)) return [nlon,nlat];
+          if (!inBBox(nlat,nlon) && inBBox(nlon,nlat)) return [nlon,nlat];
           return [nlat,nlon];
         }
 
         if (Array.isArray(v) && v.length>=2){
           const a=num(v[0]), b=num(v[1]);
           if (a!=null && b!=null){
-            // Heuristic: if one looks lon-ish (|x| between ~60-180), prefer [lon,lat]
             const looksLon = Math.abs(a)>=60 && Math.abs(a)<=180;
             const la = looksLon ? b : a;
             const lo = looksLon ? a : b;
-            if (inBBox(la,lo)) return [la,lo];
-            if (inBBox(lo,la)) return [lo,la];
+            if (!inBBox(la,lo) && inBBox(lo,la)) return [lo,la];
             return [la,lo];
           }
         }
 
         if (v.type==='Point' && Array.isArray(v.coordinates)){
-          const [lo, la] = v.coordinates;
-          const LLA = [num(la), num(lo)];
+          const [lo,la] = v.coordinates;
+          const LLA=[num(la),num(lo)];
           if (LLA[0]!=null && LLA[1]!=null){
-            if (inBBox(LLA[0],LLA[1])) return LLA;
-            if (inBBox(LLA[1],LLA[0])) return [LLA[1],LLA[0]];
+            if (!inBBox(LLA[0],LLA[1]) && inBBox(LLA[1],LLA[0])) return [LLA[1],LLA[0]];
             return LLA;
           }
         }
@@ -124,27 +126,68 @@
 
       // GeoJSON Feature
       if (obj.type==='Feature' && obj.geometry?.type==='Point' && Array.isArray(obj.geometry.coordinates)){
-        const [lo, la] = obj.geometry.coordinates;
-        const LLA = [num(la), num(lo)];
+        const [lo,la]=obj.geometry.coordinates;
+        const LLA=[num(la),num(lo)];
         if (LLA[0]!=null && LLA[1]!=null){
-          if (inBBox(LLA[0],LLA[1])) return LLA;
-          if (inBBox(LLA[1],LLA[0])) return [LLA[1],LLA[0]];
+          if (!inBBox(LLA[0],LLA[1]) && inBBox(LLA[1],LLA[0])) return [LLA[1],LLA[0]];
           return LLA;
         }
       }
       return [null,null];
     }
 
-    function collectRecords(root, out=[]){
-      if (!root || typeof root!=='object') return out;
-      if (Array.isArray(root)) { root.forEach(v=>collectRecords(v,out)); return out; }
-      const [la,lo] = latLonFromAny(root);
-      if (la!=null && lo!=null){ out.push(root); return out; }
-      Object.values(root).forEach(v=>collectRecords(v,out));
+    // --- Find the one true array of trains ---
+    function findArrays(root, path='$', out=[]){
+      if (Array.isArray(root)) { out.push({path, arr:root}); return out; }
+      if (root && typeof root==='object'){
+        for (const [k,v] of Object.entries(root)) findArrays(v, `${path}.${k}`, out);
+      }
       return out;
     }
 
-    // Heading helpers
+    function scoreTrainArray(arr){
+      // Train-likeness: presence of ID-ish + speed/heading + lat/lon, penalize huge arrays
+      const sample = arr.slice(0, 40);
+      let score = 0, withLL=0, withMeta=0, withId=0;
+      for (const r of sample){
+        if (!r || typeof r!=='object') continue;
+        const [la,lo] = latLonFromAny(r);
+        if (la!=null && lo!=null) { score+=4; withLL++; }
+        if (get(r, FIELD_HINTS.id))      { score+=3; withId++; }
+        if (get(r, FIELD_HINTS.speed) ||
+            get(r, FIELD_HINTS.heading)) { score+=2; withMeta++; }
+        if (get(r, FIELD_HINTS.operator)) { score+=1; }
+      }
+      // prefer moderate sizes; penalize arrays > 2000 heavily (likely geometry/crumbs)
+      const n = arr.length;
+      if (n>2000) score -= Math.min(20, Math.log10(n-1999)*20);
+      return { score, withLL, withMeta, withId, n };
+    }
+
+    function selectTrainArray(json){
+      // If user provides a JSONPath-like hint: $.foo.bar
+      const hint = Q.get('path');
+      if (hint && hint.startsWith('$.')){
+        try{
+          const parts = hint.split('.').slice(1);
+          let cur = json; for (const p of parts){ cur = (cur||{})[p]; }
+          if (Array.isArray(cur)) return { path: hint, arr: cur, chosenBy:'hint' };
+        }catch(_){}
+      }
+      const candidates = findArrays(json);
+      let best = null;
+      for (const c of candidates){
+        const s = scoreTrainArray(c.arr);
+        // must have some ID + lat/lon presence
+        const ok = (s.withLL >= 4 && s.withId >= 2) || (s.withLL >= 6 && s.withMeta >= 3);
+        if (!ok) continue;
+        const item = { path:c.path, arr:c.arr, score:s.score, meta:s };
+        if (!best || item.score > best.score) best = item;
+      }
+      return best; // may be null
+    }
+
+    // --- Heading helpers (compute when missing) ---
     const lastPosById = new Map();
     const deg2rad = d => d * Math.PI/180, rad2deg = r => r * 180/Math.PI;
     function bearing(lon1, lat1, lon2, lat2){
@@ -154,30 +197,22 @@
       return ((rad2deg(Math.atan2(y,x)) + 360) % 360);
     }
 
-    // Field readers
+    // --- Field readers ---
     const idOf    = (r,i) => get(r, FIELD_HINTS.id) ?? `train_${i}`;
     const labelOf =  r    => get(r, FIELD_HINTS.label) ?? '';
     const opOf    =  r    => get(r, FIELD_HINTS.operator) ?? '';
     const headOf  =  r    => num(get(r, FIELD_HINTS.heading));
     const speedOf =  r    => num(get(r, FIELD_HINTS.speed));
+    const timeOf  =  r    => get(r, FIELD_HINTS.time);
 
     function normalize(rec,i){
       let [lat, lon] = latLonFromAny(rec);
-
-      // Discard wildly off-world points
       if (lat==null || lon==null) return null;
       if (!inBBox(lat,lon)) return null;
 
-      // id & label
       let id = idOf(rec, i);
-      if (!id || String(id).trim()==='') {
-        const svc = get(rec, ['ServiceNumber','Headcode','Name','Train','title'].concat(FIELD_HINTS.label)) ?? '';
-        const op  = opOf(rec);
-        if (svc || op) id = `${op}-${svc}`;
-        else id = `train_${i}`;
-      }
+      if (!id || String(id).trim()==='') id = `train_${i}`;
 
-      // heading (compute if missing)
       let hd = headOf(rec);
       if ((hd==null || !isFinite(hd))) {
         const last = lastPosById.get(id);
@@ -190,48 +225,76 @@
         heading: (hd!=null && isFinite(hd)) ? hd : 0,
         speed: speedOf(rec),
         label: labelOf(rec),
-        operator: opOf(rec)
+        operator: opOf(rec),
+        ts: timeOf(rec)
       };
     }
 
+    // ================== ICONS (train-style) ==================
+    const styleCache = new Map();
+    function svgTrain(t){
+      const label = (t.label || t.id || '').toString().slice(0, 8);
+      const bg = '#ffcc00';           // yellow body like TrainFinder
+      const fg = '#1a1a1a';
+      const op = (t.operator||'').toString().slice(0,6);
+      return `
+        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="26" viewBox="0 0 44 26">
+          <defs><filter id="s" x="-20%" y="-20%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="1" stdDeviation="1" flood-color="rgba(0,0,0,0.4)"/></filter></defs>
+          <g filter="url(#s)">
+            <rect x="1" y="1" rx="5" ry="5" width="42" height="20" fill="${bg}" stroke="${fg}" stroke-width="1.2"/>
+            <rect x="6" y="16" width="12" height="4" fill="${fg}" />
+            <rect x="26" y="16" width="12" height="4" fill="${fg}" />
+            <circle cx="12" cy="20" r="2.2" fill="#333"/>
+            <circle cx="32" cy="20" r="2.2" fill="#333"/>
+            <text x="22" y="10.5" font-family="system-ui, sans-serif" font-size="8" font-weight="700" text-anchor="middle" fill="${fg}">${label}</text>
+            <text x="22" y="18" font-family="system-ui, sans-serif" font-size="7" text-anchor="middle" fill="${fg}">${op}</text>
+          </g>
+        </svg>`;
+    }
     function styleFor(t){
-      const rotation = ((t.heading ?? 0) - 90) * Math.PI/180; // convert north-up to east-up
-      return new ol.style.Style({
-        image: new ol.style.RegularShape({
-          points: 3, radius: 9, rotation,
-          fill:   new ol.style.Fill({ color: [0,120,255,0.95] }),
-          stroke: new ol.style.Stroke({ color: [0,0,0,0.6], width: 1 })
-        }),
-        text: new ol.style.Text({
-          text: (t.label && String(t.label)) || String(t.id),
-          offsetY: -14, font: '12px system-ui, sans-serif',
-          fill: new ol.style.Fill({ color: '#111' }),
-          stroke: new ol.style.Stroke({ color: 'rgba(255,255,255,0.95)', width: 3 })
-        })
-      });
+      const key = `${t.id}|${t.label}|${t.operator}`;
+      let s = styleCache.get(key);
+      if (!s){
+        const uri = 'data:image/svg+xml;utf8,' + encodeURIComponent(svgTrain(t));
+        s = new ol.style.Style({
+          image: new ol.style.Icon({
+            src: uri,
+            rotation: ((t.heading ?? 0) - 90) * Math.PI/180,
+            rotateWithView: true,
+            anchor: [0.5, 0.8],
+            anchorXUnits: 'fraction',
+            anchorYUnits: 'fraction'
+          })
+        });
+        styleCache.set(key, s);
+      }else{
+        // update rotation if heading changed
+        s.getImage().setRotation(((t.heading ?? 0) - 90) * Math.PI/180);
+      }
+      return s;
     }
 
+    // ================== DRAW ==================
     let firstFitDone = false;
-
     function draw(trains){
       source.clear();
-      let kept = 0, dropped = 0;
+      // Deduplicate by id; prefer newest timestamp if we have it
       const byId = new Map();
-
       for (const t of trains){
-        if (!t || t.lat==null || t.lon==null) { dropped++; continue; }
-        if (!inBBox(t.lat, t.lon)) { dropped++; continue; } // strong bbox filter
-        byId.set(t.id, t);
+        if (!t) continue;
+        const prev = byId.get(t.id);
+        if (!prev || (t.ts && prev.ts && t.ts > prev.ts)) byId.set(t.id, t);
+        else if (!prev) byId.set(t.id, t);
       }
 
       const feats = [];
       for (const t of byId.values()){
-        kept++;
-        lastPosById.set(t.id, { lat: t.lat, lon: t.lon });
+        lastPosById.set(t.id, { lat:t.lat, lon:t.lon });
         const f = new ol.Feature({
           geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])),
-          id: t.id, label: t.label || t.id, operator: t.operator || '',
-          speed: t.speed ?? null, heading: t.heading ?? 0, lon: t.lon, lat: t.lat
+          id:t.id, label:t.label||t.id, operator:t.operator||'',
+          speed:t.speed??null, heading:t.heading??0, lon:t.lon, lat:t.lat
         });
         f.setStyle(styleFor(t));
         feats.push(f);
@@ -240,20 +303,29 @@
 
       if (!firstFitDone && feats.length){
         firstFitDone = true;
-        map.getView().fit(source.getExtent(), { padding:[40,40,40,40], maxZoom: 12, duration: 500 });
+        map.getView().fit(source.getExtent(), { padding:[40,40,40,40], maxZoom: 11, duration: 500 });
       }
-      $msg.textContent = `Trains: ${kept}`;
-      $detail.textContent = dropped ? ` (filtered ${dropped} out-of-bounds/invalid)` : '';
+      $msg.textContent = `Trains: ${feats.length}`;
     }
 
+    // ================== FETCH LOOP ==================
     async function tick(){
       try{
-        const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: 'no-store' });
+        const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache:'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
-        const records = collectRecords(json);
-        const trains  = records.map(normalize).filter(Boolean);
+
+        // Pick the best array of trains
+        let chosen = selectTrainArray(json);
+        if (!chosen){ $msg.textContent = 'No train array found'; $detail.textContent=''; source.clear(); return; }
+        const arr = chosen.arr;
+        const trains = arr.map(normalize).filter(Boolean);
+
         draw(trains);
+
+        // status
+        const path = chosen.path || '(hint)';
+        $detail.textContent = ` from ${path} • raw=${arr.length}`;
       }catch(err){
         console.error(err);
         $msg.textContent = `Fetch error: ${err.message}`;
@@ -261,16 +333,14 @@
       }
     }
 
-    // initial + refresh
     tick();
     setInterval(tick, REFRESH_MS);
 
-    // ===== Click popup =====
+    // ================== POPUP ==================
     const popupEl = document.createElement('div');
     popupEl.style.cssText = 'background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:180px;';
     const popup = new ol.Overlay({ element: popupEl, autoPan:{animation:{duration:250}}, offset:[0,-12], positioning:'bottom-center' });
     map.addOverlay(popup);
-
     map.on('singleclick', (evt)=>{
       let found = null;
       map.forEachFeatureAtPixel(evt.pixel, (feat, lyr)=>{ if (lyr===layer) found = feat; });
@@ -283,6 +353,7 @@
         ${p.lat?.toFixed?.(5)}, ${p.lon?.toFixed?.(5)}`;
       popup.setPosition(found.getGeometry().getCoordinates());
     });
+
   })();
   </script>
 </body>
