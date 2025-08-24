@@ -2,231 +2,182 @@
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Train Tracker 2.0 — Path Picker</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+  <title>RailOps — Live Trains</title>
+
+  <!-- OpenLayers: make sure both CSS and JS load -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <style>
-    html,body{height:100%;margin:0;background:#f6f7fb;font:14px system-ui,sans-serif}
-    #panel{position:absolute;z-index:9999;left:10px;top:10px;background:#fff;border:1px solid #ddd;border-radius:12px;padding:10px 12px;box-shadow:0 8px 24px rgba(0,0,0,.08);max-width:720px}
-    #panel *{font:14px system-ui,sans-serif}
-    #map{width:100%;height:100vh}
-    .tt-popup{user-select:text;background:#fff;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);border:1px solid rgba(0,0,0,.1);min-width:180px;position:relative}
-    .tt-popup:after{content:"";position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);border-width:8px 8px 0 8px;border-style:solid;border-color:#fff transparent transparent transparent;filter:drop-shadow(0 2px 2px rgba(0,0,0,.1))}
-    .mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+    html,body { height:100%; margin:0; background:#f6f7fb; font:14px system-ui,sans-serif; }
+    #map { height:100%; width:100%; }
+    .status {
+      position:absolute; top:10px; left:10px; z-index:1000;
+      background:#fff; border:1px solid #ddd; border-radius:10px; padding:6px 10px;
+      box-shadow:0 8px 24px rgba(0,0,0,.08); font-size:12px;
+    }
   </style>
 </head>
 <body>
-  <div id="panel">
-    <div><b>Data source</b>:
-      <span class="mono" id="dataUrl">https://railops-json.onrender.com/trains.json</span>
-      <button id="refreshBtn">Refresh</button>
-    </div>
-    <div style="margin-top:8px">
-      <b>Pick array:</b>
-      <select id="pathSelect" style="min-width:420px"></select>
-      <button id="useBtn">Use</button>
-      <span id="summary" class="mono" style="margin-left:8px;color:#444"></span>
-    </div>
-    <div id="sample" class="mono" style="margin-top:6px;color:#666;white-space:pre-wrap"></div>
-  </div>
-
   <div id="map"></div>
+  <div class="status"><span id="msg">Loading…</span></div>
 
-  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
   <script>
-    // ===== Config =====
-    const DATA_URL = "https://railops-json.onrender.com/trains.json";
-    const REFRESH_MS = 60000; // match server UPDATE_INTERVAL_SECONDS
+  // ========= Config =========
+  const DATA_URL = 'https://railops-json.onrender.com/trains.json';
+  const REFRESH_MS = 60000; // match your server
 
-    // ===== Map =====
-    const map = new ol.Map({
-      target: 'map',
-      layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
-      view: new ol.View({ center: ol.proj.fromLonLat([138.60,-34.93]), zoom: 9 }) // Adelaide
-    });
-    const source = new ol.source.Vector();
-    const layer  = new ol.layer.Vector({ source, zIndex:20 });
-    map.addLayer(layer);
+  // ========= Map setup =========
+  const map = new ol.Map({
+    target: 'map',
+    layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
+    view: new ol.View({ center: ol.proj.fromLonLat([138.60, -34.93]), zoom: 9 }) // Adelaide
+  });
 
-    // Popup
-    const popupEl = document.createElement("div");
-    popupEl.className = "tt-popup";
-    const popup = new ol.Overlay({ element: popupEl, autoPan:{animation:{duration:250}}, offset:[0,-12], positioning:"bottom-center" });
-    map.addOverlay(popup);
-    map.on("singleclick",(evt)=>{
-      let f=null; map.forEachFeatureAtPixel(evt.pixel,(feat,lyr)=>{ if(lyr===layer) f=feat; });
-      if(!f){ popup.setPosition(undefined); return; }
-      const p=f.getProperties();
-      popupEl.innerHTML = `<div style="font-weight:700">${p.label||p.id||"Unknown"}</div>
-        <div>${p.operator||""}</div>
-        <div>Speed: ${p.speed??"?"} | Heading: ${Math.round(p.heading??0)}°</div>
-        <div>${p.lat?.toFixed?.(5)??"?"}, ${p.lon?.toFixed?.(5)??"?"}</div>`;
-      popup.setPosition(f.getGeometry().getCoordinates());
-    });
+  const source = new ol.source.Vector();
+  const layer  = new ol.layer.Vector({ source, zIndex: 20 });
+  map.addLayer(layer);
 
-    // ===== UI =====
-    const $url = document.getElementById('dataUrl');
-    const $sel = document.getElementById('pathSelect');
-    const $summary = document.getElementById('summary');
-    const $sample = document.getElementById('sample');
-    document.getElementById('refreshBtn').onclick = () => loadAndList();
-    document.getElementById('useBtn').onclick = () => renderSelected();
-    $url.textContent = DATA_URL;
+  const $msg = document.getElementById('msg');
 
-    // ===== JSON exploration =====
-    const has = (o,k)=> !!(o && typeof o==="object" && k in o);
-    const num = v => (v==null?null : Number.isFinite(+v)? +v : null);
-    const get = (o,...ks)=> ks.find(k=>has(o,k)) && o[ks.find(k=>has(o,k))];
+  // ========= Helpers to extract trains from any JSON shape =========
+  const num = v => (v==null ? null : Number.isFinite(+v) ? +v : null);
+  const has = (o,k) => !!(o && typeof o === 'object' && k in o);
+  const get = (o,...ks) => ks.find(k => has(o,k)) && o[ks.find(k => has(o,k))];
 
-    function deepArrays(obj, path="$", out=[]){
-      if (Array.isArray(obj)) { out.push({path, arr:obj}); return out; }
-      if (obj && typeof obj === "object") {
-        for (const [k,v] of Object.entries(obj)) deepArrays(v, `${path}.${k}`, out);
-      }
-      return out;
-    }
+  function latLonFromAny(obj){
+    if (!obj || typeof obj!=='object') return [null,null];
 
-    function latLonFromAny(obj){
-      if (!obj || typeof obj!=="object") return [null,null];
-      let lat = get(obj,"lat","Lat","latitude","Latitude","LatDD","LatitudeDD");
-      let lon = get(obj,"lon","Lon","lng","Lng","longitude","Longitude","LonDD","LongitudeDD","Long","LONG");
-      lat = num(lat); lon = num(lon); if (lat!=null && lon!=null) return [lat,lon];
-      for (const k of ["position","pos","coords","coord","location","geo","Geo","geometry"]){
-        const v = obj[k];
-        if (!v || typeof v!=="object") continue;
-        let nlat = get(v,"lat","Lat","latitude","Latitude","LatDD","LatitudeDD");
-        let nlon = get(v,"lon","Lon","lng","Lng","longitude","Longitude","LonDD","LongitudeDD","Long","LONG");
-        nlat = num(nlat); nlon = num(nlon); if (nlat!=null && nlon!=null) return [nlat,nlon];
-        if (Array.isArray(v) && v.length>=2){
-          const a=num(v[0]), b=num(v[1]); if (a!=null && b!=null){ const looksLon=Math.abs(a)>=60&&Math.abs(a)<=180; return looksLon?[b,a]:[a,b]; }
+    // direct fields
+    let lat = get(obj,'lat','Lat','latitude','Latitude','LatDD','LatitudeDD','y','Y');
+    let lon = get(obj,'lon','Lon','lng','Lng','longitude','Longitude','LonDD','LongitudeDD','long','Long','x','X');
+    lat = num(lat); lon = num(lon); if (lat!=null && lon!=null) return [lat,lon];
+
+    // nested common containers
+    for (const k of ['position','pos','coords','coord','location','geo','Geo','geometry']){
+      const v = obj[k];
+      if (!v || typeof v!=='object') continue;
+
+      let nlat = get(v,'lat','Lat','latitude','Latitude','LatDD','LatitudeDD');
+      let nlon = get(v,'lon','Lon','lng','Lng','longitude','Longitude','LonDD','LongitudeDD','long','Long');
+      nlat = num(nlat); nlon = num(nlon); if (nlat!=null && nlon!=null) return [nlat,nlon];
+
+      // [lon,lat] or [lat,lon] arrays
+      if (Array.isArray(v) && v.length>=2){
+        const a = num(v[0]), b = num(v[1]);
+        if (a!=null && b!=null){
+          const looksLon = Math.abs(a)>=60 && Math.abs(a)<=180; // crude
+          return looksLon ? [b,a] : [a,b];
         }
-        if (v.type==="Point" && Array.isArray(v.coordinates)){ const [lo,la]=v.coordinates; return [num(la),num(lo)]; }
       }
-      if (obj.type==="Feature" && obj.geometry?.type==="Point" && Array.isArray(obj.geometry.coordinates)){
-        const [lo,la]=obj.geometry.coordinates; return [num(la),num(lo)];
+
+      // GeoJSON Point
+      if (v.type==='Point' && Array.isArray(v.coordinates)){
+        const [lo, la] = v.coordinates;
+        return [num(la), num(lo)];
       }
-      return [null,null];
     }
 
-    const headOf = r => num(get(r,"heading","Heading","bearing","Bearing","course","Course","Direction","dir")) ?? 0;
-    const speedOf= r => num(get(r,"speed","Speed","velocity","Velocity","kmh","KMH","kph","KPH"));
-    const idOf   = (r,i)=> get(r,"id","ID","Id","locoId","LocoId","LocomotiveId","Unit","Name","ServiceNumber") ?? `train_${i}`;
-    const labelOf= r => get(r,"label","Label","title","Title","loco","Loco","Locomotive","Service","ServiceNumber","Operator","operator") ?? "";
-    const opOf   = r => get(r,"operator","Operator","company","Company","Owner","owner") ?? "";
-
-    function normalize(rec,i){
-      const [la,lo] = latLonFromAny(rec);
-      return { id:idOf(rec,i), lat:la, lon:lo, heading:headOf(rec), speed:speedOf(rec), label:labelOf(rec), operator:opOf(rec) };
+    // Feature with geometry
+    if (obj.type==='Feature' && obj.geometry?.type==='Point' && Array.isArray(obj.geometry.coordinates)){
+      const [lo, la] = obj.geometry.coordinates;
+      return [num(la), num(lo)];
     }
+    return [null,null];
+  }
 
-    function styleFor(hd){
-      return new ol.style.Style({
-        image:new ol.style.RegularShape({
-          points:3, radius:10, rotation:(hd*Math.PI)/180,
-          fill:new ol.style.Fill({color:[0,120,255,0.9]}),
-          stroke:new ol.style.Stroke({color:[0,0,0,0.6], width:1})
-        })
+  const idOf    = (r,i)=> get(r,'id','ID','Id','trainId','TrainId','number','ServiceNumber','Name','Unit') ?? `train_${i}`;
+  const labelOf = r => get(r,'label','Label','title','Title','service','Service','loco','Loco','Locomotive','Name','ServiceNumber') ?? '';
+  const opOf    = r => get(r,'operator','Operator','company','Company','owner','Owner') ?? '';
+  const headOf  = r => num(get(r,'heading','Heading','bearing','Bearing','course','Course','Direction','dir')) ?? 0;
+  const speedOf = r => num(get(r,'speed','Speed','velocity','Velocity','kmh','KMH','kph','KPH'));
+
+  function collectRecords(root, out=[]){
+    if (!root || typeof root!=='object') return out;
+    if (Array.isArray(root)) { root.forEach(v=>collectRecords(v,out)); return out; }
+    // If this object looks like a train record, push it
+    const [la,lo] = latLonFromAny(root);
+    if (la!=null && lo!=null){ out.push(root); return out; }
+    // Otherwise walk deeper
+    Object.values(root).forEach(v=>collectRecords(v,out));
+    return out;
+  }
+
+  function normalize(rec,i){
+    const [lat,lon] = latLonFromAny(rec);
+    return { id:idOf(rec,i), lat, lon, heading:headOf(rec), speed:speedOf(rec),
+             label:labelOf(rec), operator:opOf(rec) };
+  }
+
+  function styleFor(hd){
+    return new ol.style.Style({
+      image: new ol.style.RegularShape({
+        points: 3, radius: 9, rotation: (hd*Math.PI)/180,
+        fill:   new ol.style.Fill({ color: [0,120,255,0.9] }),
+        stroke: new ol.style.Stroke({ color: [0,0,0,0.6], width: 1 })
+      })
+    });
+  }
+
+  let firstFitDone = false;
+
+  function draw(trains){
+    source.clear();
+
+    const feats = [];
+    for (const t of trains){
+      if (t.lat==null || t.lon==null) continue;
+      const f = new ol.Feature({
+        geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])),
+        id: t.id, label: t.label || t.id, operator: t.operator || '',
+        speed: t.speed ?? null, heading: t.heading ?? 0, lon: t.lon, lat: t.lat
       });
+      f.setStyle(styleFor(t.heading ?? 0));
+      feats.push(f);
     }
+    source.addFeatures(feats);
 
-    function draw(trains){
-      source.clear();
-      trains.forEach(t=>{
-        if (t.lat==null || t.lon==null) return;
-        const f=new ol.Feature({
-          geometry:new ol.geom.Point(ol.proj.fromLonLat([t.lon,t.lat])),
-          id:t.id, label:t.label||t.id, operator:t.operator||"", speed:t.speed??null, heading:t.heading??0,
-          lon:t.lon, lat:t.lat
-        });
-        f.setStyle(styleFor(t.heading??0));
-        source.addFeature(f);
-      });
-      $summary.textContent = `✅ Rendering ${trains.length} trains`;
+    if (!firstFitDone && feats.length){
+      firstFitDone = true;
+      const extent = source.getExtent();
+      map.getView().fit(extent, { padding:[40,40,40,40], maxZoom: 12, duration: 500 });
     }
+    $msg.textContent = `Trains: ${feats.length} • ${new Date().toLocaleTimeString()}`;
+  }
 
-    let lastPayload = null;
-
-    async function loadAndList(){
-      $summary.textContent = "Fetching…";
-      $sample.textContent = "";
-      const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
-      if (!res.ok) { $summary.textContent = `HTTP ${res.status}`; return; }
+  async function tick(){
+    try{
+      const res = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      lastPayload = json;
-
-      const arrays = deepArrays(json);
-      const scored = arrays.map(c=>{
-        let s=0; const sample=c.arr.slice(0,8);
-        for(const rec of sample){
-          const [la,lo]=latLonFromAny(rec||{});
-          if (la!=null && lo!=null) s+=5;
-          if (rec && (("heading" in rec)||("Heading" in rec)||("bearing" in rec)||("Bearing" in rec))) s+=2;
-          if (rec && (("speed" in rec)||("Speed" in rec)||("velocity" in rec)||("Velocity" in rec))) s+=1;
-        }
-        return { path:c.path, len:c.arr.length, score:s, sample: sample[0] };
-      }).sort((a,b)=> b.score-a.score || b.len-a.len);
-
-      const $sel = document.getElementById('pathSelect');
-      const $sample = document.getElementById('sample');
-      $sel.innerHTML = "";
-      scored.forEach((c,i)=>{
-        const opt = document.createElement("option");
-        opt.value = c.path;
-        const sk = c.sample && typeof c.sample==="object" ? Object.keys(c.sample).slice(0,8).join(", ") : String(c.sample);
-        opt.textContent = `${c.path}  (len=${c.len}, score=${c.score})  sample: { ${sk} }`;
-        $sel.appendChild(opt);
-      });
-
-      if (scored.length) {
-        $sel.selectedIndex = 0;
-        $summary.textContent = `Found ${scored.length} arrays. Pick one above (top is best guess).`;
-        $sample.textContent = "";
-      } else {
-        $summary.textContent = "No arrays found in JSON.";
-        $sample.textContent = "";
-      }
-    }
-
-    function getByPath(root, path){
-      if (!path || !path.startsWith("$")) return undefined;
-      const parts = path.split(".").slice(1);
-      let cur = root;
-      for (const p of parts){
-        if (p==="" || p===" ") continue;
-        if (!cur || typeof cur!=="object") return undefined;
-        cur = cur[p];
-      }
-      return cur;
-    }
-
-    function renderSelected(){
-      const $sel = document.getElementById('pathSelect');
-      const path = $sel.value;
-      const arr = getByPath(lastPayload, path) || [];
-      const trains = arr.map(normalize).filter(r=>r.lat!=null && r.lon!=null);
+      const records = collectRecords(json);
+      const trains  = records.map(normalize).filter(t => t.lat!=null && t.lon!=null);
       draw(trains);
-      const $sample = document.getElementById('sample');
-      $sample.textContent = `Using ${path}\nRecords: ${arr.length}\nAfter normalize: ${trains.length}\nFirst record:\n` +
-        (arr[0] ? JSON.stringify(arr[0], null, 2).slice(0, 1200) : "(none)");
+    }catch(err){
+      console.error(err);
+      $msg.textContent = `Fetch error: ${err.message}`;
     }
+  }
 
-    // Kick off + auto-use the top array
-    const $sel = document.getElementById('pathSelect');
-    loadAndList().then(() => {
-      if ($sel.options.length) {
-        $sel.selectedIndex = 0;
-        renderSelected();
-      }
-    });
+  tick();
+  setInterval(tick, REFRESH_MS);
 
-    // periodic refresh of the selected path
-    setInterval(async ()=>{
-      if (!lastPayload) return;
-      if (!$sel.value) return;
-      const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
-      if (!res.ok) return;
-      lastPayload = await res.json();
-      renderSelected();
-    }, REFRESH_MS);
+  // Simple click popup
+  const popupEl = document.createElement('div');
+  popupEl.style.cssText = 'background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:180px;';
+  const popup = new ol.Overlay({ element: popupEl, autoPan:{animation:{duration:250}}, offset:[0,-12], positioning:'bottom-center' });
+  map.addOverlay(popup);
+  map.on('singleclick', (evt)=>{
+    let found = null;
+    map.forEachFeatureAtPixel(evt.pixel, (feat, lyr)=>{ if (lyr===layer) found = feat; });
+    if (!found){ popup.setPosition(undefined); return; }
+    const p = found.getProperties();
+    popupEl.innerHTML = `<strong>${p.label||p.id||'Train'}</strong><br/>
+      ${p.operator? `${p.operator}<br/>`:''}
+      ${p.speed!=null? `Speed: ${p.speed} km/h<br/>`:''}
+      Heading: ${Math.round(p.heading||0)}°<br/>
+      ${p.lat?.toFixed?.(5)}, ${p.lon?.toFixed?.(5)}`;
+    popup.setPosition(found.getGeometry().getCoordinates());
+  });
   </script>
 </body>
 </html>
