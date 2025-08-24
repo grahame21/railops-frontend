@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>RailOps — Live Trains</title>
 
-  <!-- OpenLayers: make sure both CSS and JS load -->
+  <!-- OpenLayers CSS -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css">
   <style>
     html,body { height:100%; margin:0; background:#f6f7fb; font:14px system-ui,sans-serif; }
@@ -20,6 +20,7 @@
   <div id="map"></div>
   <div class="status"><span id="msg">Loading…</span></div>
 
+  <!-- OpenLayers JS -->
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
   <script>
   // ========= Config =========
@@ -85,61 +86,90 @@
     return [null,null];
   }
 
-  const idOf    = (r,i)=> get(r,'id','ID','Id','trainId','TrainId','number','ServiceNumber','Name','Unit') ?? `train_${i}`;
-  const labelOf = r => get(r,'label','Label','title','Title','service','Service','loco','Loco','Locomotive','Name','ServiceNumber') ?? '';
-  const opOf    = r => get(r,'operator','Operator','company','Company','owner','Owner') ?? '';
-  const headOf  = r => num(get(r,'heading','Heading','bearing','Bearing','course','Course','Direction','dir')) ?? 0;
-  const speedOf = r => num(get(r,'speed','Speed','velocity','Velocity','kmh','KMH','kph','KPH'));
+  // Bearing helpers so arrows point the right way
+  const lastPosById = new Map();
+  const deg2rad = d => d * Math.PI / 180;
+  const rad2deg = r => r * 180 / Math.PI;
+  function bearing(lon1, lat1, lon2, lat2){
+    const φ1 = deg2rad(lat1), φ2 = deg2rad(lat2);
+    const Δλ = deg2rad(lon2 - lon1);
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+    const θ = Math.atan2(y, x);
+    return ( (rad2deg(θ) + 360) % 360 );
+  }
+
+  const idOf    = (r,i) => get(r,'id','ID','Id','trainId','TrainId','number','Number','ServiceNumber','ServiceID','Name','Unit','LocoId','LocomotiveId') ?? `train_${i}`;
+  const labelOf = (r)   => get(r,'label','Label','title','Title','service','Service','Train','Headcode','HeadCode','ServiceNumber','Name','Unit') ?? '';
+  const opOf    = (r)   => get(r,'operator','Operator','company','Company','owner','Owner') ?? '';
+  const headOf  =  r    => num(get(r,'heading','Heading','bearing','Bearing','course','Course','Direction','dir'));
+  const speedOf =  r    => num(get(r,'speed','Speed','velocity','Velocity','kmh','KMH','kph','KPH'));
 
   function collectRecords(root, out=[]){
     if (!root || typeof root!=='object') return out;
     if (Array.isArray(root)) { root.forEach(v=>collectRecords(v,out)); return out; }
-    // If this object looks like a train record, push it
     const [la,lo] = latLonFromAny(root);
     if (la!=null && lo!=null){ out.push(root); return out; }
-    // Otherwise walk deeper
     Object.values(root).forEach(v=>collectRecords(v,out));
     return out;
   }
 
   function normalize(rec,i){
-    const [lat,lon] = latLonFromAny(rec);
-    return { id:idOf(rec,i), lat, lon, heading:headOf(rec), speed:speedOf(rec),
-             label:labelOf(rec), operator:opOf(rec) };
+    const [lat, lon] = latLonFromAny(rec);
+    let id = idOf(rec, i);
+    if (!id || String(id).trim()==='') {
+      const svc = get(rec,'ServiceNumber','Service','Name','Train','title') ?? '';
+      const op  = opOf(rec);
+      if (svc || op) id = `${op}-${svc}`;
+      else if (lat!=null && lon!=null) id = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+      else id = `train_${i}`;
+    }
+    let hd = headOf(rec);
+    if ((hd==null || !isFinite(hd)) && lat!=null && lon!=null) {
+      const last = lastPosById.get(id);
+      if (last) hd = bearing(last.lon, last.lat, lon, lat);
+    }
+    return { id, lat, lon, heading: (hd!=null && isFinite(hd)) ? hd : 0,
+             speed: speedOf(rec), label: labelOf(rec), operator: opOf(rec) };
   }
 
-  function styleFor(hd){
+  function styleFor(t){
+    const rotation = ((t.heading ?? 0) - 90) * Math.PI / 180; // convert north-up bearing to east-up symbol
     return new ol.style.Style({
       image: new ol.style.RegularShape({
-        points: 3, radius: 9, rotation: (hd*Math.PI)/180,
-        fill:   new ol.style.Fill({ color: [0,120,255,0.9] }),
+        points: 3, radius: 9, rotation,
+        fill:   new ol.style.Fill({ color: [0,120,255,0.95] }),
         stroke: new ol.style.Stroke({ color: [0,0,0,0.6], width: 1 })
+      }),
+      text: new ol.style.Text({
+        text: (t.label && String(t.label)) || String(t.id),
+        offsetY: -14,
+        font: '12px system-ui, sans-serif',
+        fill: new ol.style.Fill({ color: '#111' }),
+        stroke: new ol.style.Stroke({ color: 'rgba(255,255,255,0.95)', width: 3 })
       })
     });
   }
 
   let firstFitDone = false;
-
   function draw(trains){
     source.clear();
-
     const feats = [];
     for (const t of trains){
       if (t.lat==null || t.lon==null) continue;
+      lastPosById.set(t.id, { lat: t.lat, lon: t.lon });
       const f = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])),
         id: t.id, label: t.label || t.id, operator: t.operator || '',
         speed: t.speed ?? null, heading: t.heading ?? 0, lon: t.lon, lat: t.lat
       });
-      f.setStyle(styleFor(t.heading ?? 0));
+      f.setStyle(styleFor(t));
       feats.push(f);
     }
     source.addFeatures(feats);
-
     if (!firstFitDone && feats.length){
       firstFitDone = true;
-      const extent = source.getExtent();
-      map.getView().fit(extent, { padding:[40,40,40,40], maxZoom: 12, duration: 500 });
+      map.getView().fit(source.getExtent(), { padding:[40,40,40,40], maxZoom: 12, duration: 500 });
     }
     $msg.textContent = `Trains: ${feats.length} • ${new Date().toLocaleTimeString()}`;
   }
@@ -161,7 +191,7 @@
   tick();
   setInterval(tick, REFRESH_MS);
 
-  // Simple click popup
+  // Click popup
   const popupEl = document.createElement('div');
   popupEl.style.cssText = 'background:#fff;border:1px solid #ddd;border-radius:8px;padding:8px 10px;box-shadow:0 8px 24px rgba(0,0,0,.15);min-width:180px;';
   const popup = new ol.Overlay({ element: popupEl, autoPan:{animation:{duration:250}}, offset:[0,-12], positioning:'bottom-center' });
