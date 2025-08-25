@@ -2,291 +2,368 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>RailOps • Train Map</title>
+  <title>RailOps – Train Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <!-- Leaflet -->
+
+  <!-- Leaflet CSS (CDN) -->
   <link
     rel="stylesheet"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
     crossorigin=""
   />
+
+  <style>
+    :root {
+      --brand: #007bff;
+      --bg: #0b1724;
+      --panel: #101d2b;
+      --text: #e8eef5;
+      --muted: #9fb3c8;
+      --danger: #ff5252;
+      --ok: #25d366;
+    }
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    }
+    .wrap {
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      height: 100%;
+    }
+    header, footer {
+      background: var(--panel);
+      border-bottom: 1px solid #0e243a;
+      padding: 8px 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    header h1 {
+      font-size: 16px;
+      margin: 0;
+      color: var(--text);
+      letter-spacing: .2px;
+    }
+    header .spacer { flex: 1; }
+
+    #status {
+      font-size: 12px;
+      color: var(--muted);
+    }
+    #status.ok { color: var(--ok); }
+    #status.err { color: var(--danger); }
+
+    .btn {
+      appearance: none;
+      border: 1px solid #16324a;
+      background: #0e243a;
+      color: var(--text);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .btn:hover { border-color: var(--brand); }
+    .btn.primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: white;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    .panel {
+      position: absolute;
+      right: 12px;
+      top: 64px;
+      z-index: 500;
+      background: rgba(16, 29, 43, 0.92);
+      border: 1px solid #16324a;
+      border-radius: 10px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+      padding: 10px 12px;
+      backdrop-filter: blur(4px);
+      min-width: 220px;
+    }
+    .panel h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: .2px;
+    }
+    .kv { font-size: 12px; color: var(--muted); }
+    .kv b { color: var(--text); }
+
+    .legend {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 4px 8px;
+      align-items: center;
+      margin-top: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--brand);
+      border: 1px solid rgba(255,255,255,.3);
+    }
+    .leaflet-popup-content {
+      margin: 8px 10px;
+      line-height: 1.2;
+    }
+    .leaflet-container a { color: var(--brand); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Grahame’s RailOps – Live Train Map</h1>
+      <div class="spacer"></div>
+
+      <button class="btn" id="btnSydney">Sydney</button>
+      <button class="btn" id="btnAdelaide">Adelaide</button>
+      <button class="btn" id="btnRefresh">Refresh</button>
+
+      <div id="status" title="API status">Loading…</div>
+    </header>
+
+    <div id="map"></div>
+
+    <div class="panel" id="infoPanel">
+      <h3>Now</h3>
+      <div class="kv"><b>Markers</b>: <span id="count">0</span></div>
+      <div class="kv"><b>Updated</b>: <span id="updated">—</span></div>
+
+      <div class="legend">
+        <span class="dot"></span><span>Train</span>
+      </div>
+    </div>
+
+    <footer style="display:flex;align-items:center;gap:10px;padding:8px 12px;">
+      <span style="font-size:12px;color:var(--muted);">
+        Data backend: <b>railops-json.onrender.com</b>
+      </span>
+      <span style="font-size:12px;color:var(--muted);">
+        Auto refresh: <b>30s</b>
+      </span>
+    </footer>
+  </div>
+
+  <!-- Leaflet JS (CDN) -->
   <script
     src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
-  <style>
-    :root { --brand:#007bff; --bg:#0f172a; --panel:#fff; }
-    html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
-    .page{display:grid;grid-template-columns:320px 1fr;grid-template-rows:56px 1fr;grid-template-areas:"top top" "left map";height:100%}
-    .topbar{grid-area:top;display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,var(--brand),#00a6ff);color:#fff;padding:0 16px;font-weight:700}
-    .left{grid-area:left;background:var(--panel);padding:14px;border-right:1px solid #e5e7eb;overflow:auto}
-    #map{grid-area:map}
-    .btn{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}
-    .btn.secondary{background:#111827}
-    .btn:disabled{opacity:.6;cursor:default}
-    .row{display:flex;gap:8px;align-items:center;margin:8px 0 12px;flex-wrap:wrap}
-    .stat{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px}
-    .stat b{color:#0f172a}
-    .tiny{font-size:12px;color:#6b7280}
-    select{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:14px}
-    .legend{margin-top:8px;font-size:12px;color:#4b5563}
-    .link{color:var(--brand);font-weight:700;text-decoration:none}
-    .link:hover{text-decoration:underline}
-    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px}
-  </style>
-</head>
-<body>
-  <div class="page">
-    <div class="topbar">🚆 RailOps • Train Map</div>
-
-    <aside class="left">
-      <div class="row">
-        <button id="btnRefresh" class="btn">Refresh trains</button>
-        <button id="btnSydney" class="btn secondary">Sydney</button>
-        <button id="btnAdelaide" class="btn secondary">Adelaide</button>
-        <button id="btnMelbourne" class="btn secondary">Melbourne</button>
-      </div>
-
-      <div class="row">
-        <label class="tiny">Auto-refresh</label>
-        <select id="autoRefreshSelect">
-          <option value="off">Off</option>
-          <option value="30">Every 30s</option>
-          <option value="60" selected>Every 60s</option>
-          <option value="120">Every 2m</option>
-        </select>
-      </div>
-
-      <div class="stat">
-        <div><b>Status:</b></div><div id="status">idle</div>
-        <div><b>Last refresh:</b></div><div id="lastRefresh">—</div>
-        <div><b>Train count:</b></div><div id="trainCount">0</div>
-        <div><b>Source:</b></div><div id="sourceKey">—</div>
-      </div>
-
-      <div class="tiny legend">
-        • Map move/zoom triggers refresh<br/>
-        • Backend: <a class="link" href="https://railops-json.onrender.com" target="_blank" rel="noreferrer">railops-json.onrender.com</a><br/>
-        • Raw data: <a class="link" href="https://railops-json.onrender.com/trains" target="_blank">/trains</a> or
-          <a class="link" href="https://railops-json.onrender.com/trains.json" target="_blank">/trains.json</a>
-      </div>
-
-      <div id="diag" class="mono tiny" style="margin-top:10px;white-space:pre-wrap;"></div>
-      <div id="list" class="tiny" style="margin-top:10px;"></div>
-    </aside>
-
-    <div id="map"></div>
-  </div>
 
   <script>
-    // ==== CONFIG ====
-    const API_BASE = "https://railops-json.onrender.com";
-    const ENDPOINT_REFRESH = `${API_BASE}/refresh`;
-    const ENDPOINT_TRAINS_PRIMARY = `${API_BASE}/trains`;
-    const ENDPOINT_TRAINS_FALLBACK = `${API_BASE}/trains.json`;
+    /**********************
+     * CONFIG
+     **********************/
+    const API_BASE = "https://railops-json.onrender.com";   // Render backend
+    const TRAINS_URL = `${API_BASE}/trains`;                // JSON endpoint
+    const REFRESH_MS = 30_000;
 
-    // ==== MAP INIT ====
-    const map = L.map('map', { worldCopyJump: true, minZoom: 3, maxZoom: 18 })
-      .setView([-33.8688, 151.2093], 12); // Sydney
+    /**********************
+     * MAP BOOTSTRAP
+     **********************/
+    const map = L.map('map', {
+      zoomControl: true,
+      minZoom: 3,
+      maxZoom: 19
+    }).setView([-33.86, 151.21], 10);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; OpenStreetMap'
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    const trainLayer = L.layerGroup().addTo(map);
-
-    // ==== UI ELTS ====
-    const btnRefresh = document.getElementById('btnRefresh');
-    const btnSydney = document.getElementById('btnSydney');
-    const btnAdelaide = document.getElementById('btnAdelaide');
-    const btnMelbourne = document.getElementById('btnMelbourne');
+    const layerTrains = L.layerGroup().addTo(map);
     const statusEl = document.getElementById('status');
-    const lastRefreshEl = document.getElementById('lastRefresh');
-    const trainCountEl = document.getElementById('trainCount');
-    const sourceKeyEl = document.getElementById('sourceKey');
-    const autoRefreshSelect = document.getElementById('autoRefreshSelect');
-    const listEl = document.getElementById('list');
-    const diagEl = document.getElementById('diag');
+    const countEl  = document.getElementById('count');
+    const updatedEl= document.getElementById('updated');
 
-    // ==== HELPERS ====
-    const setStatus = t => statusEl.textContent = t;
-    const timestamp = () => new Date().toLocaleString();
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-    // robust lat/lng
-    function readLatLng(item) {
-      if (!item || typeof item !== 'object') return null;
-      const lower = {};
-      for (const k of Object.keys(item)) lower[k.toLowerCase()] = k;
-
-      const latK = lower['lat'] || lower['latitude'] || lower['y'];
-      const lngK = lower['lng'] || lower['lon'] || lower['long'] || lower['longitude'] || lower['x'];
-      if (!latK || !lngK) return null;
-
-      const lat = Number(item[latK]);
-      const lng = Number(item[lngK]);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
-      return null;
+    // Simple blue dot marker
+    function makeIcon() {
+      return L.divIcon({
+        className: '',
+        html: '<div style="width:14px;height:14px;border-radius:50%;background:#007bff;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.2)"></div>',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
     }
 
-    function popupHtml(item) {
-      const get = (...names) => {
-        for (const n of names) {
-          if (n in item) return item[n];
-          const found = Object.keys(item).find(k => k.toLowerCase() === n.toLowerCase());
-          if (found) return item[found];
-        }
-      };
-      const name = get('name','service','operator','train','route') || 'Train';
-      const id = get('id','train_id','tid','uid');
-      const speed = get('speed','kph','kmh');
-      const when = get('lastSeen','last_seen','ts','timestamp','time');
+    /**********************
+     * DATA FETCH + PARSE
+     **********************/
+    async function fetchTrains() {
+      setStatus("Loading…");
+      const url = TRAINS_URL + `?t=${Date.now()}`; // bust caches
 
-      return `<div style="min-width:180px">
-        <div style="font-weight:700;margin-bottom:4px">${name}</div>
-        ${id ? `<div><b>ID:</b> ${id}</div>` : ``}
-        ${speed ? `<div><b>Speed:</b> ${speed}</div>` : ``}
-        ${when ? `<div><b>Seen:</b> ${when}</div>` : ``}
-      </div>`;
-    }
-
-    function extractTrains(data) {
-      // Returns { items: array, source: string, diag: string }
-      if (!data) return { items: [], source: 'none', diag: 'no data' };
-
-      const diagParts = [];
-      if (typeof data === 'object') {
-        diagParts.push('keys: ' + Object.keys(data).join(', '));
+      const res = await fetch(url, { cache: "no-store" });
+      if (!res.ok) {
+        const txt = await res.text().catch(() => "");
+        throw new Error(`HTTP ${res.status} ${txt || res.statusText}`);
       }
+      return res.json();
+    }
 
-      // 1) array directly
+    /**
+     * Try to normalize a few shapes into a flat array of:
+     * { id, name, lat, lng, speed, source, when, extra }
+     */
+    function normalizeTrains(data) {
+      // Case A: already an array of trains
       if (Array.isArray(data)) {
-        diagParts.push(`top-level array length=${data.length}`);
-        return { items: data, source: 'array', diag: diagParts.join('\n') };
+        return data
+          .map((t, i) => ({
+            id: t.id ?? t.train_id ?? i,
+            name: t.title ?? t.name ?? t.subtitle ?? `Train ${t.id ?? i}`,
+            lat: t.lat ?? t.latitude ?? (t.pos && t.pos.lat),
+            lng: t.lng ?? t.lon ?? t.longitude ?? (t.pos && (t.pos.lng ?? t.pos.lon)),
+            speed: t.speed ?? t.kmh ?? t.mph,
+            source: t.source ?? "railops",
+            when: t.last_seen ?? t.ts ?? t.time ?? null,
+            extra: t
+          }))
+          .filter((t) => isFinite(t.lat) && isFinite(t.lng));
       }
 
-      // 2) common shapes
-      if (Array.isArray(data.trains)) {
-        diagParts.push(`trains length=${data.trains.length}`);
-        return { items: data.trains, source: 'trains', diag: diagParts.join('\n') };
-      }
-      if (Array.isArray(data.tts)) {
-        diagParts.push(`tts length=${data.tts.length}`);
-        return { items: data.tts, source: 'tts', diag: diagParts.join('\n') };
-      }
-      if (data.atcsObj && typeof data.atcsObj === 'object') {
-        const vals = Object.values(data.atcsObj);
-        diagParts.push(`atcsObj count=${vals.length}`);
-        return { items: vals, source: 'atcsObj', diag: diagParts.join('\n') };
-      }
-      if (data.atcsGomi && typeof data.atcsGomi === 'object') {
-        const vals = Object.values(data.atcsGomi);
-        diagParts.push(`atcsGomi count=${vals.length}`);
-        return { items: vals, source: 'atcsGomi', diag: diagParts.join('\n') };
+      // Case B: { trains: [...] }
+      if (data && Array.isArray(data.trains)) {
+        return normalizeTrains(data.trains);
       }
 
-      // 3) sometimes nested payload
-      if (data.payload) {
-        const inner = extractTrains(data.payload);
-        inner.diag = 'payload → ' + inner.diag;
-        return inner;
+      // Case C: TrainFinder raw keys present (you logged these earlier)
+      // e.g. { tts: [...]} or other buckets. If tts exists and looks like trains, try it.
+      if (data && Array.isArray(data.tts)) {
+        return data.tts
+          .map((t, i) => ({
+            id: t.id ?? i,
+            name: t.n ?? t.title ?? `Train ${t.id ?? i}`,
+            lat: t.la ?? t.lat ?? (t.pos && t.pos.la),
+            lng: t.lo ?? t.lng ?? (t.pos && (t.pos.lo ?? t.pos.lng)),
+            speed: t.sp ?? t.speed,
+            source: "TF",
+            when: t.ts ?? null,
+            extra: t
+          }))
+          .filter((t) => isFinite(t.lat) && isFinite(t.lng));
       }
 
-      return { items: [], source: 'unknown', diag: diagParts.join('\n') || 'unknown shape' };
+      // Fallback: nothing usable
+      return [];
     }
 
-    function renderList(items) {
-      const top = items.slice(0, 50);
-      let html = '';
-      for (const it of top) {
-        const latlng = readLatLng(it);
-        const title = (it.name || it.service || it.operator || it.route || 'Train');
-        html += `<div style="padding:6px 0;border-bottom:1px solid #eee;">
-          <b>${title}</b>
-          ${latlng ? `<div>${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}</div>` : ``}
-        </div>`;
-      }
-      listEl.innerHTML = html || '<div>No trains in this view.</div>';
-    }
+    /**********************
+     * RENDER MARKERS
+     **********************/
+    let markersById = new Map();
 
-    // ==== CORE FLOW ====
-    let refreshTimer = null;
+    function renderTrains(list) {
+      const seenIds = new Set();
 
-    async function refreshForViewport() {
-      btnRefresh.disabled = true;
-      setStatus('refreshing…');
-      try {
-        const c = map.getCenter();
-        const z = map.getZoom();
-        const b = map.getBounds();
-        const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+      list.forEach((t) => {
+        const id = t.id ?? `${t.lat.toFixed(5)},${t.lng.toFixed(5)}`;
+        seenIds.add(id);
 
-        // IMPORTANT: send form-encoded (your server expects this)
-        const form = new URLSearchParams();
-        form.set('lat', String(c.lat));
-        form.set('lng', String(c.lng));
-        form.set('zm', String(z));
-        // include bbox too (server can ignore if not used)
-        form.set('bbox', bbox.join(','));
+        let marker = markersById.get(id);
+        const popupHtml = `
+          <div>
+            <div style="font-weight:600;margin-bottom:4px;">${escapeHtml(t.name ?? "Train")}</div>
+            <div style="font-size:12px;color:#7fa1c3;">
+              Lat ${t.lat.toFixed(5)}, Lng ${t.lng.toFixed(5)}<br/>
+              ${t.speed ? `Speed: ${escapeHtml(String(t.speed))}<br/>` : ""}
+              ${t.source ? `Source: ${escapeHtml(String(t.source))}<br/>` : ""}
+              ${t.when ? `Seen: ${escapeHtml(String(t.when))}` : ""}
+            </div>
+          </div>
+        `;
 
-        await fetch(ENDPOINT_REFRESH, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: form.toString()
-        }).catch(() => {});
-
-        // give server a moment to pull
-        await sleep(400);
-
-        // pull trains
-        let res = await fetch(ENDPOINT_TRAINS_PRIMARY, { cache: 'no-store' });
-        if (!res.ok) res = await fetch(ENDPOINT_TRAINS_FALLBACK, { cache: 'no-store' });
-        const data = await res.json();
-
-        const { items, source, diag } = extractTrains(data);
-
-        trainLayer.clearLayers();
-        let plotted = 0;
-        for (const it of items) {
-          const latlng = readLatLng(it);
-          if (!latlng) continue;
-          const m = L.marker([latlng.lat, latlng.lng]).bindPopup(popupHtml(it));
-          m.addTo(trainLayer);
-          plotted++;
+        if (!marker) {
+          marker = L.marker([t.lat, t.lng], { icon: makeIcon() })
+            .bindPopup(popupHtml);
+          marker.addTo(layerTrains);
+          markersById.set(id, marker);
+        } else {
+          marker.setLatLng([t.lat, t.lng]);
+          marker.setPopupContent(popupHtml);
         }
+      });
 
-        trainCountEl.textContent = String(plotted);
-        lastRefreshEl.textContent = timestamp();
-        sourceKeyEl.textContent = source;
-        diagEl.textContent = diag || '';
-        renderList(items);
-        setStatus(plotted ? 'ok' : 'no trains in view');
-      } catch (e) {
-        console.error(e);
-        setStatus('error loading trains');
-        diagEl.textContent = (e && e.message) ? e.message : String(e);
-      } finally {
-        btnRefresh.disabled = false;
+      // remove markers that didn't show up this refresh
+      for (const [id, marker] of markersById.entries()) {
+        if (!seenIds.has(id)) {
+          layerTrains.removeLayer(marker);
+          markersById.delete(id);
+        }
+      }
+
+      countEl.textContent = String(markersById.size);
+      updatedEl.textContent = new Date().toLocaleTimeString();
+    }
+
+    /**********************
+     * STATUS
+     **********************/
+    function setStatus(text, type) {
+      statusEl.textContent = text;
+      statusEl.classList.remove('ok', 'err');
+      if (type) statusEl.classList.add(type);
+    }
+
+    /**********************
+     * HELPERS
+     **********************/
+    function escapeHtml(s) {
+      return String(s)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#39;");
+    }
+
+    async function refreshOnce() {
+      try {
+        const raw = await fetchTrains();
+        const trains = normalizeTrains(raw);
+        renderTrains(trains);
+        setStatus(`OK (${trains.length})`, 'ok');
+      } catch (err) {
+        console.error("Error loading trains:", err);
+        setStatus("Error loading trains", 'err');
+        // keep existing markers; we’ll try again on next tick
       }
     }
 
-    // ==== EVENTS ====
-    map.on('moveend', refreshForViewport);
-    btnRefresh.addEventListener('click', refreshForViewport);
-    btnSydney.addEventListener('click', () => map.setView([-33.8688, 151.2093], 12));
-    btnAdelaide.addEventListener('click', () => map.setView([-34.9285, 138.6007], 12));
-    btnMelbourne.addEventListener('click', () => map.setView([-37.8136, 144.9631], 12));
-
-    autoRefreshSelect.addEventListener('change', () => {
-      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
-      const val = autoRefreshSelect.value;
-      if (val !== 'off') refreshTimer = setInterval(refreshForViewport, Number(val) * 1000);
+    /**********************
+     * CONTROLS
+     **********************/
+    document.getElementById('btnRefresh').addEventListener('click', refreshOnce);
+    document.getElementById('btnSydney').addEventListener('click', () => {
+      map.setView([-33.86, 151.21], 11);
+    });
+    document.getElementById('btnAdelaide').addEventListener('click', () => {
+      map.setView([-34.93, 138.60], 11);
     });
 
-    // initial
-    refreshForViewport();
+    /**********************
+     * START
+     **********************/
+    refreshOnce();
+    setInterval(refreshOnce, REFRESH_MS);
   </script>
 </body>
 </html>
