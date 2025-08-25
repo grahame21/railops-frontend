@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RailOps Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
+  <style>
+    :root { color-scheme: dark light; }
+    html, body { height: 100%; margin: 0; }
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    #topbar {
+      display: flex; gap: .75rem; align-items: center; padding: .6rem .9rem;
+      border-bottom: 1px solid #e5e7eb; background: #fff; position: sticky; top: 0; z-index: 1000;
+    }
+    .pill { padding: .25rem .6rem; border-radius: 999px; background:#f3f4f6; font-size:.9rem; }
+    #map { height: calc(100% - 56px); } /* subtract topbar height */
+    button {
+      border: 1px solid #d1d5db; background:#111827; color:#fff; border-radius:.6rem;
+      padding:.5rem .8rem; cursor:pointer;
+    }
+    button.secondary { background:#fff; color:#111; }
+    #status { font-size: .9rem; opacity:.8; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <strong>RailOps</strong>
+    <span class="pill"><span id="count">0</span> trains</span>
+    <span class="pill">last update: <span id="updated">—</span></span>
+    <button id="btn-refresh">Refresh from map</button>
+    <button id="btn-auto" class="secondary">Auto-refresh: <span id="auto-state">off</span></button>
+    <span id="status" aria-live="polite"></span>
+  </div>
+
+  <div id="map"></div>
+
+  <script>
+    // ====== CONFIG ======
+    // If this page is served by the same Flask app, keep as ''. Otherwise set your backend URL explicitly:
+    const API_BASE = ''; // e.g. 'https://railops-json.onrender.com'
+    const DATA_URL = API_BASE + '/data/trains.json';
+    const REFRESH_URL = API_BASE + '/refresh';
+
+    // ====== MAP ======
+    const map = L.map('map', { worldCopyJump: true }).setView([-33.86, 151.21], 7);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    let markersLayer = L.layerGroup().addTo(map);
+    let autoRefresh = false;
+    let autoTimer = null;
+
+    // ====== UI helpers ======
+    const $ = (id) => document.getElementById(id);
+    function setStatus(text) { $('status').textContent = text || ''; }
+    function setCount(n) { $('count').textContent = String(n); }
+    function setUpdated(t) { $('updated').textContent = t ? new Date(t).toLocaleTimeString() : '—'; }
+    function toggleAuto() {
+      autoRefresh = !autoRefresh;
+      $('auto-state').textContent = autoRefresh ? 'on' : 'off';
+      if (autoTimer) clearInterval(autoTimer);
+      if (autoRefresh) autoTimer = setInterval(() => refreshFromMap(false), 30000); // every 30s
+    }
+
+    // ====== Data fetching ======
+    async function getJSON(url) {
+      const res = await fetch(url + (url.includes('?') ? '&' : '?') + '_=' + Date.now(), { cache: 'no-store' });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    function guessLatLng(obj) {
+      // Try common key variants
+      const latKeys = ['lat','latitude','Lat','Latitude','y','Y'];
+      const lngKeys = ['lng','lon','long','longitude','Lng','Lon','Long','Longitude','x','X'];
+      let lat = null, lng = null;
+      for (const k of latKeys) if (k in obj && isFinite(obj[k])) { lat = Number(obj[k]); break; }
+      for (const k of lngKeys) if (k in obj && isFinite(obj[k])) { lng = Number(obj[k]); break; }
+      return (lat!=null && lng!=null) ? [lat,lng] : null;
+    }
+
+    function extractTrains(data) {
+      // Accept several shapes; prefer 'trains', fallback to 'tts' (train tickers?) or empty
+      if (Array.isArray(data)) return data;
+      if (Array.isArray(data.trains)) return data.trains;
+      if (Array.isArray(data.tts)) return data.tts;
+      // Sometimes embedded: { data: { trains: [...] } }
+      if (data && data.data) {
+        if (Array.isArray(data.data.trains)) return data.data.trains;
+        if (Array.isArray(data.data.tts)) return data.data.tts;
+      }
+      return [];
+    }
+
+    function renderTrains(list) {
+      markersLayer.clearLayers();
+      let placed = 0;
+
+      for (const item of list) {
+        const pos = guessLatLng(item);
+        if (!pos) continue;
+        const title =
+          item.name || item.description || item.service || item.trainNo || item.id || 'Train';
+        const speed = item.speed != null ? ` • ${item.speed} km/h` : '';
+        const time = item.timestamp || item.time || item.lastSeen;
+        const when = time ? ` • ${new Date(time).toLocaleTimeString()}` : '';
+        const popupHtml = `<strong>${title}</strong>${speed}${when}<pre style="margin:.5rem 0 0;white-space:pre-wrap">${escapeHtml(JSON.stringify(item, null, 2))}</pre>`;
+        L.marker(pos).bindPopup(popupHtml).addTo(markersLayer);
+        placed++;
+      }
+      setCount(list.length);
+      setStatus(`Plotted ${placed} marker${placed===1?'':'s'}.`);
+    }
+
+    function escapeHtml(s){return s.replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
+
+    async function loadTrains() {
+      try {
+        setStatus('Loading trains.json…');
+        const data = await getJSON(DATA_URL);
+        const list = extractTrains(data);
+        renderTrains(list);
+        setUpdated(Date.now());
+        setStatus('OK');
+      } catch (err) {
+        console.error(err);
+        setStatus('Failed to load trains.json');
+      }
+    }
+
+    // ====== Refresh backend from current map view ======
+    async function refreshFromMap(showToast = true) {
+      const c = map.getCenter();
+      const z = map.getZoom();
+      const b = map.getBounds();
+      // bbox format: south,west,north,east
+      const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()].map(n=>n.toFixed(4)).join(',');
+      const params = new URLSearchParams({
+        lat: c.lat.toFixed(2),
+        lng: c.lng.toFixed(2),
+        zm: String(z),
+        bbox
+      });
+      try {
+        setStatus('Requesting backend refresh…');
+        // Support GET or POST; many setups accept either
+        const res = await fetch(REFRESH_URL + '?' + params.toString(), { method: 'GET' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (showToast) setStatus('Backend refreshed, loading data…');
+        await loadTrains();
+      } catch (err) {
+        console.error(err);
+        setStatus('Refresh failed.');
+      }
+    }
+
+    // ====== Wire up UI ======
+    $('btn-refresh').addEventListener('click', () => refreshFromMap(true));
+    $('btn-auto').addEventListener('click', toggleAuto);
+    map.on('moveend', () => { if (autoRefresh) refreshFromMap(false); });
+
+    // Initial load
+    loadTrains();
+  </script>
+</body>
+</html>
