@@ -16,114 +16,30 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
     crossorigin=""
   ></script>
-
   <style>
-    :root {
-      --brand: #007bff;
-      --bg: #0f172a; /* slate-900 */
-      --panel: #ffffff;
-    }
-    html, body {
-      height: 100%;
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-      background: var(--bg);
-      color: #111827;
-    }
-    .page {
-      display: grid;
-      grid-template-columns: 320px 1fr;
-      grid-template-rows: 56px 1fr;
-      grid-template-areas:
-        "top top"
-        "left map";
-      height: 100%;
-    }
-    .topbar {
-      grid-area: top;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: linear-gradient(90deg, var(--brand), #00a6ff);
-      color: white;
-      padding: 0 16px;
-      font-weight: 700;
-    }
-    .left {
-      grid-area: left;
-      background: var(--panel);
-      padding: 14px 14px 8px 14px;
-      overflow: auto;
-      border-right: 1px solid #e5e7eb;
-    }
-    #map {
-      grid-area: map;
-    }
-    .btn {
-      appearance: none;
-      background: var(--brand);
-      color: white;
-      border: 0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-    .btn:disabled {
-      opacity: .6;
-      cursor: default;
-    }
-    .btn.secondary {
-      background: #111827;
-      color: #ffffff;
-    }
-    .row {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      margin: 8px 0 12px;
-      flex-wrap: wrap;
-    }
-    .stat {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 6px 10px;
-      background: #f8fafc;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 10px 12px;
-      margin-bottom: 8px;
-      font-size: 14px;
-    }
-    .stat b { color: #0f172a; }
-    .tiny {
-      font-size: 12px;
-      color: #6b7280;
-    }
-    .field, select {
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 8px 10px;
-      font-size: 14px;
-    }
-    .legend {
-      margin-top: 8px;
-      font-size: 12px;
-      color: #4b5563;
-    }
-    .link {
-      color: var(--brand);
-      font-weight: 700;
-      text-decoration: none;
-    }
-    .link:hover { text-decoration: underline; }
+    :root { --brand:#007bff; --bg:#0f172a; --panel:#fff; }
+    html,body{height:100%;margin:0;background:var(--bg);font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+    .page{display:grid;grid-template-columns:320px 1fr;grid-template-rows:56px 1fr;grid-template-areas:"top top" "left map";height:100%}
+    .topbar{grid-area:top;display:flex;align-items:center;gap:12px;background:linear-gradient(90deg,var(--brand),#00a6ff);color:#fff;padding:0 16px;font-weight:700}
+    .left{grid-area:left;background:var(--panel);padding:14px;border-right:1px solid #e5e7eb;overflow:auto}
+    #map{grid-area:map}
+    .btn{background:var(--brand);color:#fff;border:0;border-radius:8px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn.secondary{background:#111827}
+    .btn:disabled{opacity:.6;cursor:default}
+    .row{display:flex;gap:8px;align-items:center;margin:8px 0 12px;flex-wrap:wrap}
+    .stat{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:14px}
+    .stat b{color:#0f172a}
+    .tiny{font-size:12px;color:#6b7280}
+    select{border:1px solid #d1d5db;border-radius:8px;padding:8px 10px;font-size:14px}
+    .legend{margin-top:8px;font-size:12px;color:#4b5563}
+    .link{color:var(--brand);font-weight:700;text-decoration:none}
+    .link:hover{text-decoration:underline}
+    .mono{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:12px}
   </style>
 </head>
 <body>
   <div class="page">
-    <div class="topbar">
-      <span>🚆 RailOps • Train Map</span>
-    </div>
+    <div class="topbar">🚆 RailOps • Train Map</div>
 
     <aside class="left">
       <div class="row">
@@ -147,14 +63,17 @@
         <div><b>Status:</b></div><div id="status">idle</div>
         <div><b>Last refresh:</b></div><div id="lastRefresh">—</div>
         <div><b>Train count:</b></div><div id="trainCount">0</div>
+        <div><b>Source:</b></div><div id="sourceKey">—</div>
       </div>
 
-      <div class="legend">
-        • Map move/zoom triggers a refresh.<br/>
+      <div class="tiny legend">
+        • Map move/zoom triggers refresh<br/>
         • Backend: <a class="link" href="https://railops-json.onrender.com" target="_blank" rel="noreferrer">railops-json.onrender.com</a><br/>
-        • If nothing shows, ensure TF cookies on the server are valid.
+        • Raw data: <a class="link" href="https://railops-json.onrender.com/trains" target="_blank">/trains</a> or
+          <a class="link" href="https://railops-json.onrender.com/trains.json" target="_blank">/trains.json</a>
       </div>
 
+      <div id="diag" class="mono tiny" style="margin-top:10px;white-space:pre-wrap;"></div>
       <div id="list" class="tiny" style="margin-top:10px;"></div>
     </aside>
 
@@ -166,21 +85,16 @@
     const API_BASE = "https://railops-json.onrender.com";
     const ENDPOINT_REFRESH = `${API_BASE}/refresh`;
     const ENDPOINT_TRAINS_PRIMARY = `${API_BASE}/trains`;
-    const ENDPOINT_TRAINS_FALLBACK = `${API_BASE}/trains.json`; // back-compat
+    const ENDPOINT_TRAINS_FALLBACK = `${API_BASE}/trains.json`;
 
     // ==== MAP INIT ====
-    const map = L.map('map', {
-      worldCopyJump: true,
-      minZoom: 3,
-      maxZoom: 18
-    }).setView([-33.8688, 151.2093], 10); // Sydney default
+    const map = L.map('map', { worldCopyJump: true, minZoom: 3, maxZoom: 18 })
+      .setView([-33.8688, 151.2093], 12); // Sydney
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
+      maxZoom: 19, attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
-    // Marker layer
     const trainLayer = L.layerGroup().addTo(map);
 
     // ==== UI ELTS ====
@@ -191,58 +105,100 @@
     const statusEl = document.getElementById('status');
     const lastRefreshEl = document.getElementById('lastRefresh');
     const trainCountEl = document.getElementById('trainCount');
+    const sourceKeyEl = document.getElementById('sourceKey');
     const autoRefreshSelect = document.getElementById('autoRefreshSelect');
     const listEl = document.getElementById('list');
+    const diagEl = document.getElementById('diag');
 
     // ==== HELPERS ====
-    function setStatus(text) { statusEl.textContent = text; }
-    function timestamp() {
-      const d = new Date();
-      return d.toLocaleString();
-    }
-    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+    const setStatus = t => statusEl.textContent = t;
+    const timestamp = () => new Date().toLocaleString();
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-    // Robust lat/lng extraction for varied schemas
+    // robust lat/lng
     function readLatLng(item) {
-      const keys = Object.keys(item).reduce((acc, k) => {
-        acc[k.toLowerCase()] = k;
-        return acc;
-      }, {});
-      const latK = keys['lat'] || keys['latitude'] || keys['y'] || null;
-      const lngK = keys['lng'] || keys['lon'] || keys['long'] || keys['longitude'] || keys['x'] || null;
+      if (!item || typeof item !== 'object') return null;
+      const lower = {};
+      for (const k of Object.keys(item)) lower[k.toLowerCase()] = k;
+
+      const latK = lower['lat'] || lower['latitude'] || lower['y'];
+      const lngK = lower['lng'] || lower['lon'] || lower['long'] || lower['longitude'] || lower['x'];
       if (!latK || !lngK) return null;
+
       const lat = Number(item[latK]);
       const lng = Number(item[lngK]);
-      if (Number.isFinite(lat) && Number.isFinite(lng)) return {lat, lng};
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
       return null;
     }
 
     function popupHtml(item) {
-      // Show a meaningful popup with best-effort fields
-      const any = (kArr) => {
-        for (const k of kArr) {
-          if (k in item) return item[k];
-          const found = Object.keys(item).find(x => x.toLowerCase() === k.toLowerCase());
+      const get = (...names) => {
+        for (const n of names) {
+          if (n in item) return item[n];
+          const found = Object.keys(item).find(k => k.toLowerCase() === n.toLowerCase());
           if (found) return item[found];
         }
-        return undefined;
       };
-      const name = any(['name','service','operator','train','route']) || 'Train';
-      const speed = any(['speed','kph','kmh']);
-      const when = any(['lastSeen','last_seen','ts','timestamp','time']);
-      const id = any(['id','train_id','tid','uid']);
+      const name = get('name','service','operator','train','route') || 'Train';
+      const id = get('id','train_id','tid','uid');
+      const speed = get('speed','kph','kmh');
+      const when = get('lastSeen','last_seen','ts','timestamp','time');
 
-      return `
-        <div style="min-width:180px">
-          <div style="font-weight:700;margin-bottom:4px">${name}</div>
-          ${id ? `<div><b>ID:</b> ${id}</div>` : ``}
-          ${speed ? `<div><b>Speed:</b> ${speed}</div>` : ``}
-          ${when ? `<div><b>Seen:</b> ${when}</div>` : ``}
-        </div>`;
+      return `<div style="min-width:180px">
+        <div style="font-weight:700;margin-bottom:4px">${name}</div>
+        ${id ? `<div><b>ID:</b> ${id}</div>` : ``}
+        ${speed ? `<div><b>Speed:</b> ${speed}</div>` : ``}
+        ${when ? `<div><b>Seen:</b> ${when}</div>` : ``}
+      </div>`;
+    }
+
+    function extractTrains(data) {
+      // Returns { items: array, source: string, diag: string }
+      if (!data) return { items: [], source: 'none', diag: 'no data' };
+
+      const diagParts = [];
+      if (typeof data === 'object') {
+        diagParts.push('keys: ' + Object.keys(data).join(', '));
+      }
+
+      // 1) array directly
+      if (Array.isArray(data)) {
+        diagParts.push(`top-level array length=${data.length}`);
+        return { items: data, source: 'array', diag: diagParts.join('\n') };
+      }
+
+      // 2) common shapes
+      if (Array.isArray(data.trains)) {
+        diagParts.push(`trains length=${data.trains.length}`);
+        return { items: data.trains, source: 'trains', diag: diagParts.join('\n') };
+      }
+      if (Array.isArray(data.tts)) {
+        diagParts.push(`tts length=${data.tts.length}`);
+        return { items: data.tts, source: 'tts', diag: diagParts.join('\n') };
+      }
+      if (data.atcsObj && typeof data.atcsObj === 'object') {
+        const vals = Object.values(data.atcsObj);
+        diagParts.push(`atcsObj count=${vals.length}`);
+        return { items: vals, source: 'atcsObj', diag: diagParts.join('\n') };
+      }
+      if (data.atcsGomi && typeof data.atcsGomi === 'object') {
+        const vals = Object.values(data.atcsGomi);
+        diagParts.push(`atcsGomi count=${vals.length}`);
+        return { items: vals, source: 'atcsGomi', diag: diagParts.join('\n') };
+      }
+
+      // 3) sometimes nested payload
+      if (data.payload) {
+        const inner = extractTrains(data.payload);
+        inner.diag = 'payload → ' + inner.diag;
+        return inner;
+      }
+
+      return { items: [], source: 'unknown', diag: diagParts.join('\n') || 'unknown shape' };
     }
 
     function renderList(items) {
-      const top = items.slice(0, 50); // keep small
+      const top = items.slice(0, 50);
       let html = '';
       for (const it of top) {
         const latlng = readLatLng(it);
@@ -257,6 +213,7 @@
 
     // ==== CORE FLOW ====
     let refreshTimer = null;
+
     async function refreshForViewport() {
       btnRefresh.disabled = true;
       setStatus('refreshing…');
@@ -264,44 +221,52 @@
         const c = map.getCenter();
         const z = map.getZoom();
         const b = map.getBounds();
-        // Bounds as [south, west, north, east]
         const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
-        // Kick the backend to fetch for our view
+
+        // IMPORTANT: send form-encoded (your server expects this)
+        const form = new URLSearchParams();
+        form.set('lat', String(c.lat));
+        form.set('lng', String(c.lng));
+        form.set('zm', String(z));
+        // include bbox too (server can ignore if not used)
+        form.set('bbox', bbox.join(','));
+
         await fetch(ENDPOINT_REFRESH, {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ lat: c.lat, lng: c.lng, zm: z, bbox })
-        }).catch(() => {}); // ignore failures (server might be pulling already)
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: form.toString()
+        }).catch(() => {});
 
-        // Small wait gives the server a moment to write trains.json
-        await sleep(300);
+        // give server a moment to pull
+        await sleep(400);
 
-        // Then fetch trains data (primary endpoint, with fallback)
-        let res = await fetch(ENDPOINT_TRAINS_PRIMARY, {cache:'no-store'});
-        if (!res.ok) res = await fetch(ENDPOINT_TRAINS_FALLBACK, {cache:'no-store'});
+        // pull trains
+        let res = await fetch(ENDPOINT_TRAINS_PRIMARY, { cache: 'no-store' });
+        if (!res.ok) res = await fetch(ENDPOINT_TRAINS_FALLBACK, { cache: 'no-store' });
         const data = await res.json();
 
-        // Accept either an array or {trains:[...]}
-        const items = Array.isArray(data) ? data : (Array.isArray(data.trains) ? data.trains : []);
-        trainLayer.clearLayers();
+        const { items, source, diag } = extractTrains(data);
 
+        trainLayer.clearLayers();
         let plotted = 0;
         for (const it of items) {
           const latlng = readLatLng(it);
           if (!latlng) continue;
-          const m = L.marker([latlng.lat, latlng.lng]);
-          m.bindPopup(popupHtml(it));
+          const m = L.marker([latlng.lat, latlng.lng]).bindPopup(popupHtml(it));
           m.addTo(trainLayer);
           plotted++;
         }
 
-        trainCountEl.textContent = plotted.toString();
+        trainCountEl.textContent = String(plotted);
         lastRefreshEl.textContent = timestamp();
+        sourceKeyEl.textContent = source;
+        diagEl.textContent = diag || '';
         renderList(items);
         setStatus(plotted ? 'ok' : 'no trains in view');
-      } catch (err) {
-        console.error(err);
+      } catch (e) {
+        console.error(e);
         setStatus('error loading trains');
+        diagEl.textContent = (e && e.message) ? e.message : String(e);
       } finally {
         btnRefresh.disabled = false;
       }
@@ -310,23 +275,17 @@
     // ==== EVENTS ====
     map.on('moveend', refreshForViewport);
     btnRefresh.addEventListener('click', refreshForViewport);
-    btnSydney.addEventListener('click', () => { map.setView([-33.8688, 151.2093], 12); });
-    btnAdelaide.addEventListener('click', () => { map.setView([-34.9285, 138.6007], 12); });
-    btnMelbourne.addEventListener('click', () => { map.setView([-37.8136, 144.9631], 12); });
+    btnSydney.addEventListener('click', () => map.setView([-33.8688, 151.2093], 12));
+    btnAdelaide.addEventListener('click', () => map.setView([-34.9285, 138.6007], 12));
+    btnMelbourne.addEventListener('click', () => map.setView([-37.8136, 144.9631], 12));
 
     autoRefreshSelect.addEventListener('change', () => {
-      if (refreshTimer) {
-        clearInterval(refreshTimer);
-        refreshTimer = null;
-      }
+      if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
       const val = autoRefreshSelect.value;
-      if (val !== 'off') {
-        const ms = Number(val) * 1000;
-        refreshTimer = setInterval(refreshForViewport, ms);
-      }
+      if (val !== 'off') refreshTimer = setInterval(refreshForViewport, Number(val) * 1000);
     });
 
-    // First load
+    // initial
     refreshForViewport();
   </script>
 </body>
