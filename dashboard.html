@@ -1,133 +1,333 @@
-<!doctype html>
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>RailOps — Live Trains</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css">
+  <title>RailOps • Train Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Leaflet -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+    crossorigin=""
+  />
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+    crossorigin=""
+  ></script>
+
   <style>
-    html,body{height:100%;margin:0;background:#f6f7fb;font:14px system-ui,sans-serif}
-    #map{width:100%;height:100%}
-    .badge{
-      position:absolute;left:10px;top:10px;z-index:9999;
-      background:#fff;border:1px solid #ddd;border-radius:10px;padding:6px 10px;
-      box-shadow:0 8px 24px rgba(0,0,0,.08)
+    :root {
+      --brand: #007bff;
+      --bg: #0f172a; /* slate-900 */
+      --panel: #ffffff;
     }
-    .ol-control button{background:#fff;border-radius:6px}
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: var(--bg);
+      color: #111827;
+    }
+    .page {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: 56px 1fr;
+      grid-template-areas:
+        "top top"
+        "left map";
+      height: 100%;
+    }
+    .topbar {
+      grid-area: top;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: linear-gradient(90deg, var(--brand), #00a6ff);
+      color: white;
+      padding: 0 16px;
+      font-weight: 700;
+    }
+    .left {
+      grid-area: left;
+      background: var(--panel);
+      padding: 14px 14px 8px 14px;
+      overflow: auto;
+      border-right: 1px solid #e5e7eb;
+    }
+    #map {
+      grid-area: map;
+    }
+    .btn {
+      appearance: none;
+      background: var(--brand);
+      color: white;
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn:disabled {
+      opacity: .6;
+      cursor: default;
+    }
+    .btn.secondary {
+      background: #111827;
+      color: #ffffff;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin: 8px 0 12px;
+      flex-wrap: wrap;
+    }
+    .stat {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 6px 10px;
+      background: #f8fafc;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    .stat b { color: #0f172a; }
+    .tiny {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .field, select {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 14px;
+    }
+    .legend {
+      margin-top: 8px;
+      font-size: 12px;
+      color: #4b5563;
+    }
+    .link {
+      color: var(--brand);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .link:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <div class="badge" id="badge">Loading…</div>
-  <div id="map"></div>
+  <div class="page">
+    <div class="topbar">
+      <span>🚆 RailOps • Train Map</span>
+    </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+    <aside class="left">
+      <div class="row">
+        <button id="btnRefresh" class="btn">Refresh trains</button>
+        <button id="btnSydney" class="btn secondary">Sydney</button>
+        <button id="btnAdelaide" class="btn secondary">Adelaide</button>
+        <button id="btnMelbourne" class="btn secondary">Melbourne</button>
+      </div>
+
+      <div class="row">
+        <label class="tiny">Auto-refresh</label>
+        <select id="autoRefreshSelect">
+          <option value="off">Off</option>
+          <option value="30">Every 30s</option>
+          <option value="60" selected>Every 60s</option>
+          <option value="120">Every 2m</option>
+        </select>
+      </div>
+
+      <div class="stat">
+        <div><b>Status:</b></div><div id="status">idle</div>
+        <div><b>Last refresh:</b></div><div id="lastRefresh">—</div>
+        <div><b>Train count:</b></div><div id="trainCount">0</div>
+      </div>
+
+      <div class="legend">
+        • Map move/zoom triggers a refresh.<br/>
+        • Backend: <a class="link" href="https://railops-json.onrender.com" target="_blank" rel="noreferrer">railops-json.onrender.com</a><br/>
+        • If nothing shows, ensure TF cookies on the server are valid.
+      </div>
+
+      <div id="list" class="tiny" style="margin-top:10px;"></div>
+    </aside>
+
+    <div id="map"></div>
+  </div>
+
   <script>
-  // ======= config =======
-  const DATA_URL = "https://railops-json.onrender.com/trains.json"; // point to your Render service
-  const REFRESH_MS = 30000;
+    // ==== CONFIG ====
+    const API_BASE = "https://railops-json.onrender.com";
+    const ENDPOINT_REFRESH = `${API_BASE}/refresh`;
+    const ENDPOINT_TRAINS_PRIMARY = `${API_BASE}/trains`;
+    const ENDPOINT_TRAINS_FALLBACK = `${API_BASE}/trains.json`; // back-compat
 
-  // ======= map base =======
-  const map = new ol.Map({
-    target: 'map',
-    layers: [
-      new ol.layer.Tile({ source: new ol.source.OSM() }),
-      new ol.layer.Tile({
-        opacity: 0.65,
-        source: new ol.source.XYZ({
-          url: "https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
-          attributions: '© OpenRailwayMap contributors'
-        })
-      })
-    ],
-    view: new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4 })
-  });
+    // ==== MAP INIT ====
+    const map = L.map('map', {
+      worldCopyJump: true,
+      minZoom: 3,
+      maxZoom: 18
+    }).setView([-33.8688, 151.2093], 10); // Sydney default
 
-  // vectors
-  const source = new ol.source.Vector();
-  const layer  = new ol.layer.Vector({ source, zIndex: 20 });
-  map.addLayer(layer);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
 
-  // popup
-  const popupEl = document.createElement("div");
-  popupEl.style.cssText = "user-select:text;background:#fff;padding:8px 10px;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.2);border:1px solid rgba(0,0,0,.1);min-width:180px";
-  const popup = new ol.Overlay({ element: popupEl, autoPan:{animation:{duration:250}}, offset:[0,-14], positioning:"bottom-center" });
-  map.addOverlay(popup);
-  map.on("singleclick", (evt)=>{
-    let f=null; map.forEachFeatureAtPixel(evt.pixel,(feat,lyr)=>{ if(lyr===layer) f=feat; });
-    if(!f){ popup.setPosition(undefined); return; }
-    const p=f.getProperties();
-    popupEl.innerHTML = `
-      <div style="font-weight:700;margin-bottom:4px">${p.label||p.id||"Train"}</div>
-      <div>${p.operator||""}</div>
-      <div>Speed: ${p.speed??"?"}  Heading: ${Math.round(p.heading??0)}°</div>
-      <div>${p.lat?.toFixed?.(5)??"?"}, ${p.lon?.toFixed?.(5)??"?"}</div>
-      <div style="color:#666;font-size:12px;margin-top:4px">${p.ts? new Date(p.ts).toLocaleString(): ""}</div>`;
-    popup.setPosition(f.getGeometry().getCoordinates());
-  });
+    // Marker layer
+    const trainLayer = L.layerGroup().addTo(map);
 
-  // style
-  function styleFor(feature){
-    const hd = feature.get("heading") || 0;
-    const label = feature.get("label") || feature.get("id") || "";
-    return [
-      new ol.style.Style({
-        image:new ol.style.RegularShape({
-          points:3, radius:8, rotation:(hd*Math.PI)/180,
-          fill:new ol.style.Fill({color:[0,120,255,0.95]}),
-          stroke:new ol.style.Stroke({color:[0,0,0,0.7], width:1})
-        })
-      }),
-      new ol.style.Style({
-        text: new ol.style.Text({
-          text: String(label),
-          font: "bold 11px system-ui, sans-serif",
-          offsetY: -16,
-          placement: "point",
-          backgroundFill: new ol.style.Fill({color: "rgba(255,210,0,0.95)"}),
-          backgroundStroke: new ol.style.Stroke({color: "rgba(0,0,0,0.6)", width: 1}),
-          padding: [3,5,3,5]
-        })
-      })
-    ];
-  }
+    // ==== UI ELTS ====
+    const btnRefresh = document.getElementById('btnRefresh');
+    const btnSydney = document.getElementById('btnSydney');
+    const btnAdelaide = document.getElementById('btnAdelaide');
+    const btnMelbourne = document.getElementById('btnMelbourne');
+    const statusEl = document.getElementById('status');
+    const lastRefreshEl = document.getElementById('lastRefresh');
+    const trainCountEl = document.getElementById('trainCount');
+    const autoRefreshSelect = document.getElementById('autoRefreshSelect');
+    const listEl = document.getElementById('list');
 
-  // draw
-  function draw(trains){
-    source.clear();
-    const feats = [];
-    for (const t of trains){
-      if (t.lat==null || t.lon==null) continue;
-      const f=new ol.Feature({
-        geometry:new ol.geom.Point(ol.proj.fromLonLat([t.lon,t.lat])),
-        id:t.id, label:t.label||t.id, operator:t.operator||"", speed:t.speed??null, heading:t.heading??0,
-        lon:t.lon, lat:t.lat, ts:t.ts||null
-      });
-      f.setStyle(styleFor(f));
-      feats.push(f);
+    // ==== HELPERS ====
+    function setStatus(text) { statusEl.textContent = text; }
+    function timestamp() {
+      const d = new Date();
+      return d.toLocaleString();
     }
-    source.addFeatures(feats);
-    document.getElementById("badge").textContent = `Trains: ${feats.length}`;
-    if (feats.length){
-      const ext = source.getExtent();
-      map.getView().fit(ext, { padding:[50,50,50,50], maxZoom: 10, duration: 250 });
-    }
-  }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  async function tick(){
-    try {
-      const res = await fetch(`${DATA_URL}?t=${Date.now()}`, {cache:"no-store"});
-      if (!res.ok) throw new Error("HTTP "+res.status);
-      const json = await res.json();
-      const trains = Array.isArray(json.trains) ? json.trains : [];
-      draw(trains);
-    } catch(e){
-      document.getElementById("badge").textContent = "No train array found";
-      console.error(e);
+    // Robust lat/lng extraction for varied schemas
+    function readLatLng(item) {
+      const keys = Object.keys(item).reduce((acc, k) => {
+        acc[k.toLowerCase()] = k;
+        return acc;
+      }, {});
+      const latK = keys['lat'] || keys['latitude'] || keys['y'] || null;
+      const lngK = keys['lng'] || keys['lon'] || keys['long'] || keys['longitude'] || keys['x'] || null;
+      if (!latK || !lngK) return null;
+      const lat = Number(item[latK]);
+      const lng = Number(item[lngK]);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) return {lat, lng};
+      return null;
     }
-  }
 
-  tick();
-  setInterval(tick, REFRESH_MS);
+    function popupHtml(item) {
+      // Show a meaningful popup with best-effort fields
+      const any = (kArr) => {
+        for (const k of kArr) {
+          if (k in item) return item[k];
+          const found = Object.keys(item).find(x => x.toLowerCase() === k.toLowerCase());
+          if (found) return item[found];
+        }
+        return undefined;
+      };
+      const name = any(['name','service','operator','train','route']) || 'Train';
+      const speed = any(['speed','kph','kmh']);
+      const when = any(['lastSeen','last_seen','ts','timestamp','time']);
+      const id = any(['id','train_id','tid','uid']);
+
+      return `
+        <div style="min-width:180px">
+          <div style="font-weight:700;margin-bottom:4px">${name}</div>
+          ${id ? `<div><b>ID:</b> ${id}</div>` : ``}
+          ${speed ? `<div><b>Speed:</b> ${speed}</div>` : ``}
+          ${when ? `<div><b>Seen:</b> ${when}</div>` : ``}
+        </div>`;
+    }
+
+    function renderList(items) {
+      const top = items.slice(0, 50); // keep small
+      let html = '';
+      for (const it of top) {
+        const latlng = readLatLng(it);
+        const title = (it.name || it.service || it.operator || it.route || 'Train');
+        html += `<div style="padding:6px 0;border-bottom:1px solid #eee;">
+          <b>${title}</b>
+          ${latlng ? `<div>${latlng.lat.toFixed(4)}, ${latlng.lng.toFixed(4)}</div>` : ``}
+        </div>`;
+      }
+      listEl.innerHTML = html || '<div>No trains in this view.</div>';
+    }
+
+    // ==== CORE FLOW ====
+    let refreshTimer = null;
+    async function refreshForViewport() {
+      btnRefresh.disabled = true;
+      setStatus('refreshing…');
+      try {
+        const c = map.getCenter();
+        const z = map.getZoom();
+        const b = map.getBounds();
+        // Bounds as [south, west, north, east]
+        const bbox = [b.getSouth(), b.getWest(), b.getNorth(), b.getEast()];
+        // Kick the backend to fetch for our view
+        await fetch(ENDPOINT_REFRESH, {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ lat: c.lat, lng: c.lng, zm: z, bbox })
+        }).catch(() => {}); // ignore failures (server might be pulling already)
+
+        // Small wait gives the server a moment to write trains.json
+        await sleep(300);
+
+        // Then fetch trains data (primary endpoint, with fallback)
+        let res = await fetch(ENDPOINT_TRAINS_PRIMARY, {cache:'no-store'});
+        if (!res.ok) res = await fetch(ENDPOINT_TRAINS_FALLBACK, {cache:'no-store'});
+        const data = await res.json();
+
+        // Accept either an array or {trains:[...]}
+        const items = Array.isArray(data) ? data : (Array.isArray(data.trains) ? data.trains : []);
+        trainLayer.clearLayers();
+
+        let plotted = 0;
+        for (const it of items) {
+          const latlng = readLatLng(it);
+          if (!latlng) continue;
+          const m = L.marker([latlng.lat, latlng.lng]);
+          m.bindPopup(popupHtml(it));
+          m.addTo(trainLayer);
+          plotted++;
+        }
+
+        trainCountEl.textContent = plotted.toString();
+        lastRefreshEl.textContent = timestamp();
+        renderList(items);
+        setStatus(plotted ? 'ok' : 'no trains in view');
+      } catch (err) {
+        console.error(err);
+        setStatus('error loading trains');
+      } finally {
+        btnRefresh.disabled = false;
+      }
+    }
+
+    // ==== EVENTS ====
+    map.on('moveend', refreshForViewport);
+    btnRefresh.addEventListener('click', refreshForViewport);
+    btnSydney.addEventListener('click', () => { map.setView([-33.8688, 151.2093], 12); });
+    btnAdelaide.addEventListener('click', () => { map.setView([-34.9285, 138.6007], 12); });
+    btnMelbourne.addEventListener('click', () => { map.setView([-37.8136, 144.9631], 12); });
+
+    autoRefreshSelect.addEventListener('change', () => {
+      if (refreshTimer) {
+        clearInterval(refreshTimer);
+        refreshTimer = null;
+      }
+      const val = autoRefreshSelect.value;
+      if (val !== 'off') {
+        const ms = Number(val) * 1000;
+        refreshTimer = setInterval(refreshForViewport, ms);
+      }
+    });
+
+    // First load
+    refreshForViewport();
   </script>
 </body>
 </html>
