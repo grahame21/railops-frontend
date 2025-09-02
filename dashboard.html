@@ -2,368 +2,57 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>RailOps – Train Tracker</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RailOps – Live Train Map</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
 
-  <!-- Leaflet CSS (CDN) -->
+  <!-- OpenLayers CSS -->
   <link
     rel="stylesheet"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-    crossorigin=""
+    href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css"
   />
 
   <style>
-    :root {
-      --brand: #007bff;
-      --bg: #0b1724;
-      --panel: #101d2b;
-      --text: #e8eef5;
-      --muted: #9fb3c8;
-      --danger: #ff5252;
-      --ok: #25d366;
+    html, body { height: 100%; margin: 0; }
+    #topbar {
+      position: fixed; z-index: 1000; top: 0; left: 0; right: 0;
+      display: flex; gap: 12px; align-items: center; padding: 10px 14px;
+      background: rgba(0,0,0,0.75); color: #fff; font: 14px/1.3 system-ui, Arial, sans-serif;
     }
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    #topbar .pill {
+      background: rgba(255,255,255,0.12); padding: 4px 10px; border-radius: 999px;
     }
-    .wrap {
-      display: grid;
-      grid-template-rows: auto 1fr auto;
-      height: 100%;
+    #topbar button {
+      border: 0; background: #2196f3; color: #fff; padding: 6px 10px; border-radius: 6px; cursor: pointer;
     }
-    header, footer {
-      background: var(--panel);
-      border-bottom: 1px solid #0e243a;
-      padding: 8px 12px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
+    #topbar button:hover { background: #1976d2; }
+    #map { position: absolute; inset: 0; top: 48px; }
+    #error {
+      position: fixed; z-index: 1001; right: 12px; bottom: 12px;
+      background: #ff5252; color: #fff; padding: 10px 12px; border-radius: 8px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.25); display: none; max-width: 92vw;
+      font: 13px/1.35 system-ui, Arial, sans-serif;
     }
-    header h1 {
-      font-size: 16px;
-      margin: 0;
-      color: var(--text);
-      letter-spacing: .2px;
-    }
-    header .spacer { flex: 1; }
-
-    #status {
-      font-size: 12px;
-      color: var(--muted);
-    }
-    #status.ok { color: var(--ok); }
-    #status.err { color: var(--danger); }
-
-    .btn {
-      appearance: none;
-      border: 1px solid #16324a;
-      background: #0e243a;
-      color: var(--text);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .btn:hover { border-color: var(--brand); }
-    .btn.primary {
-      background: var(--brand);
-      border-color: var(--brand);
-      color: white;
-    }
-
-    #map {
-      width: 100%;
-      height: 100%;
-    }
-
-    .panel {
-      position: absolute;
-      right: 12px;
-      top: 64px;
-      z-index: 500;
-      background: rgba(16, 29, 43, 0.92);
-      border: 1px solid #16324a;
-      border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35);
-      padding: 10px 12px;
-      backdrop-filter: blur(4px);
-      min-width: 220px;
-    }
-    .panel h3 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-      color: var(--muted);
-      font-weight: 600;
-      letter-spacing: .2px;
-    }
-    .kv { font-size: 12px; color: var(--muted); }
-    .kv b { color: var(--text); }
-
-    .legend {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 4px 8px;
-      align-items: center;
-      margin-top: 8px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .dot {
-      width: 10px; height: 10px; border-radius: 50%;
-      background: var(--brand);
-      border: 1px solid rgba(255,255,255,.3);
-    }
-    .leaflet-popup-content {
-      margin: 8px 10px;
-      line-height: 1.2;
-    }
-    .leaflet-container a { color: var(--brand); }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <h1>Grahame’s RailOps – Live Train Map</h1>
-      <div class="spacer"></div>
 
-      <button class="btn" id="btnSydney">Sydney</button>
-      <button class="btn" id="btnAdelaide">Adelaide</button>
-      <button class="btn" id="btnRefresh">Refresh</button>
-
-      <div id="status" title="API status">Loading…</div>
-    </header>
-
-    <div id="map"></div>
-
-    <div class="panel" id="infoPanel">
-      <h3>Now</h3>
-      <div class="kv"><b>Markers</b>: <span id="count">0</span></div>
-      <div class="kv"><b>Updated</b>: <span id="updated">—</span></div>
-
-      <div class="legend">
-        <span class="dot"></span><span>Train</span>
-      </div>
-    </div>
-
-    <footer style="display:flex;align-items:center;gap:10px;padding:8px 12px;">
-      <span style="font-size:12px;color:var(--muted);">
-        Data backend: <b>railops-json.onrender.com</b>
-      </span>
-      <span style="font-size:12px;color:var(--muted);">
-        Auto refresh: <b>30s</b>
-      </span>
-    </footer>
+  <div id="topbar">
+    <strong>RailOps</strong>
+    <span class="pill">status: <span id="status">loading…</span></span>
+    <span class="pill">markers: <span id="count">0</span></span>
+    <span class="pill">last update: <span id="updated">—</span></span>
+    <button id="btn-reload" title="Force refresh trains">Refresh</button>
+    <button id="btn-sydney" title="Go to Sydney">Sydney</button>
+    <button id="btn-adelaide" title="Go to Adelaide">Adelaide</button>
   </div>
 
-  <!-- Leaflet JS (CDN) -->
-  <script
-    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-    crossorigin=""
-  ></script>
+  <div id="map"></div>
+  <div id="error"></div>
 
-  <script>
-    /**********************
-     * CONFIG
-     **********************/
-    const API_BASE = "https://railops-json.onrender.com";   // Render backend
-    const TRAINS_URL = `${API_BASE}/trains`;                // JSON endpoint
-    const REFRESH_MS = 30_000;
+  <!-- OpenLayers JS -->
+  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
 
-    /**********************
-     * MAP BOOTSTRAP
-     **********************/
-    const map = L.map('map', {
-      zoomControl: true,
-      minZoom: 3,
-      maxZoom: 19
-    }).setView([-33.86, 151.21], 10);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors'
-    }).addTo(map);
-
-    const layerTrains = L.layerGroup().addTo(map);
-    const statusEl = document.getElementById('status');
-    const countEl  = document.getElementById('count');
-    const updatedEl= document.getElementById('updated');
-
-    // Simple blue dot marker
-    function makeIcon() {
-      return L.divIcon({
-        className: '',
-        html: '<div style="width:14px;height:14px;border-radius:50%;background:#007bff;border:2px solid white;box-shadow:0 0 0 1px rgba(0,0,0,.2)"></div>',
-        iconSize: [14, 14],
-        iconAnchor: [7, 7]
-      });
-    }
-
-    /**********************
-     * DATA FETCH + PARSE
-     **********************/
-    async function fetchTrains() {
-      setStatus("Loading…");
-      const url = TRAINS_URL + `?t=${Date.now()}`; // bust caches
-
-      const res = await fetch(url, { cache: "no-store" });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => "");
-        throw new Error(`HTTP ${res.status} ${txt || res.statusText}`);
-      }
-      return res.json();
-    }
-
-    /**
-     * Try to normalize a few shapes into a flat array of:
-     * { id, name, lat, lng, speed, source, when, extra }
-     */
-    function normalizeTrains(data) {
-      // Case A: already an array of trains
-      if (Array.isArray(data)) {
-        return data
-          .map((t, i) => ({
-            id: t.id ?? t.train_id ?? i,
-            name: t.title ?? t.name ?? t.subtitle ?? `Train ${t.id ?? i}`,
-            lat: t.lat ?? t.latitude ?? (t.pos && t.pos.lat),
-            lng: t.lng ?? t.lon ?? t.longitude ?? (t.pos && (t.pos.lng ?? t.pos.lon)),
-            speed: t.speed ?? t.kmh ?? t.mph,
-            source: t.source ?? "railops",
-            when: t.last_seen ?? t.ts ?? t.time ?? null,
-            extra: t
-          }))
-          .filter((t) => isFinite(t.lat) && isFinite(t.lng));
-      }
-
-      // Case B: { trains: [...] }
-      if (data && Array.isArray(data.trains)) {
-        return normalizeTrains(data.trains);
-      }
-
-      // Case C: TrainFinder raw keys present (you logged these earlier)
-      // e.g. { tts: [...]} or other buckets. If tts exists and looks like trains, try it.
-      if (data && Array.isArray(data.tts)) {
-        return data.tts
-          .map((t, i) => ({
-            id: t.id ?? i,
-            name: t.n ?? t.title ?? `Train ${t.id ?? i}`,
-            lat: t.la ?? t.lat ?? (t.pos && t.pos.la),
-            lng: t.lo ?? t.lng ?? (t.pos && (t.pos.lo ?? t.pos.lng)),
-            speed: t.sp ?? t.speed,
-            source: "TF",
-            when: t.ts ?? null,
-            extra: t
-          }))
-          .filter((t) => isFinite(t.lat) && isFinite(t.lng));
-      }
-
-      // Fallback: nothing usable
-      return [];
-    }
-
-    /**********************
-     * RENDER MARKERS
-     **********************/
-    let markersById = new Map();
-
-    function renderTrains(list) {
-      const seenIds = new Set();
-
-      list.forEach((t) => {
-        const id = t.id ?? `${t.lat.toFixed(5)},${t.lng.toFixed(5)}`;
-        seenIds.add(id);
-
-        let marker = markersById.get(id);
-        const popupHtml = `
-          <div>
-            <div style="font-weight:600;margin-bottom:4px;">${escapeHtml(t.name ?? "Train")}</div>
-            <div style="font-size:12px;color:#7fa1c3;">
-              Lat ${t.lat.toFixed(5)}, Lng ${t.lng.toFixed(5)}<br/>
-              ${t.speed ? `Speed: ${escapeHtml(String(t.speed))}<br/>` : ""}
-              ${t.source ? `Source: ${escapeHtml(String(t.source))}<br/>` : ""}
-              ${t.when ? `Seen: ${escapeHtml(String(t.when))}` : ""}
-            </div>
-          </div>
-        `;
-
-        if (!marker) {
-          marker = L.marker([t.lat, t.lng], { icon: makeIcon() })
-            .bindPopup(popupHtml);
-          marker.addTo(layerTrains);
-          markersById.set(id, marker);
-        } else {
-          marker.setLatLng([t.lat, t.lng]);
-          marker.setPopupContent(popupHtml);
-        }
-      });
-
-      // remove markers that didn't show up this refresh
-      for (const [id, marker] of markersById.entries()) {
-        if (!seenIds.has(id)) {
-          layerTrains.removeLayer(marker);
-          markersById.delete(id);
-        }
-      }
-
-      countEl.textContent = String(markersById.size);
-      updatedEl.textContent = new Date().toLocaleTimeString();
-    }
-
-    /**********************
-     * STATUS
-     **********************/
-    function setStatus(text, type) {
-      statusEl.textContent = text;
-      statusEl.classList.remove('ok', 'err');
-      if (type) statusEl.classList.add(type);
-    }
-
-    /**********************
-     * HELPERS
-     **********************/
-    function escapeHtml(s) {
-      return String(s)
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#39;");
-    }
-
-    async function refreshOnce() {
-      try {
-        const raw = await fetchTrains();
-        const trains = normalizeTrains(raw);
-        renderTrains(trains);
-        setStatus(`OK (${trains.length})`, 'ok');
-      } catch (err) {
-        console.error("Error loading trains:", err);
-        setStatus("Error loading trains", 'err');
-        // keep existing markers; we’ll try again on next tick
-      }
-    }
-
-    /**********************
-     * CONTROLS
-     **********************/
-    document.getElementById('btnRefresh').addEventListener('click', refreshOnce);
-    document.getElementById('btnSydney').addEventListener('click', () => {
-      map.setView([-33.86, 151.21], 11);
-    });
-    document.getElementById('btnAdelaide').addEventListener('click', () => {
-      map.setView([-34.93, 138.60], 11);
-    });
-
-    /**********************
-     * START
-     **********************/
-    refreshOnce();
-    setInterval(refreshOnce, REFRESH_MS);
-  </script>
+  <!-- Your app logic -->
+  <script src="dashboard.js"></script>
 </body>
 </html>
