@@ -1,189 +1,97 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>RailOps – Live Train Map</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-
-  <!-- OpenLayers CSS -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css" />
-
-  <style>
-    html, body { height: 100%; margin: 0; }
-    #topbar {
-      position: fixed; z-index: 1000; top: 0; left: 0; right: 0;
-      display: flex; gap: 12px; align-items: center; padding: 10px 14px;
-      background: rgba(0,0,0,0.75); color: #fff; font: 14px/1.3 system-ui, Arial, sans-serif;
-    }
-    #topbar .pill {
-      background: rgba(255,255,255,0.12); padding: 4px 10px; border-radius: 999px;
-    }
-    #topbar button {
-      border: 0; background: #2196f3; color: #fff; padding: 6px 10px; border-radius: 6px; cursor: pointer;
-    }
-    #topbar button:hover { background: #1976d2; }
-    #map { position: absolute; inset: 0; top: 48px; }
-    #error {
-      position: fixed; z-index: 1001; right: 12px; bottom: 12px;
-      background: #ff5252; color: #fff; padding: 10px 12px; border-radius: 8px;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.25); display: none; max-width: 92vw;
-      font: 13px/1.35 system-ui, Arial, sans-serif;
-    }
-  </style>
+<meta charset="utf-8" />
+<title>Train Tracker</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<style>
+  html, body { height: 100%; margin: 0; }
+  #map { height: 100%; }
+  .hud {
+    position: absolute; top: 10px; left: 10px;
+    background: rgba(0,0,0,0.6); color:#fff; padding:10px 12px; border-radius:8px;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+    z-index: 1000;
+  }
+  .hud b { color: #8bdcff; }
+  .error { color: #ffd2d2; }
+</style>
 </head>
 <body>
+<div id="map"></div>
+<div class="hud" id="hud">Loading…</div>
 
-  <div id="topbar">
-    <strong>RailOps</strong>
-    <span class="pill">status: <span id="status">loading…</span></span>
-    <span class="pill">markers: <span id="count">0</span></span>
-    <span class="pill">last update: <span id="updated">—</span></span>
-    <button id="btn-reload" title="Force refresh trains">Refresh</button>
-    <button id="btn-sydney" title="Go to Sydney">Sydney</button>
-    <button id="btn-adelaide" title="Go to Adelaide">Adelaide</button>
-  </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const HUD = document.getElementById('hud');
+const BACKEND = 'https://railops-json.onrender.com'; // your Render service
+let map, markersLayer;
 
-  <div id="map"></div>
-  <div id="error"></div>
+function setHUD(msg, isError=false) {
+  HUD.innerHTML = msg;
+  HUD.classList.toggle('error', !!isError);
+}
 
-  <!-- OpenLayers JS -->
-  <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
+function bboxFromMap(m) {
+  const b = m.getBounds();
+  const sw = b.getSouthWest();
+  const ne = b.getNorthEast();
+  return `${sw.lat.toFixed(4)},${sw.lng.toFixed(4)},${ne.lat.toFixed(4)},${ne.lng.toFixed(4)}`;
+}
 
-  <script>
-    const BACKEND_BASE = 'https://railops-json.onrender.com';
-    const POLL_MS = 20000;
-    const DEBOUNCE_MS = 350;
+async function fetchTrains() {
+  const c = map.getCenter();
+  const zm = map.getZoom();
+  const bbox = bboxFromMap(map);
+  const url = `${BACKEND}/trains?lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&zm=${zm}&bbox=${encodeURIComponent(bbox)}`;
 
-    function $(id) { return document.getElementById(id); }
-    function fmtTime(d = new Date()) {
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    }
-    function getQueryNum(name, fallback) {
-      const v = new URLSearchParams(location.search).get(name);
-      const n = v !== null ? Number(v) : NaN;
-      return Number.isFinite(n) ? n : fallback;
-    }
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
+    const data = await res.json();
 
-    const { Map, View } = ol;
-    const { Tile: TileLayer, Vector: VectorLayer } = ol.layer;
-    const { OSM, Vector: VectorSource } = ol.source;
-    const { fromLonLat, toLonLat } = ol.proj;
-    const { Point } = ol.geom;
-    const { Feature } = ol;
-    const { Style, Circle, Stroke, Fill, Text } = ol.style;
-
-    const DEFAULT = {
-      lat: getQueryNum('lat', -33.8688),
-      lng: getQueryNum('lng', 151.2093),
-      zm:  getQueryNum('zm', 10)
-    };
-
-    const base = new TileLayer({ source: new OSM() });
-    const vectorSource = new VectorSource();
-    const vectorLayer = new VectorLayer({
-      source: vectorSource,
-      style: feat => new Style({
-        image: new Circle({
-          radius: 6,
-          fill: new Fill({ color: 'rgba(33,150,243,0.9)' }),
-          stroke: new Stroke({ color: 'white', width: 2 })
-        }),
-        text: new Text({
-          text: feat.get('label') ?? '',
-          offsetY: -14,
-          font: '12px system-ui, Arial, sans-serif',
-          fill: new Fill({ color: '#111' }),
-          stroke: new Stroke({ color: 'rgba(255,255,255,0.9)', width: 3 })
-        })
-      })
-    });
-
-    const map = new Map({
-      target: 'map',
-      layers: [base, vectorLayer],
-      view: new View({
-        center: fromLonLat([DEFAULT.lng, DEFAULT.lat]),
-        zoom: DEFAULT.zm
-      })
-    });
-
-    function currentViewportParams() {
-      const view = map.getView();
-      const centerLonLat = toLonLat(view.getCenter());
-      const zoom = Math.round(view.getZoom());
-      const extent = view.calculateExtent(map.getSize());
-      const bottomLeft = toLonLat([extent[0], extent[1]]);
-      const topRight   = toLonLat([extent[2], extent[3]]);
-      const minLng = bottomLeft[0], minLat = bottomLeft[1];
-      const maxLng = topRight[0],   maxLat = topRight[1];
-      const bbox = [minLat.toFixed(4),minLng.toFixed(4),maxLat.toFixed(4),maxLng.toFixed(4)].join(',');
-
-      return { lat: centerLonLat[1].toFixed(5), lng: centerLonLat[0].toFixed(5), zm: String(zoom), bbox };
+    if (!data.ok) {
+      setHUD(
+        `Error loading trains<br>
+         <b>Status:</b> ${data?.meta?.http_status ?? 'n/a'}<br>
+         <b>Warmup:</b> ${data?.meta?.warmup_status ?? 'n/a'}<br>
+         <b>Referer:</b> ${data?.meta?.referer ?? 'n/a'}<br>
+         <b>Sample:</b> <small>${(data?.meta?.sample ?? '').replace(/</g,'&lt;')}</small>`,
+        true
+      );
+      markersLayer.clearLayers();
+      return;
     }
 
-    const elStatus = $('status');
-    const elCount  = $('count');
-    const elUpdated = $('updated');
-    const elError  = $('error');
-    function showError(msg) {
-      elError.textContent = msg;
-      elError.style.display = 'block';
-      clearTimeout(showError._t);
-      showError._t = setTimeout(() => elError.style.display = 'none', 6000);
-    }
-
-    let inFlight = null;
-    async function fetchTrains(force = false) {
-      if (inFlight && !force) return;
-      const { lat, lng, zm, bbox } = currentViewportParams();
-      const url = `${BACKEND_BASE}/trains?lat=${lat}&lng=${lng}&zm=${zm}&bbox=${bbox}`;
-      try {
-        elStatus.textContent = 'loading…';
-        inFlight = fetch(url);
-        const res = await inFlight;
-        inFlight = null;
-
-        if (!res.ok) { showError(`Backend error ${res.status}`); elStatus.textContent = 'error'; return; }
-        const data = await res.json();
-        if (!data.ok) { showError(data.message || 'Backend not ok'); elStatus.textContent = 'not ok'; return; }
-
-        vectorSource.clear();
-        const markers = (data.markers || data.trains || []);
-        markers.forEach(m => {
-          if (typeof m.lng !== 'number' || typeof m.lat !== 'number') return;
-          const f = new Feature({
-            geometry: new Point(fromLonLat([m.lng, m.lat])),
-            label: m.name || m.id || ''
-          });
-          vectorSource.addFeature(f);
-        });
-
-        elCount.textContent = String(markers.length);
-        elUpdated.textContent = fmtTime();
-        elStatus.textContent = 'ok';
-      } catch (err) {
-        inFlight = null;
-        showError(`Error loading trains: ${err.message || err}`);
-        elStatus.textContent = 'error';
-      }
-    }
-
-    let debTimer = null;
-    map.on('moveend', () => {
-      clearTimeout(debTimer);
-      debTimer = setTimeout(() => fetchTrains(true), DEBOUNCE_MS);
+    // Render markers
+    markersLayer.clearLayers();
+    (data.markers || []).forEach(m => {
+      L.marker([m.lat, m.lng]).addTo(markersLayer).bindPopup(m.name || 'Train');
     });
 
-    $('btn-reload').addEventListener('click', () => fetchTrains(true));
-    $('btn-sydney').addEventListener('click', () => {
-      map.getView().animate({ center: fromLonLat([151.2093, -33.8688]), zoom: 10, duration: 400 });
-    });
-    $('btn-adelaide').addEventListener('click', () => {
-      map.getView().animate({ center: fromLonLat([138.6007, -34.9285]), zoom: 11, duration: 400 });
-    });
+    setHUD(`<b>ok</b> — markers: <b>${data.meta?.count ?? (data.markers?.length || 0)}</b>`);
+  } catch (err) {
+    setHUD(`Network error loading trains: ${err}`, true);
+    markersLayer.clearLayers();
+  }
+}
 
-    fetchTrains(true);
-    setInterval(() => fetchTrains(true), POLL_MS);
-  </script>
+function initMap() {
+  map = L.map('map').setView([-33.8688, 151.2093], 10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap'
+  }).addTo(map);
+  markersLayer = L.layerGroup().addTo(map);
+
+  map.on('moveend', fetchTrains);
+  fetchTrains();
+  setInterval(fetchTrains, 30000); // refresh every 30s
+}
+
+initMap();
+</script>
 </body>
 </html>
