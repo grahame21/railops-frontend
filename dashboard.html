@@ -6,10 +6,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
 
   <!-- OpenLayers CSS -->
-  <link
-    rel="stylesheet"
-    href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css"
-  />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@latest/ol.css" />
 
   <style>
     html, body { height: 100%; margin: 0; }
@@ -52,7 +49,141 @@
   <!-- OpenLayers JS -->
   <script src="https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js"></script>
 
-  <!-- Your app logic -->
-  <script src="dashboard.js"></script>
+  <script>
+    const BACKEND_BASE = 'https://railops-json.onrender.com';
+    const POLL_MS = 20000;
+    const DEBOUNCE_MS = 350;
+
+    function $(id) { return document.getElementById(id); }
+    function fmtTime(d = new Date()) {
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    }
+    function getQueryNum(name, fallback) {
+      const v = new URLSearchParams(location.search).get(name);
+      const n = v !== null ? Number(v) : NaN;
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    const { Map, View } = ol;
+    const { Tile: TileLayer, Vector: VectorLayer } = ol.layer;
+    const { OSM, Vector: VectorSource } = ol.source;
+    const { fromLonLat, toLonLat } = ol.proj;
+    const { Point } = ol.geom;
+    const { Feature } = ol;
+    const { Style, Circle, Stroke, Fill, Text } = ol.style;
+
+    const DEFAULT = {
+      lat: getQueryNum('lat', -33.8688),
+      lng: getQueryNum('lng', 151.2093),
+      zm:  getQueryNum('zm', 10)
+    };
+
+    const base = new TileLayer({ source: new OSM() });
+    const vectorSource = new VectorSource();
+    const vectorLayer = new VectorLayer({
+      source: vectorSource,
+      style: feat => new Style({
+        image: new Circle({
+          radius: 6,
+          fill: new Fill({ color: 'rgba(33,150,243,0.9)' }),
+          stroke: new Stroke({ color: 'white', width: 2 })
+        }),
+        text: new Text({
+          text: feat.get('label') ?? '',
+          offsetY: -14,
+          font: '12px system-ui, Arial, sans-serif',
+          fill: new Fill({ color: '#111' }),
+          stroke: new Stroke({ color: 'rgba(255,255,255,0.9)', width: 3 })
+        })
+      })
+    });
+
+    const map = new Map({
+      target: 'map',
+      layers: [base, vectorLayer],
+      view: new View({
+        center: fromLonLat([DEFAULT.lng, DEFAULT.lat]),
+        zoom: DEFAULT.zm
+      })
+    });
+
+    function currentViewportParams() {
+      const view = map.getView();
+      const centerLonLat = toLonLat(view.getCenter());
+      const zoom = Math.round(view.getZoom());
+      const extent = view.calculateExtent(map.getSize());
+      const bottomLeft = toLonLat([extent[0], extent[1]]);
+      const topRight   = toLonLat([extent[2], extent[3]]);
+      const minLng = bottomLeft[0], minLat = bottomLeft[1];
+      const maxLng = topRight[0],   maxLat = topRight[1];
+      const bbox = [minLat.toFixed(4),minLng.toFixed(4),maxLat.toFixed(4),maxLng.toFixed(4)].join(',');
+
+      return { lat: centerLonLat[1].toFixed(5), lng: centerLonLat[0].toFixed(5), zm: String(zoom), bbox };
+    }
+
+    const elStatus = $('status');
+    const elCount  = $('count');
+    const elUpdated = $('updated');
+    const elError  = $('error');
+    function showError(msg) {
+      elError.textContent = msg;
+      elError.style.display = 'block';
+      clearTimeout(showError._t);
+      showError._t = setTimeout(() => elError.style.display = 'none', 6000);
+    }
+
+    let inFlight = null;
+    async function fetchTrains(force = false) {
+      if (inFlight && !force) return;
+      const { lat, lng, zm, bbox } = currentViewportParams();
+      const url = `${BACKEND_BASE}/trains?lat=${lat}&lng=${lng}&zm=${zm}&bbox=${bbox}`;
+      try {
+        elStatus.textContent = 'loading…';
+        inFlight = fetch(url);
+        const res = await inFlight;
+        inFlight = null;
+
+        if (!res.ok) { showError(`Backend error ${res.status}`); elStatus.textContent = 'error'; return; }
+        const data = await res.json();
+        if (!data.ok) { showError(data.message || 'Backend not ok'); elStatus.textContent = 'not ok'; return; }
+
+        vectorSource.clear();
+        const markers = (data.markers || data.trains || []);
+        markers.forEach(m => {
+          if (typeof m.lng !== 'number' || typeof m.lat !== 'number') return;
+          const f = new Feature({
+            geometry: new Point(fromLonLat([m.lng, m.lat])),
+            label: m.name || m.id || ''
+          });
+          vectorSource.addFeature(f);
+        });
+
+        elCount.textContent = String(markers.length);
+        elUpdated.textContent = fmtTime();
+        elStatus.textContent = 'ok';
+      } catch (err) {
+        inFlight = null;
+        showError(`Error loading trains: ${err.message || err}`);
+        elStatus.textContent = 'error';
+      }
+    }
+
+    let debTimer = null;
+    map.on('moveend', () => {
+      clearTimeout(debTimer);
+      debTimer = setTimeout(() => fetchTrains(true), DEBOUNCE_MS);
+    });
+
+    $('btn-reload').addEventListener('click', () => fetchTrains(true));
+    $('btn-sydney').addEventListener('click', () => {
+      map.getView().animate({ center: fromLonLat([151.2093, -33.8688]), zoom: 10, duration: 400 });
+    });
+    $('btn-adelaide').addEventListener('click', () => {
+      map.getView().animate({ center: fromLonLat([138.6007, -34.9285]), zoom: 11, duration: 400 });
+    });
+
+    fetchTrains(true);
+    setInterval(() => fetchTrains(true), POLL_MS);
+  </script>
 </body>
 </html>
