@@ -1,0 +1,2 @@
+/                   /dashboard.html   200
+/admin/*            /login            401!   Role=admin
