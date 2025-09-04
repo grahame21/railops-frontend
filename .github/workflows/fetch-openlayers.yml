@@ -1,0 +1,23 @@
+name: Fetch OpenLayers assets
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/fetch-openlayers.yml
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch OL
+        run: |
+          mkdir -p assets
+          curl -L -o assets/ol.js  https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js
+          curl -L -o assets/ol.css https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css
+      - name: Commit assets
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/ol.js assets/ol.css
+          git commit -m "Add OpenLayers v9.1.0 assets" || echo "No changes"
+          git push
