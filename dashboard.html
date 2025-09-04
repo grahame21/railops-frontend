@@ -1,97 +1,33 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<title>Train Tracker</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link
-  rel="stylesheet"
-  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-/>
-<style>
-  html, body { height: 100%; margin: 0; }
-  #map { height: 100%; }
-  .hud {
-    position: absolute; top: 10px; left: 10px;
-    background: rgba(0,0,0,0.6); color:#fff; padding:10px 12px; border-radius:8px;
-    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    z-index: 1000;
-  }
-  .hud b { color: #8bdcff; }
-  .error { color: #ffd2d2; }
-</style>
+  <meta charset="UTF-8">
+  <title>RailOps Train Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css">
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+    }
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+    .ol-popup {
+      background: white;
+      padding: 5px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 12px;
+    }
+  </style>
 </head>
 <body>
-<div id="map"></div>
-<div class="hud" id="hud">Loading…</div>
-
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-const HUD = document.getElementById('hud');
-const BACKEND = 'https://railops-json.onrender.com'; // your Render service
-let map, markersLayer;
-
-function setHUD(msg, isError=false) {
-  HUD.innerHTML = msg;
-  HUD.classList.toggle('error', !!isError);
-}
-
-function bboxFromMap(m) {
-  const b = m.getBounds();
-  const sw = b.getSouthWest();
-  const ne = b.getNorthEast();
-  return `${sw.lat.toFixed(4)},${sw.lng.toFixed(4)},${ne.lat.toFixed(4)},${ne.lng.toFixed(4)}`;
-}
-
-async function fetchTrains() {
-  const c = map.getCenter();
-  const zm = map.getZoom();
-  const bbox = bboxFromMap(map);
-  const url = `${BACKEND}/trains?lat=${c.lat.toFixed(5)}&lng=${c.lng.toFixed(5)}&zm=${zm}&bbox=${encodeURIComponent(bbox)}`;
-
-  try {
-    const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
-    const data = await res.json();
-
-    if (!data.ok) {
-      setHUD(
-        `Error loading trains<br>
-         <b>Status:</b> ${data?.meta?.http_status ?? 'n/a'}<br>
-         <b>Warmup:</b> ${data?.meta?.warmup_status ?? 'n/a'}<br>
-         <b>Referer:</b> ${data?.meta?.referer ?? 'n/a'}<br>
-         <b>Sample:</b> <small>${(data?.meta?.sample ?? '').replace(/</g,'&lt;')}</small>`,
-        true
-      );
-      markersLayer.clearLayers();
-      return;
-    }
-
-    // Render markers
-    markersLayer.clearLayers();
-    (data.markers || []).forEach(m => {
-      L.marker([m.lat, m.lng]).addTo(markersLayer).bindPopup(m.name || 'Train');
-    });
-
-    setHUD(`<b>ok</b> — markers: <b>${data.meta?.count ?? (data.markers?.length || 0)}</b>`);
-  } catch (err) {
-    setHUD(`Network error loading trains: ${err}`, true);
-    markersLayer.clearLayers();
-  }
-}
-
-function initMap() {
-  map = L.map('map').setView([-33.8688, 151.2093], 10);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19, attribution: '&copy; OpenStreetMap'
-  }).addTo(map);
-  markersLayer = L.layerGroup().addTo(map);
-
-  map.on('moveend', fetchTrains);
-  fetchTrains();
-  setInterval(fetchTrains, 30000); // refresh every 30s
-}
-
-initMap();
-</script>
+  <div id="map"></div>
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
+  <script src="dashboard.js"></script>
 </body>
 </html>
