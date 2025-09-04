@@ -7,7 +7,8 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <style>
     html, body { height: 100%; width: 100%; margin: 0; }
-    #map { height: 100%; width: 100%; border: 3px dashed #27ae60; box-sizing: border-box; }
+    /* use viewport height so iPad Safari fills screen */
+    #map { height: 100vh; width: 100%; border: 3px dashed #27ae60; box-sizing: border-box; }
 
     :root { --panel:#121a2b; --text:#e8eefc; --muted:#8fa3bf; --shadow:0 8px 28px rgba(0,0,0,.45); }
     .panel{
@@ -29,213 +30,76 @@
     .pulse{ width:14px; height:14px; border-radius:999px; background:#00e5ff; box-shadow:0 0 0 0 rgba(0,229,255,.7); border:2px solid #fff; animation:pulse 2s infinite; }
     @keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(0,229,255,.7)} 70%{box-shadow:0 0 0 14px rgba(0,229,255,0)} 100%{box-shadow:0 0 0 0 rgba(0,229,255,0)} }
 
-    .error-banner{
-      position: fixed; inset: 0 0 auto 0; background:#c0392b; color:#fff; padding:10px 14px; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial; z-index: 9999;
-    }
-
-    /* Popup */
-    .ol-popup {
-      position: absolute;
-      background: #fff;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      min-width: 220px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      transform: translate(-50%, -100%);
-      pointer-events: auto;
-      font: 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    }
-    .ol-popup h3 { margin: 0 0 6px; font-size: 14px; line-height: 1.2; }
-    .ol-popup .meta { color: #555; margin: 0 0 6px; }
-    .ol-popup table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .ol-popup td { padding: 2px 0; vertical-align: top; }
-    .ol-popup td:first-child { width: 32%; color: #666; padding-right: 6px; }
-    .ol-popup .close { position: absolute; top: 6px; right: 8px; border: 0; background: transparent; font-size: 18px; line-height: 1; cursor: pointer; color: #999; }
-    .ol-popup .close:hover { color: #333; }
+    .ol-popup { position:absolute; background:#fff; padding:10px 12px; border-radius:8px; border:1px solid #ccc; min-width:220px; box-shadow:0 6px 20px rgba(0,0,0,0.15); transform:translate(-50%,-100%); pointer-events:auto; font:13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    .ol-popup h3 { margin:0 0 6px; font-size:14px; line-height:1.2; }
+    .ol-popup .close { position:absolute; top:6px; right:8px; border:0; background:transparent; font-size:18px; line-height:1; cursor:pointer; color:#999; }
+    .ol-popup .close:hover { color:#333; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Controls panel -->
-  <div class="panel" role="region" aria-label="Layer controls">
+  <div class="panel">
     <h3>Layers & Tools</h3>
-
     <div class="group">
       <label><input type="checkbox" id="toggle-rail" checked /> Railway lines</label>
-      <div class="legend">
-        <span class="chip"><span class="swatch" style="background:#ffd54f"></span>Mainline</span>
-        <span class="chip"><span class="swatch" style="background:#81d4fa"></span>Other</span>
-      </div>
-      <div class="hint">Inline demo data included. Swap later with <code>data/railways.geojson</code>.</div>
+      <div class="legend"><span class="chip"><span class="swatch" style="background:#ffd54f"></span>Mainline</span><span class="chip"><span class="swatch" style="background:#81d4fa"></span>Other</span></div>
     </div>
-
     <div class="group">
       <label><input type="checkbox" id="toggle-telstra" /> Telstra (Full)</label>
       <label><input type="checkbox" id="toggle-mvno" /> Telstra MVNO</label>
-      <label><input type="checkbox" id="toggle-optvod" /> Optus / Vodafone</label>
-      <div class="legend">
-        <span class="chip"><span class="swatch" style="background:rgba(0,176,255,.35)"></span>Telstra Full</span>
-        <span class="chip"><span class="swatch" style="background:rgba(102,187,106,.35)"></span>Telstra MVNO</span>
-        <span class="chip"><span class="swatch" style="background:rgba(244,67,54,.35)"></span>Optus/Vodafone</span>
-      </div>
-      <div class="hint">Inline demo polygons included. Later: put real files in <code>data/coverage/…</code>.</div>
+      <label><input type="checkbox" id="toggle-optvod" /> Optus/Vodafone</label>
     </div>
-
     <div class="group">
       <div class="btnrow">
-        <button class="btn" id="btn-locate" title="Centre on my current location">📍 My location</button>
-        <button class="btn" id="btn-au" title="Zoom to Australia">🇦🇺 Australia</button>
+        <button class="btn" id="btn-locate">📍 My location</button>
+        <button class="btn" id="btn-au">🇦🇺 Australia</button>
       </div>
-      <div class="hint">Geolocation stays on device.</div>
     </div>
   </div>
 
-  <!-- Popup -->
   <div id="popup" class="ol-popup" style="display:none;">
-    <button class="close" id="popup-close" title="Close">×</button>
+    <button class="close" id="popup-close">×</button>
     <div id="popup-content"></div>
   </div>
 
-  <!-- Try primary CDN -->
-  <script id="ol-primary" src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
-
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
   <script>
-  // Fallback loader + error UI
-  (function ensureOpenLayersThenInit(){
-    function showError(msg){
-      const b = document.createElement('div');
-      b.className = 'error-banner';
-      b.textContent = msg + ' — If this is your site, your Content-Security-Policy may be blocking external scripts.';
-      document.body.prepend(b);
-    }
-    function loadFallback(){
-      const s = document.createElement('script');
-      s.src = 'https://unpkg.com/ol@9.1.0/dist/ol.js';
-      s.onload = () => init();
-      s.onerror = () => showError('Could not load OpenLayers (both CDNs blocked)');
-      document.body.appendChild(s);
-    }
-    function onReady(){
-      if (typeof ol === 'undefined') { loadFallback(); }
-      else { init(); }
-    }
-    // If primary failed to load, give it a tick; otherwise init immediately after DOM ready.
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(onReady, 0);
-    } else {
-      document.addEventListener('DOMContentLoaded', onReady);
-    }
+    // Demo data
+    const DEMO_RAIL = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"class":"main","name":"Demo Rail"},"geometry":{"type":"LineString","coordinates":[[113,-25],[133,-25],[153,-27]]}}]};
+    const DEMO_TELSTRA = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"provider":"Telstra"},"geometry":{"type":"Polygon","coordinates":[[[138,-34.7],[138.9,-34.7],[138.9,-35.2],[138,-35.2],[138,-34.7]]]}}]};
 
-    // --- DEMO inline GeoJSON so it works instantly ---
-    const DEMO_RAIL = {
-      "type":"FeatureCollection",
-      "features":[
-        {"type":"Feature","properties":{"class":"main","name":"Transcontinental (demo)"},
-         "geometry":{"type":"LineString","coordinates":[[113,-25],[133,-25],[153,-27]]}},
-        {"type":"Feature","properties":{"class":"other","name":"Branch (demo)"},
-         "geometry":{"type":"LineString","coordinates":[[140,-33],[143,-34],[146,-35]]}}
-      ]
-    };
-    const DEMO_TELSTRA = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"provider":"Telstra Full"},"geometry":{"type":"Polygon","coordinates":[[[138.0,-34.7],[138.9,-34.7],[138.9,-35.2],[138.0,-35.2],[138.0,-34.7]]]}}]};
-    const DEMO_MVNO    = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"provider":"Telstra MVNO"},"geometry":{"type":"Polygon","coordinates":[[[151.0,-33.6],[151.4,-33.6],[151.4,-34.0],[151.0,-34.0],[151.0,-33.6]]]}}]};
-    const DEMO_OPTVOD  = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"provider":"Optus/Vodafone"},"geometry":{"type":"Polygon","coordinates":[[[144.6,-37.6],[145.2,-37.6],[145.2,-38.0],[144.6,-38.0],[144.6,-37.6]]]}}]};
+    // Map with OSM base
+    const map = new ol.Map({
+      target:'map',
+      layers:[ new ol.layer.Tile({ source:new ol.source.OSM({ crossOrigin:'anonymous' }) }) ],
+      view:new ol.View({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5 })
+    });
 
-    // --- App init (runs only after OL present) ---
-    function init(){
-      if (typeof ol === 'undefined') return; // safety
+    // Rail
+    const railLayer = new ol.layer.Vector({
+      source:new ol.source.Vector({ features:new ol.format.GeoJSON().readFeatures(DEMO_RAIL,{featureProjection:'EPSG:3857'}) }),
+      style:f=>new ol.style.Style({ stroke:new ol.style.Stroke({ color:'#ffd54f', width:3 }) }),
+      visible:true
+    });
+    map.addLayer(railLayer);
 
-      const map = new ol.Map({
-        target: 'map',
-        layers: [
-          new ol.layer.Tile({
-            source: new ol.source.XYZ({
-              url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-              attributions: '© OpenStreetMap'
-            })
-          })
-        ],
-        controls: ol.control.defaults().extend([new ol.control.ScaleLine()]),
-        view: new ol.View({
-          center: ol.proj.fromLonLat([133.7751, -25.2744]),
-          zoom: 4.5,
-          minZoom: 2,
-          maxZoom: 19
-        })
-      });
+    // Coverage
+    const telstraLayer = new ol.layer.Vector({
+      source:new ol.source.Vector({ features:new ol.format.GeoJSON().readFeatures(DEMO_TELSTRA,{featureProjection:'EPSG:3857'}) }),
+      style:new ol.style.Style({ fill:new ol.style.Fill({ color:'rgba(0,176,255,0.35)' }) }),
+      visible:false
+    });
+    map.addLayer(telstraLayer);
 
-      // Helpers
-      const readInline = (json) => new ol.format.GeoJSON().readFeatures(json, { featureProjection: 'EPSG:3857' });
-
-      // Rail
-      const railStyle = f => new ol.style.Style({
-        stroke: new ol.style.Stroke({
-          color: f.get('class') === 'main' ? '#ffd54f' : '#81d4fa',
-          width: f.get('class') === 'main' ? 3 : 2
-        })
-      });
-      const railLayer = new ol.layer.Vector({ source: new ol.source.Vector({ features: readInline(DEMO_RAIL) }), style: railStyle, visible: true });
-
-      // Coverage
-      const cov = (color, json) => new ol.layer.Vector({
-        source: new ol.source.Vector({ features: readInline(json) }),
-        style: new ol.style.Style({ fill: new ol.style.Fill({ color }) }),
-        visible: false
-      });
-      const telstraLayer = cov('rgba(0,176,255,0.35)', DEMO_TELSTRA);
-      const mvnoLayer    = cov('rgba(102,187,106,0.35)', DEMO_MVNO);
-      const optVodLayer  = cov('rgba(244,67,54,0.35)',  DEMO_OPTVOD);
-
-      map.addLayer(telstraLayer);
-      map.addLayer(mvnoLayer);
-      map.addLayer(optVodLayer);
-      map.addLayer(railLayer);
-
-      // UI
-      const $ = (id)=>document.getElementById(id);
-      $('toggle-rail')   ?.addEventListener('change', e=> railLayer.setVisible(e.target.checked));
-      $('toggle-telstra')?.addEventListener('change', e=> telstraLayer.setVisible(e.target.checked));
-      $('toggle-mvno')   ?.addEventListener('change', e=> mvnoLayer.setVisible(e.target.checked));
-      $('toggle-optvod') ?.addEventListener('change', e=> optVodLayer.setVisible(e.target.checked));
-      $('btn-au')?.addEventListener('click', ()=> map.getView().animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, duration:600 }));
-
-      // Geolocate
-      const markerEl = document.createElement('div'); markerEl.className = 'pulse';
-      const marker = new ol.Overlay({ element: markerEl, positioning: 'center-center', stopEvent: false });
-      map.addOverlay(marker);
-      function goMyLocation(){
-        if(!('geolocation' in navigator)) return alert('Geolocation not available.');
-        navigator.geolocation.getCurrentPosition(
-          (pos)=>{ const xy = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]); marker.setPosition(xy); map.getView().animate({ center: xy, zoom: Math.max(map.getView().getZoom(), 12), duration: 700 }); },
-          ()=> alert('Unable to get your location. Check permissions.'),
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-        );
-      }
-      $('btn-locate')?.addEventListener('click', goMyLocation);
-
-      // Popup
-      const popupEl = document.getElementById('popup');
-      const popupContent = document.getElementById('popup-content');
-      const popupClose = document.getElementById('popup-close');
-      const popup = new ol.Overlay({ element: popupEl, offset: [0, -12], positioning: 'bottom-center', stopEvent: true });
-      map.addOverlay(popup);
-      popupClose.addEventListener('click', ()=> (popupEl.style.display='none'));
-      map.on('singleclick', (evt)=>{
-        const features = map.getFeaturesAtPixel(evt.pixel);
-        if (!features || !features.length) { popupEl.style.display='none'; return; }
-        const f = features[0];
-        const props = f.getProperties();
-        const shown = Object.fromEntries(Object.entries(props).filter(([k])=>k!=='geometry'));
-        const rows = Object.keys(shown).length
-          ? Object.entries(shown).map(([k,v])=>`<tr><td>${k}</td><td>${String(v)}</td></tr>`).join('')
-          : `<tr><td colspan="2">No attributes</td></tr>`;
-        popupContent.innerHTML = `<h3>${shown.name || shown.provider || shown.operator || 'Feature'}</h3><table>${rows}</table>`;
-        popup.setPosition(evt.coordinate);
-        popupEl.style.display = 'block';
-      });
-    }
-  })();
+    // Controls
+    document.getElementById('toggle-rail').onchange=e=>railLayer.setVisible(e.target.checked);
+    document.getElementById('toggle-telstra').onchange=e=>telstraLayer.setVisible(e.target.checked);
+    document.getElementById('btn-au').onclick=()=>map.getView().animate({center:ol.proj.fromLonLat([133.7751,-25.2744]),zoom:4.5,duration:600});
+    document.getElementById('btn-locate').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{
+      const xy=ol.proj.fromLonLat([p.coords.longitude,p.coords.latitude]);
+      map.getView().animate({center:xy,zoom:12,duration:700});
+    });
   </script>
 </body>
 </html>
