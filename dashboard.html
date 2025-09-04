@@ -9,136 +9,244 @@
     html, body { margin: 0; height: 100%; }
     #map { height: 100vh; width: 100%; }
 
-    .panel{ position:absolute; top:16px; left:16px; z-index:1000;
-      background:#121a2b; color:#e8eefc; border-radius:12px; padding:10px 12px;
-      font:14px system-ui; }
-    .btn{ border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06);
-      color:#e8eefc; padding:6px 10px; border-radius:10px; cursor:pointer; margin:2px 0; }
-    .btn[disabled]{ opacity:.6; cursor:wait; }
-    .status{ font-size:12px; color:#b0c8ff; margin-top:6px }
-    .error{ color:#ffb3b3 }
-    .pulse{ width:14px; height:14px; border-radius:999px; background:#00e5ff;
-      box-shadow:0 0 0 0 rgba(0,229,255,.7); border:2px solid #fff; animation:pulse 2s infinite; }
-    @keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(0,229,255,.7)}
-      70%{box-shadow:0 0 0 14px rgba(0,229,255,0)} 100%{box-shadow:0 0 0 0 rgba(0,229,255,0)} }
+    .panel{
+      position: absolute; top: 12px; left: 12px; z-index: 1000;
+      background: #121a2b; color: #e8eefc; border-radius: 12px; padding: 10px 12px;
+      font: 14px system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      border: 1px solid rgba(255,255,255,.12);
+      box-shadow: 0 8px 28px rgba(0,0,0,.35);
+      min-width: 260px;
+    }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .btn { cursor: pointer; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
+           color:#e8eefc; padding:6px 10px; border-radius:10px; }
+    .select { background:rgba(255,255,255,.06); color:#e8eefc; border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:6px 10px; }
+    .status { font-size:12px; color:#b0c8ff; margin-top:6px }
+    .warn   { color:#ffb3b3 }
+
+    /* Live location “pin drip” */
+    .pin {
+      position: relative; width: 16px; height: 16px; border-radius: 50% 50% 50% 0;
+      background: #00bcd4; transform: rotate(-45deg);
+      border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+    }
+    .pin::after { /* inner dot */
+      content:""; position:absolute; width:6px; height:6px; border-radius:50%; background:#fff;
+      left:50%; top:50%; transform:translate(-50%,-50%) rotate(45deg);
+    }
+    .drip {
+      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+      width:12px; height:12px; border-radius:50%; border:2px solid #00bcd4; opacity:.7;
+      animation: drip 1.8s ease-out infinite;
+    }
+    @keyframes drip {
+      0% { transform: translate(-50%,-50%) scale(0.5); opacity:.9; }
+      80% { transform: translate(-50%,-50%) scale(2.1); opacity:0; }
+      100% { opacity:0; }
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <div class="panel">
-    <button class="btn" id="btn-load-rail">🚆 Load Railways (in view)</button>
-    <button class="btn" id="btn-au">🇦🇺 Australia</button>
-    <button class="btn" id="btn-locate">📍 My location</button>
-    <div id="rail-status" class="status">Rail features: 0</div>
-    <div id="cov-status" class="status">Coverage features: T=0, M=0, O=0</div>
+  <div class="panel" role="region" aria-label="Controls">
+    <div class="row" style="margin-bottom:6px;">
+      <button class="btn" id="btn-au">🇦🇺 Australia</button>
+      <button class="btn" id="btn-follow">🧭 Follow me</button>
+      <label class="row" style="gap:6px;margin-left:auto;">
+        Colour:
+        <select id="rail-colour" class="select">
+          <option value="black" selected>Black</option>
+          <option value="blue">Blue</option>
+        </select>
+      </label>
+    </div>
+    <div class="row" style="margin-bottom:6px;">
+      <label><input type="checkbox" id="auto-load" checked /> Auto-load rail when I move</label>
+      <button class="btn" id="btn-reload">↻ Reload rails</button>
+    </div>
+    <div id="msg" class="status">Rails: 0 • Last load: —</div>
+    <div id="warn" class="status warn" style="display:none;"></div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
   <script>
-    // --- Base map ---
+    // ---- Map base (OSM) ----
     const map = new ol.Map({
-      target:'map',
-      layers:[ new ol.layer.Tile({ source:new ol.source.OSM({ crossOrigin:'anonymous' }) }) ],
-      view:new ol.View({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, minZoom:2, maxZoom:19 })
+      target: 'map',
+      layers: [ new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) }) ],
+      view: new ol.View({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 4.8, minZoom: 2, maxZoom: 19 }),
+      controls: ol.control.defaults().extend([new ol.control.ScaleLine()])
     });
 
-    // --- Rail vector layer (dark styling) ---
+    // ---- Railway vector layer (auto-updated) ----
     const railSource = new ol.source.Vector();
     const railLayer  = new ol.layer.Vector({
       source: railSource,
-      style: f => new ol.style.Style({
-        stroke: new ol.style.Stroke({
-          color: (f.get('usage') === 'main' || f.get('class') === 'main') ? '#cc8800' : '#003366',
-          width: (f.get('usage') === 'main' || f.get('class') === 'main') ? 5 : 4
-        })
-      }),
-      visible: true
+      style: railStyle('black')
     });
     railLayer.setZIndex(10);
     map.addLayer(railLayer);
 
-    // --- Coverage layers (semi-transparent fill + black outline) ---
-    function tryCoverageLayer(fill, file){
-      const src = new ol.source.Vector();
-      return fetch(file,{cache:'no-store'}).then(r => {
-        if(r.ok) return r.json(); throw 0;
-      }).then(json => {
-        const feats = new ol.format.GeoJSON().readFeatures(json,{featureProjection:'EPSG:3857'});
-        src.addFeatures(feats);
-        return new ol.layer.Vector({
-          source: src,
-          style: new ol.style.Style({
-            fill:  new ol.style.Fill({ color: fill }),
-            stroke:new ol.style.Stroke({ color:'#000000', width:2 })
-          }),
-          visible: true
-        });
-      }).catch(() => null);
+    function railStyle(mode) {
+      const color = mode === 'blue' ? '#0055ff' : '#000000';
+      return (f) => new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color,
+          width: (f.get('usage') === 'main' || f.get('class') === 'main') ? 5 : 4
+        })
+      });
     }
 
-    let telstraLayer, mvnoLayer, optvLayer;
-    Promise.all([
-      tryCoverageLayer('rgba(0,176,255,0.35)','data/coverage/telstra_full.geojson'),
-      tryCoverageLayer('rgba(102,187,106,0.35)','data/coverage/telstra_mvno.geojson'),
-      tryCoverageLayer('rgba(244,67,54,0.35)','data/coverage/optus_vodafone.geojson')
-    ]).then(([t,m,o])=>{
-      telstraLayer=t; mvnoLayer=m; optvLayer=o;
-      if (t) { t.setZIndex(4); map.addLayer(t); }
-      if (m) { m.setZIndex(3); map.addLayer(m); }
-      if (o) { o.setZIndex(2); map.addLayer(o); }
-      updateCoverageStatus();
-      [t?.getSource(), m?.getSource(), o?.getSource()].forEach(src=>{
-        src && src.on('addfeature', updateCoverageStatus);
-      });
+    // Allow user to swap colour live
+    document.getElementById('rail-colour').addEventListener('change', (e) => {
+      railLayer.setStyle(railStyle(e.target.value));
     });
 
-    // --- Buttons ---
-    document.getElementById('btn-au').onclick=()=>map.getView().animate({center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, duration:600});
-    document.getElementById('btn-locate').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{
-      const xy=ol.proj.fromLonLat([p.coords.longitude,p.coords.latitude]);
-      map.getView().animate({center:xy, zoom:12, duration:700});
-    });
+    // ---- Auto-loading rails on move/zoom (Overpass) ----
+    const msg   = document.getElementById('msg');
+    const warn  = document.getElementById('warn');
+    const autoCk= document.getElementById('auto-load');
 
-    // --- Overpass loader for railways ---
-    const railStatus=document.getElementById('rail-status');
-    async function loadRailFromOverpass(){
-      try{
-        railStatus.textContent='Loading railways in view…';
-        const extent=ol.proj.transformExtent(map.getView().calculateExtent(map.getSize()),'EPSG:3857','EPSG:4326');
-        const [minX,minY,maxX,maxY]=extent;
-        const w=Math.abs(maxX-minX), h=Math.abs(maxY-minY);
-        if(w>10||h>10){ railStatus.textContent='Zoom in more and try again (view too large)'; return; }
+    let lastQueryBBox = null;
+    let debounceTimer = null;
 
-        const query=`[out:json][timeout:25];
-          (way["railway"="rail"](${minY},${minX},${maxY},${maxX});
-           way["railway"="light_rail"](${minY},${minX},${maxY},${maxX});
-           way["railway"="subway"](${minY},${minX},${maxY},${maxX});); out geom;`;
-        const res=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query));
-        if(!res.ok) throw new Error('Overpass error');
-        const data=await res.json();
-        const features=(data.elements||[])
-          .filter(el=>el.type==='way'&&Array.isArray(el.geometry))
-          .map(el=>({type:'Feature',
-            properties:{name:(el.tags&&(el.tags.name||el.tags.ref))||'Rail',class:el.tags&&el.tags.usage,usage:el.tags&&el.tags.usage,railway:el.tags&&el.tags.railway},
-            geometry:{type:'LineString',coordinates:el.geometry.map(pt=>[pt.lon,pt.lat])}}));
+    async function loadRailsInView() {
+      try {
+        warn.style.display = 'none';
+        const extent3857 = map.getView().calculateExtent(map.getSize());
+        const extent4326 = ol.proj.transformExtent(extent3857, 'EPSG:3857', 'EPSG:4326');
+        const [minX, minY, maxX, maxY] = extent4326;
+
+        // Prevent querying when zoomed out too far
+        const w = Math.abs(maxX - minX), h = Math.abs(maxY - minY);
+        if (w > 10 || h > 10) { // ~too large area
+          warn.textContent = 'Zoom in to load railways (view is too large).';
+          warn.style.display = 'block';
+          return;
+        }
+
+        // Skip if bbox is nearly same as last query
+        if (lastQueryBBox) {
+          const [lminX,lminY,lmaxX,lmaxY] = lastQueryBBox;
+          const delta = Math.max(Math.abs(minX-lminX), Math.abs(minY-lminY), Math.abs(maxX-lmaxX), Math.abs(maxY-lmaxY));
+          if (delta < 0.05) return; // small move -> ignore
+        }
+        lastQueryBBox = extent4326.slice();
+
+        msg.textContent = 'Loading railways…';
+
+        const query = `[out:json][timeout:25];
+          (
+            way["railway"="rail"](${minY},${minX},${maxY},${maxX});
+            way["railway"="light_rail"](${minY},${minX},${maxY},${maxX});
+            way["railway"="subway"](${minY},${minX},${maxY},${maxX});
+          );
+          out geom;`;
+
+        const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
+        const res = await fetch(url, { headers: { 'Accept':'application/json' }});
+        if (!res.ok) throw new Error('Overpass error: ' + res.status);
+
+        const data = await res.json();
+        const features = (data.elements || [])
+          .filter(el => el.type === 'way' && Array.isArray(el.geometry))
+          .map(el => ({
+            type: 'Feature',
+            properties: {
+              name: (el.tags && (el.tags.name || el.tags.ref)) || 'Rail',
+              class: el.tags && el.tags.usage,
+              usage: el.tags && el.tags.usage,
+              railway: el.tags && el.tags.railway
+            },
+            geometry: { type: 'LineString', coordinates: el.geometry.map(pt => [pt.lon, pt.lat]) }
+          }));
+
         railSource.clear();
-        railSource.addFeatures(new ol.format.GeoJSON().readFeatures({type:'FeatureCollection',features},{featureProjection:'EPSG:3857'}));
-        railStatus.textContent='Rail features: '+railSource.getFeatures().length;
-      }catch(e){
-        railStatus.textContent='Error loading rails. Try zooming in and trying again.';
+        railSource.addFeatures(new ol.format.GeoJSON().readFeatures(
+          { type:'FeatureCollection', features }, { featureProjection:'EPSG:3857' }
+        ));
+        msg.textContent = `Rails: ${railSource.getFeatures().length} • Last load: ${new Date().toLocaleTimeString()}`;
+      } catch (e) {
+        warn.textContent = 'Could not load railways (try zooming in or check network/CSP).';
+        warn.style.display = 'block';
         console.error(e);
       }
     }
-    document.getElementById('btn-load-rail').onclick=loadRailFromOverpass;
 
-    // --- Coverage status updater ---
-    function updateCoverageStatus(){
-      const t = telstraLayer?.getSource()?.getFeatures().length || 0;
-      const m = mvnoLayer?.getSource()?.getFeatures().length || 0;
-      const o = optvLayer?.getSource()?.getFeatures().length || 0;
-      document.getElementById('cov-status').textContent = `Coverage features: T=${t}, M=${m}, O=${o}`;
+    // Debounced auto-load on moveend
+    map.on('moveend', () => {
+      if (!autoCk.checked) return;
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(loadRailsInView, 700);
+    });
+
+    // Manual reload button
+    document.getElementById('btn-reload').addEventListener('click', loadRailsInView);
+
+    // Initial load
+    loadRailsInView();
+
+    // ---- AU zoom ----
+    document.getElementById('btn-au').addEventListener('click', () => {
+      map.getView().animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, duration: 600 });
+    });
+
+    // ---- Live “pin drip” location (watchPosition) ----
+    const pinEl = document.createElement('div');
+    pinEl.className = 'pin';
+    const dripEl = document.createElement('div');
+    dripEl.className = 'drip';
+    pinEl.appendChild(dripEl);
+
+    const me = new ol.Overlay({ element: pinEl, positioning: 'center-center', stopEvent: false, zIndex: 20 });
+    map.addOverlay(me);
+
+    let watchId = null;
+    let followMe = false;
+
+    function startWatch() {
+      if (!('geolocation' in navigator)) {
+        warn.textContent = 'Geolocation not available on this device/browser.';
+        warn.style.display = 'block';
+        return;
+      }
+      if (watchId !== null) return;
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          const xy = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
+          me.setPosition(xy);
+          if (followMe) {
+            map.getView().animate({ center: xy, duration: 400 });
+          }
+        },
+        (err) => {
+          warn.textContent = 'Location error: ' + (err && err.message ? err.message : 'permission or signal');
+          warn.style.display = 'block';
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      );
     }
+
+    function stopWatch() {
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+    }
+
+    // Follow-me toggle
+    document.getElementById('btn-follow').addEventListener('click', (e) => {
+      followMe = !followMe;
+      e.currentTarget.textContent = followMe ? '🧭 Following…' : '🧭 Follow me';
+      startWatch();
+    });
+
+    // Start the watch immediately so the pin appears quickly (not following by default)
+    startWatch();
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', stopWatch);
   </script>
 </body>
 </html>
