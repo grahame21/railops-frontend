@@ -9,3 +9,5 @@
                  https://identity.netlify.com https://api.netlify.com https://*.netlify.com https://*.netlify.app;
     frame-src    'self' https://identity.netlify.com https://app.netlify.com;
     worker-src   'self' blob:;
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
