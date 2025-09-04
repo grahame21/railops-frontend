@@ -6,44 +6,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css" />
   <style>
-    html, body { margin: 0; height: 100%; }
-    #map { height: 100vh; width: 100%; }
+    html, body { margin:0; height:100%; }
+    #map { height:100vh; width:100%; }
 
     .panel{
-      position: absolute; top: 12px; left: 12px; z-index: 1000;
-      background: #121a2b; color: #e8eefc; border-radius: 12px; padding: 10px 12px;
-      font: 14px system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      border: 1px solid rgba(255,255,255,.12);
-      box-shadow: 0 8px 28px rgba(0,0,0,.35);
-      min-width: 260px;
+      position:absolute; top:12px; left:12px; z-index:1000;
+      background:#121a2b; color:#e8eefc; border-radius:12px; padding:10px 12px;
+      font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial;
+      border:1px solid rgba(255,255,255,.12); box-shadow:0 8px 28px rgba(0,0,0,.35);
+      min-width:260px;
     }
-    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .btn { cursor: pointer; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
-           color:#e8eefc; padding:6px 10px; border-radius:10px; }
-    .select { background:rgba(255,255,255,.06); color:#e8eefc; border:1px solid rgba(255,255,255,.18); border-radius:10px; padding:6px 10px; }
-    .status { font-size:12px; color:#b0c8ff; margin-top:6px }
-    .warn   { color:#ffb3b3 }
+    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .btn{ cursor:pointer; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
+          color:#e8eefc; padding:6px 10px; border-radius:10px; }
+    .select{ background:rgba(255,255,255,.06); color:#e8eefc; border:1px solid rgba(255,255,255,.18);
+             border-radius:10px; padding:6px 10px; }
+    .status{ font-size:12px; color:#b0c8ff; margin-top:6px }
+    .warn{ color:#ffb3b3 }
+    .banner{ position:fixed; left:0; right:0; top:0; background:#c0392b; color:#fff; padding:8px 12px; font:14px system-ui; display:none; z-index:9999; }
 
     /* Live location “pin drip” */
-    .pin {
-      position: relative; width: 16px; height: 16px; border-radius: 50% 50% 50% 0;
-      background: #00bcd4; transform: rotate(-45deg);
-      border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35);
-    }
-    .pin::after { /* inner dot */
-      content:""; position:absolute; width:6px; height:6px; border-radius:50%; background:#fff;
-      left:50%; top:50%; transform:translate(-50%,-50%) rotate(45deg);
-    }
-    .drip {
-      position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-      width:12px; height:12px; border-radius:50%; border:2px solid #00bcd4; opacity:.7;
-      animation: drip 1.8s ease-out infinite;
-    }
-    @keyframes drip {
-      0% { transform: translate(-50%,-50%) scale(0.5); opacity:.9; }
-      80% { transform: translate(-50%,-50%) scale(2.1); opacity:0; }
-      100% { opacity:0; }
-    }
+    .pin{ position:relative; width:16px; height:16px; border-radius:50% 50% 50% 0;
+          background:#00bcd4; transform:rotate(-45deg); border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.35); }
+    .pin::after{ content:""; position:absolute; width:6px; height:6px; border-radius:50%; background:#fff;
+                 left:50%; top:50%; transform:translate(-50%,-50%) rotate(45deg); }
+    .drip{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
+           width:12px; height:12px; border-radius:50%; border:2px solid #00bcd4; opacity:.7; animation:drip 1.8s ease-out infinite; }
+    @keyframes drip{ 0%{transform:translate(-50%,-50%) scale(0.5);opacity:.9} 80%{transform:translate(-50%,-50%) scale(2.1);opacity:0} 100%{opacity:0} }
   </style>
 </head>
 <body>
@@ -69,17 +58,27 @@
     <div id="warn" class="status warn" style="display:none;"></div>
   </div>
 
+  <div id="banner" class="banner"></div>
+
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
   <script>
     // ---- Map base (OSM) ----
+    const osm = new ol.source.OSM({ crossOrigin: 'anonymous' });
+    osm.on('tileloaderror', ()=> showBanner("Tile loading blocked. Check Netlify CSP img-src for tile.openstreetmap.org"));
     const map = new ol.Map({
-      target: 'map',
-      layers: [ new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) }) ],
-      view: new ol.View({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 4.8, minZoom: 2, maxZoom: 19 }),
+      target:'map',
+      layers:[ new ol.layer.Tile({ source: osm }) ],
+      view:new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, minZoom:2, maxZoom:19 }),
       controls: ol.control.defaults().extend([new ol.control.ScaleLine()])
     });
 
-    // ---- Railway vector layer (auto-updated) ----
+    function showBanner(text){
+      const b = document.getElementById('banner');
+      b.textContent = text;
+      b.style.display = 'block';
+    }
+
+    // ---- Railway vector layer (resolution-aware style) ----
     const railSource = new ol.source.Vector();
     const railLayer  = new ol.layer.Vector({
       source: railSource,
@@ -88,19 +87,34 @@
     railLayer.setZIndex(10);
     map.addLayer(railLayer);
 
-    function railStyle(mode) {
-      const color = mode === 'blue' ? '#0055ff' : '#000000';
-      return (f) => new ol.style.Style({
-        stroke: new ol.style.Stroke({
-          color,
-          width: (f.get('usage') === 'main' || f.get('class') === 'main') ? 5 : 4
-        })
-      });
+    // Make a resolution-aware style factory (color selectable)
+    function railStyle(mode){
+      const color = (mode === 'blue') ? '#0055ff' : '#000000';
+      // Style function receives (feature, resolution)
+      return (f, resolution) => {
+        // convert resolution (m/px) to zoom approx.
+        const zoom = Math.log2(156543.03392804097 / resolution);
+        // Stroke widths by zoom: thinner when zoomed out, thicker when in.
+        // You can tweak these breakpoints as you like.
+        let base = (zoom < 6) ? 1.5
+                 : (zoom < 8) ? 2
+                 : (zoom < 10)? 2.5
+                 : (zoom < 12)? 3.5
+                 : (zoom < 14)? 4.5
+                 : 6;
+        const isMain = (f.get('usage') === 'main' || f.get('class') === 'main');
+        const width = Math.max(1, base + (isMain ? 1.0 : 0));
+        return new ol.style.Style({
+          stroke: new ol.style.Stroke({ color, width })
+        });
+      };
     }
 
-    // Allow user to swap colour live
-    document.getElementById('rail-colour').addEventListener('change', (e) => {
+    // Live colour swap
+    document.getElementById('rail-colour').addEventListener('change', e=>{
       railLayer.setStyle(railStyle(e.target.value));
+      // Force re-render to apply new widths immediately
+      railSource.changed();
     });
 
     // ---- Auto-loading rails on move/zoom (Overpass) ----
@@ -111,31 +125,26 @@
     let lastQueryBBox = null;
     let debounceTimer = null;
 
-    async function loadRailsInView() {
-      try {
+    async function loadRailsInView(){
+      try{
         warn.style.display = 'none';
         const extent3857 = map.getView().calculateExtent(map.getSize());
         const extent4326 = ol.proj.transformExtent(extent3857, 'EPSG:3857', 'EPSG:4326');
-        const [minX, minY, maxX, maxY] = extent4326;
-
-        // Prevent querying when zoomed out too far
-        const w = Math.abs(maxX - minX), h = Math.abs(maxY - minY);
-        if (w > 10 || h > 10) { // ~too large area
+        const [minX,minY,maxX,maxY] = extent4326;
+        const w = Math.abs(maxX-minX), h = Math.abs(maxY-minY);
+        if (w > 10 || h > 10) { // protect Overpass — ask user to zoom in
           warn.textContent = 'Zoom in to load railways (view is too large).';
           warn.style.display = 'block';
           return;
         }
-
-        // Skip if bbox is nearly same as last query
-        if (lastQueryBBox) {
-          const [lminX,lminY,lmaxX,lmaxY] = lastQueryBBox;
-          const delta = Math.max(Math.abs(minX-lminX), Math.abs(minY-lminY), Math.abs(maxX-lmaxX), Math.abs(maxY-lmaxY));
-          if (delta < 0.05) return; // small move -> ignore
+        if (lastQueryBBox){
+          const [a,b,c,d] = lastQueryBBox;
+          const delta = Math.max(Math.abs(minX-a), Math.abs(minY-b), Math.abs(maxX-c), Math.abs(maxY-d));
+          if (delta < 0.05) return; // small move; skip
         }
         lastQueryBBox = extent4326.slice();
 
         msg.textContent = 'Loading railways…';
-
         const query = `[out:json][timeout:25];
           (
             way["railway"="rail"](${minY},${minX},${maxY},${maxX});
@@ -143,11 +152,12 @@
             way["railway"="subway"](${minY},${minX},${maxY},${maxX});
           );
           out geom;`;
-
         const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
         const res = await fetch(url, { headers: { 'Accept':'application/json' }});
-        if (!res.ok) throw new Error('Overpass error: ' + res.status);
-
+        if (!res.ok){
+          showBanner('Overpass blocked by CSP (add overpass-api.de to connect-src)');
+          throw new Error('Overpass HTTP '+res.status);
+        }
         const data = await res.json();
         const features = (data.elements || [])
           .filter(el => el.type === 'way' && Array.isArray(el.geometry))
@@ -161,91 +171,65 @@
             },
             geometry: { type: 'LineString', coordinates: el.geometry.map(pt => [pt.lon, pt.lat]) }
           }));
-
         railSource.clear();
         railSource.addFeatures(new ol.format.GeoJSON().readFeatures(
           { type:'FeatureCollection', features }, { featureProjection:'EPSG:3857' }
         ));
         msg.textContent = `Rails: ${railSource.getFeatures().length} • Last load: ${new Date().toLocaleTimeString()}`;
-      } catch (e) {
-        warn.textContent = 'Could not load railways (try zooming in or check network/CSP).';
+      } catch (e){
+        warn.textContent = 'Could not load railways (zoom in, or check network/CSP).';
         warn.style.display = 'block';
         console.error(e);
       }
     }
 
-    // Debounced auto-load on moveend
+    // Debounce moveend
     map.on('moveend', () => {
       if (!autoCk.checked) return;
       clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(loadRailsInView, 700);
+      debounceTimer = setTimeout(loadRailsInView, 600);
     });
 
-    // Manual reload button
-    document.getElementById('btn-reload').addEventListener('click', loadRailsInView);
+    // Manual reload
+    document.getElementById('btn-reload')?.addEventListener('click', loadRailsInView);
 
     // Initial load
     loadRailsInView();
 
     // ---- AU zoom ----
-    document.getElementById('btn-au').addEventListener('click', () => {
+    document.getElementById('btn-au').addEventListener('click', ()=>{
       map.getView().animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, duration: 600 });
     });
 
-    // ---- Live “pin drip” location (watchPosition) ----
-    const pinEl = document.createElement('div');
-    pinEl.className = 'pin';
-    const dripEl = document.createElement('div');
-    dripEl.className = 'drip';
+    // ---- Live “pin drip” (watchPosition) ----
+    const pinEl = document.createElement('div'); pinEl.className = 'pin';
+    const dripEl = document.createElement('div'); dripEl.className = 'drip';
     pinEl.appendChild(dripEl);
-
-    const me = new ol.Overlay({ element: pinEl, positioning: 'center-center', stopEvent: false, zIndex: 20 });
+    const me = new ol.Overlay({ element: pinEl, positioning: 'center-center', stopEvent:false, zIndex:20 });
     map.addOverlay(me);
 
-    let watchId = null;
-    let followMe = false;
-
-    function startWatch() {
-      if (!('geolocation' in navigator)) {
-        warn.textContent = 'Geolocation not available on this device/browser.';
-        warn.style.display = 'block';
-        return;
-      }
-      if (watchId !== null) return;
+    let watchId = null, followMe = false;
+    function startWatch(){
+      if(!('geolocation' in navigator)){ warn.textContent='Geolocation not available.'; warn.style.display='block'; return; }
+      if(watchId !== null) return;
       watchId = navigator.geolocation.watchPosition(
-        (pos) => {
+        (pos)=>{
           const xy = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
           me.setPosition(xy);
-          if (followMe) {
-            map.getView().animate({ center: xy, duration: 400 });
-          }
+          if (followMe) map.getView().animate({ center: xy, duration: 400 });
         },
-        (err) => {
-          warn.textContent = 'Location error: ' + (err && err.message ? err.message : 'permission or signal');
-          warn.style.display = 'block';
-        },
-        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+        (err)=>{ warn.textContent='Location error: '+(err?.message||'permission/signal'); warn.style.display='block'; },
+        { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
       );
     }
+    function stopWatch(){ if(watchId!==null){ navigator.geolocation.clearWatch(watchId); watchId=null; } }
 
-    function stopWatch() {
-      if (watchId !== null) {
-        navigator.geolocation.clearWatch(watchId);
-        watchId = null;
-      }
-    }
-
-    // Follow-me toggle
-    document.getElementById('btn-follow').addEventListener('click', (e) => {
+    document.getElementById('btn-follow').addEventListener('click', (e)=>{
       followMe = !followMe;
       e.currentTarget.textContent = followMe ? '🧭 Following…' : '🧭 Follow me';
       startWatch();
     });
-
-    // Start the watch immediately so the pin appears quickly (not following by default)
     startWatch();
-
-    // Clean up on page unload
     window.addEventListener('beforeunload', stopWatch);
   </script>
 </body>
