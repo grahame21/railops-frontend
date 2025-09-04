@@ -1,37 +1,15 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Grahame's RailOps Login</title>
-  <link rel="stylesheet" href="/static/css/style.css">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head>
-<body>
-
-<div class="login-box">
-  <h1>Grahame's RailOps Login</h1>
-  <form onsubmit="return login();">
-    <input type="text" id="username" placeholder="Username" required>
-    <input type="password" id="password" placeholder="Password" required>
-    <input type="submit" value="Login">
-  </form>
-</div>
-
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in — RailOps</title>
+<script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+</head><body>
+<button onclick="window.netlifyIdentity && window.netlifyIdentity.open()">Sign in</button>
 <script>
-  function login() {
-    const user = document.getElementById('username').value;
-    const pass = document.getElementById('password').value;
-
-    if (user === "admin" && pass === "railops") {
-      window.location.href = "admin.html";
-    } else if (user === "guest" && pass === "guestpass") {
-      window.location.href = "dashboard.html";
-    } else {
-      alert("Invalid login");
-    }
-    return false;
-  }
+  document.addEventListener('DOMContentLoaded', function(){
+    if (!window.netlifyIdentity) return;
+    window.netlifyIdentity.on('login', () => location.href = '/dashboard.html');
+    window.netlifyIdentity.on('init', user => { /* optional: handle already-logged-in */ });
+    window.netlifyIdentity.init();
+  });
 </script>
-
-</body>
-</html>
+</body></html>
