@@ -5,169 +5,30 @@
   <title>RailOps Train Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Use self-hosted OpenLayers -->
-  <link rel="stylesheet" href="/assets/ol.css" />
-  <script src="/assets/ol.js"></script>
+  <!-- OpenLayers via CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css" />
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
 
   <style>
     html, body { margin:0; height:100%; }
     #map { height:100vh; width:100%; }
-
-    .panel{
-      position:absolute; top:12px; left:12px; z-index:1000;
-      background:#121a2b; color:#e8eefc; border-radius:12px; padding:10px 12px;
-      font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      border:1px solid rgba(255,255,255,.12); box-shadow:0 8px 28px rgba(0,0,0,.35);
-      min-width:260px;
-    }
-    .row{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-    .btn{ cursor:pointer; border:1px solid rgba(255,255,255,.18); background:rgba(255,255,255,.06);
-          color:#e8eefc; padding:6px 10px; border-radius:10px; }
-    .select{ background:rgba(255,255,255,.06); color:#e8eefc; border:1px solid rgba(255,255,255,.18);
-             border-radius:10px; padding:6px 10px; }
-    .status{ font-size:12px; color:#b0c8ff; margin-top:6px }
-    .warn{ color:#ffb3b3 }
-
-    /* Live location “pin drip” */
-    .pin{ position:relative; width:16px; height:16px; border-radius:50% 50% 50% 0;
-          background:#00bcd4; transform:rotate(-45deg); border:2px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.35); }
-    .pin::after{ content:""; position:absolute; width:6px; height:6px; border-radius:50%; background:#fff;
-                 left:50%; top:50%; transform:translate(-50%,-50%) rotate(45deg); }
-    .drip{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
-           width:12px; height:12px; border-radius:50%; border:2px solid #00bcd4; opacity:.7; animation:drip 1.8s ease-out infinite; }
-    @keyframes drip{ 0%{transform:translate(-50%,-50%) scale(0.5);opacity:.9} 80%{transform:translate(-50%,-50%) scale(2.1);opacity:0} 100%{opacity:0} }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <div class="panel">
-    <div class="row" style="margin-bottom:6px;">
-      <button class="btn" id="btn-au">🇦🇺 Australia</button>
-      <button class="btn" id="btn-follow">🧭 Follow me</button>
-      <label class="row" style="gap:6px;margin-left:auto;">
-        Colour:
-        <select id="rail-colour" class="select">
-          <option value="black" selected>Black</option>
-          <option value="blue">Blue</option>
-        </select>
-      </label>
-    </div>
-    <div class="row" style="margin-bottom:6px;">
-      <label><input type="checkbox" id="auto-load" checked /> Auto-load rail when I move</label>
-      <button class="btn" id="btn-reload">↻ Reload rails</button>
-    </div>
-    <div id="msg" class="status">Rails: 0 • Last load: —</div>
-    <div id="warn" class="status warn" style="display:none;"></div>
-  </div>
-
   <script>
-    // ---- Map base (OSM) ----
+    // Simple working map
     const map = new ol.Map({
-      target:'map',
-      layers:[ new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin:'anonymous' }) }) ],
-      view:new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, minZoom:2, maxZoom:19 }),
-      controls: ol.control.defaults().extend([new ol.control.ScaleLine()])
+      target: 'map',
+      layers: [
+        new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) })
+      ],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
+        zoom: 4.8
+      })
     });
-
-    // ---- Railway vector layer (resolution-aware style) ----
-    const railSource = new ol.source.Vector();
-    const railLayer  = new ol.layer.Vector({
-      source: railSource,
-      style: railStyle('black')
-    });
-    railLayer.setZIndex(10);
-    map.addLayer(railLayer);
-
-    function railStyle(mode){
-      const color = (mode === 'blue') ? '#0055ff' : '#000000';
-      return (f, resolution) => {
-        const zoom = Math.log2(156543.03392804097 / resolution);
-        let base = (zoom < 6) ? 1.5
-                 : (zoom < 8) ? 2
-                 : (zoom < 10)? 2.5
-                 : (zoom < 12)? 3.5
-                 : (zoom < 14)? 4.5
-                 : 6;
-        const isMain = (f.get('usage')==='main'||f.get('class')==='main');
-        const width = base + (isMain ? 1 : 0);
-        return new ol.style.Style({ stroke: new ol.style.Stroke({ color, width }) });
-      };
-    }
-
-    document.getElementById('rail-colour').addEventListener('change', e=>{
-      railLayer.setStyle(railStyle(e.target.value));
-      railSource.changed();
-    });
-
-    // ---- Auto-loading rails on move/zoom (Overpass) ----
-    const msg=document.getElementById('msg'), warn=document.getElementById('warn'), autoCk=document.getElementById('auto-load');
-    let lastQueryBBox=null, debounceTimer=null;
-
-    async function loadRailsInView(){
-      try{
-        warn.style.display='none';
-        const extent3857=map.getView().calculateExtent(map.getSize());
-        const extent4326=ol.proj.transformExtent(extent3857,'EPSG:3857','EPSG:4326');
-        const [minX,minY,maxX,maxY]=extent4326;
-        const w=Math.abs(maxX-minX), h=Math.abs(maxY-minY);
-        if(w>10||h>10){ warn.textContent='Zoom in to load railways (view too large).'; warn.style.display='block'; return; }
-        if(lastQueryBBox){
-          const [a,b,c,d]=lastQueryBBox;
-          const delta=Math.max(Math.abs(minX-a),Math.abs(minY-b),Math.abs(maxX-c),Math.abs(maxY-d));
-          if(delta<0.05) return;
-        }
-        lastQueryBBox=extent4326.slice();
-        msg.textContent='Loading railways…';
-        const query=`[out:json][timeout:25];
-          (way["railway"="rail"](${minY},${minX},${maxY},${maxX});
-           way["railway"="light_rail"](${minY},${minX},${maxY},${maxX});
-           way["railway"="subway"](${minY},${minX},${maxY},${maxX});); out geom;`;
-        const res=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query));
-        if(!res.ok) throw new Error('Overpass error');
-        const data=await res.json();
-        const features=(data.elements||[]).filter(el=>el.type==='way'&&Array.isArray(el.geometry))
-          .map(el=>({ type:'Feature', properties:{ name:(el.tags&&(el.tags.name||el.tags.ref))||'Rail',
-                   class:el.tags&&el.tags.usage, usage:el.tags&&el.tags.usage, railway:el.tags&&el.tags.railway },
-                   geometry:{ type:'LineString', coordinates:el.geometry.map(pt=>[pt.lon,pt.lat]) }}));
-        railSource.clear();
-        railSource.addFeatures(new ol.format.GeoJSON().readFeatures({type:'FeatureCollection',features},{featureProjection:'EPSG:3857'}));
-        msg.textContent=`Rails: ${railSource.getFeatures().length} • Last load: ${new Date().toLocaleTimeString()}`;
-      }catch(e){ warn.textContent='Could not load railways (zoom in, or check network/CSP).'; warn.style.display='block'; console.error(e); }
-    }
-
-    map.on('moveend', ()=>{ if(autoCk.checked){ clearTimeout(debounceTimer); debounceTimer=setTimeout(loadRailsInView,600); } });
-    document.getElementById('btn-reload').addEventListener('click', loadRailsInView);
-    loadRailsInView();
-
-    document.getElementById('btn-au').addEventListener('click', ()=>{
-      map.getView().animate({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.8, duration:600 });
-    });
-
-    // ---- Live “pin drip” location ----
-    const pinEl=document.createElement('div'); pinEl.className='pin';
-    const dripEl=document.createElement('div'); dripEl.className='drip';
-    pinEl.appendChild(dripEl);
-    const me=new ol.Overlay({ element:pinEl, positioning:'center-center', stopEvent:false, zIndex:20 });
-    map.addOverlay(me);
-
-    let watchId=null, followMe=false;
-    function startWatch(){
-      if(!('geolocation' in navigator)){ warn.textContent='Geolocation not available.'; warn.style.display='block'; return; }
-      if(watchId!==null) return;
-      watchId=navigator.geolocation.watchPosition(
-        pos=>{ const xy=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
-               me.setPosition(xy); if(followMe) map.getView().animate({ center:xy, duration:400 }); },
-        err=>{ warn.textContent='Location error: '+(err?.message||'permission/signal'); warn.style.display='block'; },
-        { enableHighAccuracy:true, maximumAge:5000, timeout:15000 }
-      );
-    }
-    document.getElementById('btn-follow').addEventListener('click', e=>{
-      followMe=!followMe;
-      e.currentTarget.textContent=followMe?'🧭 Following…':'🧭 Follow me';
-      startWatch();
-    });
-    startWatch();
   </script>
 </body>
 </html>
