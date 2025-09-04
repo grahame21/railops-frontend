@@ -8,9 +8,19 @@
   <style>
     html, body { margin: 0; height: 100%; }
     #map { height: 100vh; width: 100%; }
-    .panel{ position:absolute; top:16px; left:16px; z-index:1000; background:#121a2b; color:#e8eefc; border-radius:12px; padding:10px 12px; font:14px system-ui; }
-    .btn{ border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); color:#e8eefc; padding:6px 10px; border-radius:10px; cursor:pointer; }
+
+    .panel{ position:absolute; top:16px; left:16px; z-index:1000;
+      background:#121a2b; color:#e8eefc; border-radius:12px; padding:10px 12px;
+      font:14px system-ui; }
+    .btn{ border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06);
+      color:#e8eefc; padding:6px 10px; border-radius:10px; cursor:pointer; margin:2px 0; }
+    .btn[disabled]{ opacity:.6; cursor:wait; }
     .status{ font-size:12px; color:#b0c8ff; margin-top:6px }
+    .error{ color:#ffb3b3 }
+    .pulse{ width:14px; height:14px; border-radius:999px; background:#00e5ff;
+      box-shadow:0 0 0 0 rgba(0,229,255,.7); border:2px solid #fff; animation:pulse 2s infinite; }
+    @keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(0,229,255,.7)}
+      70%{box-shadow:0 0 0 14px rgba(0,229,255,0)} 100%{box-shadow:0 0 0 0 rgba(0,229,255,0)} }
   </style>
 </head>
 <body>
@@ -25,35 +35,36 @@
 
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
   <script>
-    // Base map (OSM)
+    // --- Base map ---
     const map = new ol.Map({
       target:'map',
       layers:[ new ol.layer.Tile({ source:new ol.source.OSM({ crossOrigin:'anonymous' }) }) ],
       view:new ol.View({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, minZoom:2, maxZoom:19 })
     });
 
-    // Rail layer
+    // --- Rail vector layer (dark styling) ---
     const railSource = new ol.source.Vector();
     const railLayer  = new ol.layer.Vector({
-      source:railSource,
-      style:f=>new ol.style.Style({
-        stroke:new ol.style.Stroke({
-          color:(f.get('usage')==='main'||f.get('class')==='main')?'#ffd54f':'#81d4fa',
-          width:(f.get('usage')==='main'||f.get('class')==='main')?4:3
+      source: railSource,
+      style: f => new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color: (f.get('usage') === 'main' || f.get('class') === 'main') ? '#cc8800' : '#003366',
+          width: (f.get('usage') === 'main' || f.get('class') === 'main') ? 5 : 4
         })
-      })
+      }),
+      visible: true
     });
     railLayer.setZIndex(10);
     map.addLayer(railLayer);
 
-    // Buttons
+    // --- Buttons ---
     document.getElementById('btn-au').onclick=()=>map.getView().animate({center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, duration:600});
     document.getElementById('btn-locate').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{
       const xy=ol.proj.fromLonLat([p.coords.longitude,p.coords.latitude]);
       map.getView().animate({center:xy, zoom:12, duration:700});
     });
 
-    // Overpass loader (live rails in current view)
+    // --- Overpass loader for railways ---
     const railStatus=document.getElementById('rail-status');
     async function loadRailFromOverpass(){
       try{
@@ -61,7 +72,7 @@
         const extent=ol.proj.transformExtent(map.getView().calculateExtent(map.getSize()),'EPSG:3857','EPSG:4326');
         const [minX,minY,maxX,maxY]=extent;
         const w=Math.abs(maxX-minX), h=Math.abs(maxY-minY);
-        if(w>10||h>10){ railStatus.textContent='Zoom in a bit and try again (view too large)'; return; }
+        if(w>10||h>10){ railStatus.textContent='Zoom in more and try again (view too large)'; return; }
 
         const query=`[out:json][timeout:25];
           (way["railway"="rail"](${minY},${minX},${maxY},${maxX});
@@ -72,12 +83,14 @@
         const data=await res.json();
         const features=(data.elements||[])
           .filter(el=>el.type==='way'&&Array.isArray(el.geometry))
-          .map(el=>({type:'Feature',properties:{name:(el.tags&&(el.tags.name||el.tags.ref))||'Rail',class:el.tags&&el.tags.usage,usage:el.tags&&el.tags.usage,railway:el.tags&&el.tags.railway},geometry:{type:'LineString',coordinates:el.geometry.map(pt=>[pt.lon,pt.lat])}}));
+          .map(el=>({type:'Feature',
+            properties:{name:(el.tags&&(el.tags.name||el.tags.ref))||'Rail',class:el.tags&&el.tags.usage,usage:el.tags&&el.tags.usage,railway:el.tags&&el.tags.railway},
+            geometry:{type:'LineString',coordinates:el.geometry.map(pt=>[pt.lon,pt.lat])}}));
         railSource.clear();
         railSource.addFeatures(new ol.format.GeoJSON().readFeatures({type:'FeatureCollection',features},{featureProjection:'EPSG:3857'}));
         railStatus.textContent='Rail features: '+railSource.getFeatures().length;
       }catch(e){
-        railStatus.textContent='Error loading rails. Try zooming in and tapping again.';
+        railStatus.textContent='Error loading rails. Try zooming in and trying again.';
         console.error(e);
       }
     }
