@@ -2,288 +2,94 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RailOps Train Tracker</title>
+  <title>RailOps — Minimal Map Loader</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css" />
+
+  <!-- (Optional) page-level CSP that often fixes iPad issues; server headers win if set -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self';
+                 img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
+                 script-src 'self' https://cdn.jsdelivr.net https://unpkg.com;
+                 style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+                 connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
+                 worker-src 'self' blob:;">
+
   <style>
-    html, body { height: 100%; width: 100%; margin: 0; }
-    #map { height: 100vh; width: 100%; box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; }
+    #map { height: 100vh; width: 100%; border: 3px dashed #27ae60; box-sizing: border-box; }
 
-    :root { --panel:#121a2b; --text:#e8eefc; --muted:#8fa3bf; --shadow:0 8px 28px rgba(0,0,0,.45); }
-    .panel{
-      position:absolute; top:16px; left:16px; z-index:1000;
-      background:var(--panel); color:var(--text);
-      border-radius:16px; box-shadow:var(--shadow);
-      padding:12px; min-width:280px; border:1px solid rgba(255,255,255,.06);
-      font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+    /* Simple banner for clear errors */
+    .error-banner{
+      position: fixed; inset: 0 0 auto 0; background:#c0392b; color:#fff;
+      padding:10px 14px; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial; z-index: 9999;
     }
-    .panel h3{ margin:0 0 8px; font-size:16px; font-weight:700; letter-spacing:.2px }
-    .group{ margin:8px 0; padding:8px; border-radius:12px; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08) }
-    .group label{ display:flex; align-items:center; gap:8px; font-size:14px; cursor:pointer; user-select:none }
-    .hint{ font-size:12px; color:var(--muted); margin-top:6px; line-height:1.3 }
-    .legend{ display:flex; gap:8px; flex-wrap:wrap; margin-top:8px }
-    .chip{ display:inline-flex; align-items:center; gap:8px; font-size:12px; padding:6px 8px; border-radius:999px; border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.04) }
-    .swatch{ width:14px; height:14px; border-radius:3px; border:1px solid rgba(255,255,255,.2) }
-    .btnrow{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px }
-    .btn{
-      cursor:pointer; border:1px solid rgba(255,255,255,.14);
-      background:linear-gradient(180deg, rgba(255,255,255,.08), rgba(0,0,0,.1));
-      color:var(--text); padding:8px 12px; border-radius:12px; font-size:14px;
-    }
-    .btn[disabled]{ opacity: .6; cursor: wait; }
 
-    .pulse{ width:14px; height:14px; border-radius:999px; background:#00e5ff;
-      box-shadow:0 0 0 0 rgba(0,229,255,.7); border:2px solid #fff; animation:pulse 2s infinite; }
-    @keyframes pulse{ 0%{box-shadow:0 0 0 0 rgba(0,229,255,.7)} 70%{box-shadow:0 0 0 14px rgba(0,229,255,0)} 100%{box-shadow:0 0 0 0 rgba(0,229,255,0)} }
-
-    .status { font-size:12px; color:#b0c8ff; margin-top:6px }
-    .error  { color:#ffb3b3 }
-
-    /* Popup */
+    /* Basic popup styles (not strictly needed, but future-proof) */
     .ol-popup {
-      position: absolute;
-      background: #fff;
-      padding: 10px 12px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      min-width: 220px;
-      box-shadow: 0 6px 20px rgba(0,0,0,0.15);
-      transform: translate(-50%, -100%);
-      pointer-events: auto;
+      position: absolute; background: #fff; padding: 10px 12px; border-radius: 8px; border: 1px solid #ccc;
+      min-width: 220px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); transform: translate(-50%, -100%); pointer-events: auto;
       font: 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
     }
-    .ol-popup h3 { margin: 0 0 6px; font-size: 14px; line-height: 1.2; }
-    .ol-popup table { width: 100%; border-collapse: collapse; font-size: 12px; }
-    .ol-popup td { padding: 2px 0; vertical-align: top; }
-    .ol-popup td:first-child { width: 32%; color: #666; padding-right: 6px; }
-    .ol-popup .close {
-      position: absolute; top: 6px; right: 8px;
-      border: 0; background: transparent; font-size: 18px; line-height: 1;
-      cursor: pointer; color: #999;
-    }
-    .ol-popup .close:hover { color: #333; }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <div class="panel" role="region" aria-label="Layer controls">
-    <h3>Layers & Tools</h3>
+  <!-- Primary OL script (jsDelivr) -->
+  <script id="ol-primary" src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
 
-    <div class="group">
-      <div class="btnrow">
-        <button class="btn" id="btn-load-rail">🚆 Load Railways (in view)</button>
-      </div>
-      <div class="hint">Loads live rail data from OpenStreetMap (Overpass) for the current map view.</div>
-      <div id="rail-status" class="status">Rail features: 0</div>
-    </div>
-
-    <div class="group">
-      <label><input type="checkbox" id="toggle-telstra" /> Telstra (Full)</label>
-      <label><input type="checkbox" id="toggle-mvno" /> Telstra MVNO</label>
-      <label><input type="checkbox" id="toggle-optvod" /> Optus / Vodafone</label>
-      <div class="legend">
-        <span class="chip"><span class="swatch" style="background:rgba(0,176,255,.35)"></span>Telstra Full</span>
-        <span class="chip"><span class="swatch" style="background:rgba(102,187,106,.35)"></span>Telstra MVNO</span>
-        <span class="chip"><span class="swatch" style="background:rgba(244,67,54,.35)"></span>Optus/Vodafone</span>
-      </div>
-      <div class="hint">If present, files are auto-loaded from <code>data/coverage/</code>.</div>
-      <div id="cov-status" class="status">Coverage features: T=0, M=0, O=0</div>
-    </div>
-
-    <div class="group">
-      <div class="btnrow">
-        <button class="btn" id="btn-locate">📍 My location</button>
-        <button class="btn" id="btn-au">🇦🇺 Australia</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Popup -->
-  <div id="popup" class="ol-popup" style="display:none;">
-    <button class="close" id="popup-close" title="Close">×</button>
-    <div id="popup-content"></div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
   <script>
-    // --- Map base (OSM) ---
-    const map = new ol.Map({
-      target:'map',
-      layers:[ new ol.layer.Tile({ source:new ol.source.OSM({ crossOrigin:'anonymous' }) }) ],
-      view:new ol.View({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, minZoom:2, maxZoom:19 }),
-      controls: ol.control.defaults().extend([new ol.control.ScaleLine()])
-    });
+  (function initWithFallback(){
+    function showError(msg){
+      const b = document.createElement('div');
+      b.className = 'error-banner';
+      b.textContent = msg + ' — If this is your site, your CSP headers may be blocking external scripts.';
+      document.body.prepend(b);
+    }
 
-    // --- Rail vector layer (empty until loaded) ---
-    const railSource = new ol.source.Vector();
-    const railLayer  = new ol.layer.Vector({
-      source: railSource,
-      style: f => new ol.style.Style({
-        stroke: new ol.style.Stroke({
-          color: f.get('usage') === 'main' || f.get('class') === 'main' ? '#ffd54f' : '#81d4fa',
-          width: f.get('usage') === 'main' || f.get('class') === 'main' ? 4 : 3
+    function loadFallback(){
+      // Try unpkg if jsDelivr fails or OL not present
+      var s = document.createElement('script');
+      s.src = 'https://unpkg.com/ol@9.1.0/dist/ol.js';
+      s.onload = tryStart;
+      s.onerror = function(){ showError('Could not load OpenLayers from either CDN'); };
+      document.body.appendChild(s);
+    }
+
+    function tryStart(){
+      if (typeof ol === 'undefined') { loadFallback(); return; }
+
+      // === MAP STARTS HERE ===
+      const map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.OSM({ crossOrigin: 'anonymous' })
+          })
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([133.7751, -25.2744]),
+          zoom: 4.5,
+          minZoom: 2,
+          maxZoom: 19
         })
-      }),
-      visible: true
-    });
-    railLayer.setZIndex(10);
-    map.addLayer(railLayer);
-
-    // --- Coverage layers (load only if files exist) ---
-    function tryCoverageLayer(fill, file){
-      const src = new ol.source.Vector();
-      return fetch(file,{cache:'no-store'}).then(r => {
-        if(r.ok) return r.json(); throw 0;
-      }).then(json => {
-        const feats = new ol.format.GeoJSON().readFeatures(json,{featureProjection:'EPSG:3857'});
-        src.addFeatures(feats);
-        return new ol.layer.Vector({
-          source: src,
-          style: new ol.style.Style({
-            fill:  new ol.style.Fill({ color: fill }),
-            stroke:new ol.style.Stroke({ color:'#222', width:1 })
-          }),
-          visible: false
-        });
-      }).catch(() => null);
-    }
-
-    let telstraLayer, mvnoLayer, optvLayer;
-    Promise.all([
-      tryCoverageLayer('rgba(0,176,255,0.35)','data/coverage/telstra_full.geojson'),
-      tryCoverageLayer('rgba(102,187,106,0.35)','data/coverage/telstra_mvno.geojson'),
-      tryCoverageLayer('rgba(244,67,54,0.35)','data/coverage/optus_vodafone.geojson')
-    ]).then(([t,m,o])=>{
-      telstraLayer=t; mvnoLayer=m; optvLayer=o;
-      if (t) { t.setZIndex(4); map.addLayer(t); }
-      if (m) { m.setZIndex(3); map.addLayer(m); }
-      if (o) { o.setZIndex(2); map.addLayer(o); }
-      // toggles
-      const $ = id => document.getElementById(id);
-      const bind = (id, layer) => layer && $(id)?.addEventListener('change', e => layer.setVisible(e.target.checked));
-      bind('toggle-telstra', telstraLayer);
-      bind('toggle-mvno',   mvnoLayer);
-      bind('toggle-optvod', optvLayer);
-      updateCoverageStatus();
-      [t?.getSource(), m?.getSource(), o?.getSource()].forEach(src=>{
-        src && src.on('addfeature', updateCoverageStatus);
       });
-    });
 
-    // --- AU zoom + Geolocate ---
-    document.getElementById('btn-au')?.addEventListener('click', ()=> {
-      map.getView().animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.5, duration: 600 });
-    });
-    const markerEl = document.createElement('div'); markerEl.className = 'pulse';
-    const marker = new ol.Overlay({ element: markerEl, positioning: 'center-center', stopEvent: false, zIndex: 20 });
-    map.addOverlay(marker);
-    document.getElementById('btn-locate')?.addEventListener('click', ()=>{
-      if(!('geolocation' in navigator)) return alert('Geolocation not available.');
-      navigator.geolocation.getCurrentPosition(
-        (pos)=>{ const xy = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]); marker.setPosition(xy); map.getView().animate({ center: xy, zoom: 12, duration: 700 }); },
-        ()=> alert('Unable to get your location. Check permissions.'),
-        { enableHighAccuracy:true, timeout:8000, maximumAge:0 }
-      );
-    });
-
-    // --- Popup for vector features (rail or coverage) ---
-    const popupEl = document.getElementById('popup');
-    const popupContent = document.getElementById('popup-content');
-    const popupClose = document.getElementById('popup-close');
-    const popup = new ol.Overlay({ element: popupEl, offset: [0, -12], positioning: 'bottom-center', stopEvent: true });
-    map.addOverlay(popup);
-    popupClose?.addEventListener('click', ()=> (popupEl.style.display='none'));
-    map.on('singleclick', (evt)=>{
-      const feats = map.getFeaturesAtPixel(evt.pixel);
-      if (!feats || !feats.length) { popupEl.style.display='none'; return; }
-      const f = feats[0];
-      const props = f.getProperties();
-      const shown = Object.fromEntries(Object.entries(props).filter(([k]) => k !== 'geometry'));
-      const rows = Object.keys(shown).length
-        ? Object.entries(shown).map(([k,v]) => `<tr><td>${k}</td><td>${String(v)}</td></tr>`).join('')
-        : `<tr><td colspan="2">No attributes</td></tr>`;
-      popupContent.innerHTML = `<h3>${shown.name || shown.provider || shown.operator || 'Feature'}</h3><table>${rows}</table>`;
-      popup.setPosition(evt.coordinate);
-      popupEl.style.display = 'block';
-    });
-
-    // --- Overpass loader: real railways in the current view ---
-    const btnLoadRail = document.getElementById('btn-load-rail');
-    const railStatus  = document.getElementById('rail-status');
-
-    async function loadRailFromOverpass(){
-      try{
-        btnLoadRail.disabled = true;
-        railStatus.textContent = 'Loading railways in view…';
-
-        // Compute bbox in WGS84 from current map extent
-        const extent3857 = map.getView().calculateExtent(map.getSize());
-        const [minX, minY, maxX, maxY] = ol.proj.transformExtent(extent3857, 'EPSG:3857', 'EPSG:4326');
-
-        // Avoid too-large queries; if zoomed out too far, suggest zooming in
-        const widthDeg = Math.abs(maxX - minX);
-        const heightDeg = Math.abs(maxY - minY);
-        if (widthDeg > 10 || heightDeg > 10) {
-          railStatus.innerHTML = '<span class="error">Zoom in a bit and try again (view is too large for Overpass)</span>';
-          btnLoadRail.disabled = false;
-          return;
-        }
-
-        // Overpass query: main railway lines in bbox
-        const query = `[out:json][timeout:25];
-          (
-            way["railway"="rail"](${minY},${minX},${maxY},${maxX});
-            way["railway"="light_rail"](${minY},${minX},${maxY},${maxX});
-            way["railway"="subway"](${minY},${minX},${maxY},${maxX});
-          );
-          out geom;`;
-
-        const url = 'https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query);
-        const res = await fetch(url, { headers: { 'Accept': 'application/json' }});
-        if (!res.ok) throw new Error('Overpass request failed');
-        const data = await res.json();
-
-        // Convert ways to GeoJSON
-        const features = (data.elements || [])
-          .filter(el => el.type === 'way' && Array.isArray(el.geometry))
-          .map(el => ({
-            type: 'Feature',
-            properties: {
-              name: (el.tags && (el.tags.name || el.tags.ref)) || 'Rail',
-              class: el.tags && el.tags.usage,   // usage=main/branch
-              usage: el.tags && el.tags.usage,
-              railway: el.tags && el.tags.railway
-            },
-            geometry: {
-              type: 'LineString',
-              coordinates: el.geometry.map(pt => [pt.lon, pt.lat])
-            }
-          }));
-
-        const fc = { type: 'FeatureCollection', features };
-        railSource.clear();
-        railSource.addFeatures(new ol.format.GeoJSON().readFeatures(fc, { featureProjection: 'EPSG:3857' }));
-        railStatus.textContent = `Rail features: ${railSource.getFeatures().length}`;
-      } catch (e) {
-        railStatus.innerHTML = '<span class="error">Error loading railways. Try zooming in and tapping again.</span>';
-        console.error(e);
-      } finally {
-        btnLoadRail.disabled = false;
-      }
+      // (Optional) small sanity check: recenter button for testing
+      const btn = document.createElement('button');
+      btn.textContent = '↺ Reset AU view';
+      btn.style.cssText = 'position:fixed;right:12px;top:12px;z-index:1000;padding:8px 10px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;';
+      btn.onclick = () => map.getView().animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.5, duration: 500 });
+      document.body.appendChild(btn);
     }
 
-    btnLoadRail.addEventListener('click', loadRailFromOverpass);
-
-    // --- Coverage status updater ---
-    function updateCoverageStatus(){
-      const t = telstraLayer?.getSource()?.getFeatures().length || 0;
-      const m = mvnoLayer  ?.getSource()?.getFeatures().length || 0;
-      const o = optvLayer  ?.getSource()?.getFeatures().length || 0;
-      const el = document.getElementById('cov-status');
-      if (el) el.textContent = `Coverage features: T=${t}, M=${m}, O=${o}`;
+    // Run after DOM is ready; if primary script hasn’t attached OL, try fallback
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(tryStart, 0);
+    } else {
+      document.addEventListener('DOMContentLoaded', tryStart);
     }
+  })();
   </script>
 </body>
 </html>
