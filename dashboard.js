@@ -1,185 +1,159 @@
-// === CONFIG ==========================
-const BACKEND_URL = "https://railops-json.onrender.com/trains";
-// ====================================
-
-let map, vectorSource, vectorLayer, overlay;
-
-function initMap() {
-  vectorSource = new ol.source.Vector();
-
-  vectorLayer = new ol.layer.Vector({
-    source: vectorSource,
-    style: featureStyle
-  });
-
-  map = new ol.Map({
-    target: "map",
+/* global ol */
+(function () {
+  // --- Map base ---
+  const map = new ol.Map({
+    target: 'map',
     layers: [
-      new ol.layer.Tile({ source: new ol.source.OSM() }),
-      vectorLayer
+      new ol.layer.Tile({
+        source: new ol.source.XYZ({
+          url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          attributions: '© OpenStreetMap'
+        })
+      })
     ],
+    controls: ol.control.defaults().extend([new ol.control.ScaleLine()]),
     view: new ol.View({
-      center: ol.proj.fromLonLat([151.2093, -33.8688]), // Sydney
-      zoom: 7
+      center: ol.proj.fromLonLat([133.7751, -25.2744]),
+      zoom: 4.5,
+      minZoom: 2,
+      maxZoom: 19
     })
   });
 
-  // Popup overlay
-  const popupEl = document.getElementById("popup");
-  overlay = new ol.Overlay({
-    element: popupEl,
-    autoPan: { animation: { duration: 150 } },
-    positioning: "bottom-center",
-    stopEvent: true,
-    offset: [0, -12]
-  });
-  map.addOverlay(overlay);
+  // Expose for future scripts (e.g., trains)
+  window.map = map;
 
-  document.getElementById("popup-close").addEventListener("click", () => {
-    overlay.setPosition(undefined);
-    popupEl.style.display = "none";
-  });
-
-  // Click to open popup
-  map.on("singleclick", (evt) => {
-    const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
-    const popup = document.getElementById("popup");
-
-    if (!feature) {
-      overlay.setPosition(undefined);
-      popup.style.display = "none";
-      return;
+  // --- Helpers ---
+  async function tryLoadGeoJSON(url) {
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('Fetch failed');
+      const json = await res.json();
+      return new ol.format.GeoJSON().readFeatures(json, { featureProjection: 'EPSG:3857' });
+    } catch (e) {
+      console.warn('Optional file missing or invalid:', url);
+      return [];
     }
-
-    const coord = evt.coordinate;
-    const props = feature.get("props") || {};
-    showPopup(coord, props);
-  });
-
-  // Optional: refresh data when map stops moving
-  let moveTimer = null;
-  map.on("moveend", () => {
-    if (moveTimer) clearTimeout(moveTimer);
-    moveTimer = setTimeout(fetchTrains, 300);
-  });
-}
-
-function featureStyle(feature) {
-  const props = feature.get("props") || {};
-  const label = props.Loco || props.Service || "";
-
-  return new ol.style.Style({
-    image: new ol.style.Circle({
-      radius: 6,
-      fill: new ol.style.Fill({ color: "red" }),
-      stroke: new ol.style.Stroke({ color: "#fff", width: 2 })
-    }),
-    text: new ol.style.Text({
-      text: label,
-      offsetY: -12,
-      font: "bold 12px Arial",
-      fill: new ol.style.Fill({ color: "#000" }),
-      stroke: new ol.style.Stroke({ color: "#fff", width: 2 })
-    })
-  });
-}
-
-function showPopup(coordinate, t) {
-  // Build popup HTML from typical TF fields. We guard each field.
-  const content = document.getElementById("popup-content");
-
-  const rows = (label, val) => {
-    if (val === undefined || val === null || val === "") return "";
-    return `<tr><td>${label}</td><td>${val}</td></tr>`;
-  };
-
-  const title = (t.Loco || t.Service || t.Train || "Train").toString();
-  const subtitle = [
-    t.Operator || t.Customer || "",
-    t.Direction || t.Dir || ""
-  ].filter(Boolean).join(" • ");
-
-  content.innerHTML = `
-    <h3>${escapeHTML(title)}</h3>
-    ${subtitle ? `<p class="meta">${escapeHTML(subtitle)}</p>` : ""}
-    <table>
-      ${rows("Status", safe(t.Status || t.State))}
-      ${rows("Speed", t.Speed != null ? `${t.Speed} km/h` : undefined)}
-      ${rows("Lat", t.Lat)}
-      ${rows("Lon", t.Lon)}
-      ${rows("From", safe(t.From))}
-      ${rows("To", safe(t.To))}
-      ${rows("Updated", safe(t.Updated || t.Time || t.Timestamp))}
-      ${rows("Headcode", safe(t.Headcode || t.Code))}
-      ${rows("Length", safe(t.Length))}
-    </table>
-  `;
-
-  overlay.setPosition(coordinate);
-  document.getElementById("popup").style.display = "block";
-}
-
-function escapeHTML(str) {
-  return String(str)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-function safe(v) { return v == null ? "" : escapeHTML(v); }
-
-function fetchTrains() {
-  const view = map.getView();
-  const zoom = view.getZoom();
-  const center = ol.proj.toLonLat(view.getCenter());
-  const lat = center[1];
-  const lng = center[0];
-
-  const url = `${BACKEND_URL}?lat=${lat}&lng=${lng}&zm=${zoom}`;
-
-  fetch(url, { cache: "no-store" })
-    .then(r => r.json())
-    .then(payload => {
-      if (!payload || payload.ok === false) {
-        console.warn("Error loading trains:", payload && payload.message);
-        vectorSource.clear();
-        return;
-      }
-      renderTrains(payload.data);
-    })
-    .catch(err => {
-      console.error("Fetch error:", err);
-      vectorSource.clear();
-    });
-}
-
-function renderTrains(json) {
-  vectorSource.clear();
-
-  // Expecting TrainFinder-like shape: { tts: [...] }
-  const trains = (json && Array.isArray(json.tts)) ? json.tts : [];
-  if (!trains.length) {
-    console.log("No trains found.");
-    return;
   }
 
-  trains.forEach(t => {
-    const lat = Number(t.Lat ?? t.lat);
-    const lon = Number(t.Lon ?? t.lon ?? t.Lng ?? t.lng);
-    if (!isFinite(lat) || !isFinite(lon)) return;
-
-    const feature = new ol.Feature({
-      geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat])),
-      props: t
+  // --- Railway lines layer ---
+  const railStyle = (f) =>
+    new ol.style.Style({
+      stroke: new ol.style.Stroke({
+        color: f.get('class') === 'main' ? '#ffd54f' : '#81d4fa',
+        width: f.get('class') === 'main' ? 3 : 2
+      })
     });
-    vectorSource.addFeature(feature);
+
+  const railSource = new ol.source.Vector();
+  const railLayer = new ol.layer.Vector({ source: railSource, style: railStyle, visible: true });
+
+  tryLoadGeoJSON('data/railways.geojson').then((feats) => {
+    if (feats.length) railSource.addFeatures(feats);
+    else {
+      // demo line so the toggle does something even without data
+      const demo = {
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: { class: 'main', name: 'Demo Rail Line' },
+            geometry: { type: 'LineString', coordinates: [[113, -25], [133, -25], [153, -27]] }
+          }
+        ]
+      };
+      railSource.addFeatures(new ol.format.GeoJSON().readFeatures(demo, { featureProjection: 'EPSG:3857' }));
+    }
   });
 
-  console.log(`Rendered ${trains.length} train(s).`);
-}
+  // --- Coverage layers (semi-transparent fills) ---
+  function makeCoverageLayer(color, file) {
+    const src = new ol.source.Vector();
+    tryLoadGeoJSON(file).then((feats) => src.addFeatures(feats));
+    return new ol.layer.Vector({
+      source: src,
+      style: new ol.style.Style({ fill: new ol.style.Fill({ color }) }),
+      visible: false
+    });
+  }
 
-// Init & polling
-initMap();
-fetchTrains();
-setInterval(fetchTrains, 30000); // 30s refresh
+  const telstraLayer = makeCoverageLayer('rgba(0,176,255,0.35)', 'data/coverage/telstra_full.geojson');
+  const mvnoLayer    = makeCoverageLayer('rgba(102,187,106,0.35)', 'data/coverage/telstra_mvno.geojson');
+  const optVodLayer  = makeCoverageLayer('rgba(244,67,54,0.35)',  'data/coverage/optus_vodafone.geojson');
+
+  map.addLayer(telstraLayer);
+  map.addLayer(mvnoLayer);
+  map.addLayer(optVodLayer);
+  map.addLayer(railLayer);
+
+  // --- Controls wiring ---
+  const qs = (id) => document.getElementById(id);
+  qs('toggle-rail')?.addEventListener('change', (e) => railLayer.setVisible(e.target.checked));
+  qs('toggle-telstra')?.addEventListener('change', (e) => telstraLayer.setVisible(e.target.checked));
+  qs('toggle-mvno')?.addEventListener('change', (e) => mvnoLayer.setVisible(e.target.checked));
+  qs('toggle-optvod')?.addEventListener('change', (e) => optVodLayer.setVisible(e.target.checked));
+
+  // 🇦🇺 Australia zoom
+  qs('btn-au')?.addEventListener('click', () => {
+    map.getView().animate({
+      center: ol.proj.fromLonLat([133.7751, -25.2744]),
+      zoom: 4.5,
+      duration: 600
+    });
+  });
+
+  // --- Geolocate (pulse marker overlay) ---
+  const markerEl = document.createElement('div');
+  markerEl.className = 'pulse';
+  const marker = new ol.Overlay({ element: markerEl, positioning: 'center-center', stopEvent: false });
+  map.addOverlay(marker);
+
+  function goMyLocation() {
+    if (!('geolocation' in navigator)) return alert('Geolocation not available.');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const xy = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
+        marker.setPosition(xy);
+        map.getView().animate({ center: xy, zoom: Math.max(map.getView().getZoom(), 12), duration: 700 });
+      },
+      () => alert('Unable to get your location. Check permissions.'),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  }
+  qs('btn-locate')?.addEventListener('click', goMyLocation);
+
+  // --- Popup (feature info for rail/coverage; trains later) ---
+  const popupEl = document.getElementById('popup');
+  const popupContent = document.getElementById('popup-content');
+  const popupClose = document.getElementById('popup-close');
+  const popup = new ol.Overlay({ element: popupEl, offset: [0, -12], positioning: 'bottom-center', stopEvent: true });
+  map.addOverlay(popup);
+
+  popupClose.addEventListener('click', () => (popupEl.style.display = 'none'));
+
+  map.on('singleclick', (evt) => {
+    const features = map.getFeaturesAtPixel(evt.pixel);
+    if (!features || !features.length) {
+      popupEl.style.display = 'none';
+      return;
+    }
+    const f = features[0];
+    const props = f.getProperties();
+    const shown = Object.fromEntries(Object.entries(props).filter(([k]) => k !== 'geometry'));
+    const rows = Object.keys(shown).length
+      ? Object.entries(shown).map(([k, v]) => `<tr><td>${k}</td><td>${String(v)}</td></tr>`).join('')
+      : `<tr><td colspan="2">No attributes</td></tr>`;
+
+    popupContent.innerHTML = `
+      <h3>${shown.name || shown.provider || shown.operator || 'Feature'}</h3>
+      <table>${rows}</table>
+    `;
+    popup.setPosition(evt.coordinate);
+    popupEl.style.display = 'block';
+  });
+
+  // --- Hook for future trains layer ---
+  // const trainsLayer = new ol.layer.Vector({ source: new ol.source.Vector(), style: yourTrainStyle });
+  // map.addLayer(trainsLayer);
+  // trainsLayer.getSource().addFeatures(...);
+})();
