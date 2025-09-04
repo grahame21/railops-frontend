@@ -2,94 +2,86 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RailOps — Minimal Map Loader</title>
+  <title>RailOps Train Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- (Optional) page-level CSP that often fixes iPad issues; server headers win if set -->
-  <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self';
-                 img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
-                 script-src 'self' https://cdn.jsdelivr.net https://unpkg.com;
-                 style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-                 connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
-                 worker-src 'self' blob:;">
-
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css" />
   <style>
     html, body { margin: 0; height: 100%; }
-    #map { height: 100vh; width: 100%; border: 3px dashed #27ae60; box-sizing: border-box; }
-
-    /* Simple banner for clear errors */
-    .error-banner{
-      position: fixed; inset: 0 0 auto 0; background:#c0392b; color:#fff;
-      padding:10px 14px; font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial; z-index: 9999;
-    }
-
-    /* Basic popup styles (not strictly needed, but future-proof) */
-    .ol-popup {
-      position: absolute; background: #fff; padding: 10px 12px; border-radius: 8px; border: 1px solid #ccc;
-      min-width: 220px; box-shadow: 0 6px 20px rgba(0,0,0,0.15); transform: translate(-50%, -100%); pointer-events: auto;
-      font: 13px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    }
+    #map { height: 100vh; width: 100%; }
+    .panel{ position:absolute; top:16px; left:16px; z-index:1000; background:#121a2b; color:#e8eefc; border-radius:12px; padding:10px 12px; font:14px system-ui; }
+    .btn{ border:1px solid rgba(255,255,255,.2); background:rgba(255,255,255,.06); color:#e8eefc; padding:6px 10px; border-radius:10px; cursor:pointer; }
+    .status{ font-size:12px; color:#b0c8ff; margin-top:6px }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- Primary OL script (jsDelivr) -->
-  <script id="ol-primary" src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
+  <div class="panel">
+    <button class="btn" id="btn-load-rail">🚆 Load Railways (in view)</button>
+    <button class="btn" id="btn-au">🇦🇺 Australia</button>
+    <button class="btn" id="btn-locate">📍 My location</button>
+    <div id="rail-status" class="status">Rail features: 0</div>
+  </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
   <script>
-  (function initWithFallback(){
-    function showError(msg){
-      const b = document.createElement('div');
-      b.className = 'error-banner';
-      b.textContent = msg + ' — If this is your site, your CSP headers may be blocking external scripts.';
-      document.body.prepend(b);
-    }
+    // Base map (OSM)
+    const map = new ol.Map({
+      target:'map',
+      layers:[ new ol.layer.Tile({ source:new ol.source.OSM({ crossOrigin:'anonymous' }) }) ],
+      view:new ol.View({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, minZoom:2, maxZoom:19 })
+    });
 
-    function loadFallback(){
-      // Try unpkg if jsDelivr fails or OL not present
-      var s = document.createElement('script');
-      s.src = 'https://unpkg.com/ol@9.1.0/dist/ol.js';
-      s.onload = tryStart;
-      s.onerror = function(){ showError('Could not load OpenLayers from either CDN'); };
-      document.body.appendChild(s);
-    }
-
-    function tryStart(){
-      if (typeof ol === 'undefined') { loadFallback(); return; }
-
-      // === MAP STARTS HERE ===
-      const map = new ol.Map({
-        target: 'map',
-        layers: [
-          new ol.layer.Tile({
-            source: new ol.source.OSM({ crossOrigin: 'anonymous' })
-          })
-        ],
-        view: new ol.View({
-          center: ol.proj.fromLonLat([133.7751, -25.2744]),
-          zoom: 4.5,
-          minZoom: 2,
-          maxZoom: 19
+    // Rail layer
+    const railSource = new ol.source.Vector();
+    const railLayer  = new ol.layer.Vector({
+      source:railSource,
+      style:f=>new ol.style.Style({
+        stroke:new ol.style.Stroke({
+          color:(f.get('usage')==='main'||f.get('class')==='main')?'#ffd54f':'#81d4fa',
+          width:(f.get('usage')==='main'||f.get('class')==='main')?4:3
         })
-      });
+      })
+    });
+    railLayer.setZIndex(10);
+    map.addLayer(railLayer);
 
-      // (Optional) small sanity check: recenter button for testing
-      const btn = document.createElement('button');
-      btn.textContent = '↺ Reset AU view';
-      btn.style.cssText = 'position:fixed;right:12px;top:12px;z-index:1000;padding:8px 10px;border-radius:10px;border:1px solid #ddd;background:#fff;cursor:pointer;';
-      btn.onclick = () => map.getView().animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.5, duration: 500 });
-      document.body.appendChild(btn);
-    }
+    // Buttons
+    document.getElementById('btn-au').onclick=()=>map.getView().animate({center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, duration:600});
+    document.getElementById('btn-locate').onclick=()=>navigator.geolocation.getCurrentPosition(p=>{
+      const xy=ol.proj.fromLonLat([p.coords.longitude,p.coords.latitude]);
+      map.getView().animate({center:xy, zoom:12, duration:700});
+    });
 
-    // Run after DOM is ready; if primary script hasn’t attached OL, try fallback
-    if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(tryStart, 0);
-    } else {
-      document.addEventListener('DOMContentLoaded', tryStart);
+    // Overpass loader (live rails in current view)
+    const railStatus=document.getElementById('rail-status');
+    async function loadRailFromOverpass(){
+      try{
+        railStatus.textContent='Loading railways in view…';
+        const extent=ol.proj.transformExtent(map.getView().calculateExtent(map.getSize()),'EPSG:3857','EPSG:4326');
+        const [minX,minY,maxX,maxY]=extent;
+        const w=Math.abs(maxX-minX), h=Math.abs(maxY-minY);
+        if(w>10||h>10){ railStatus.textContent='Zoom in a bit and try again (view too large)'; return; }
+
+        const query=`[out:json][timeout:25];
+          (way["railway"="rail"](${minY},${minX},${maxY},${maxX});
+           way["railway"="light_rail"](${minY},${minX},${maxY},${maxX});
+           way["railway"="subway"](${minY},${minX},${maxY},${maxX});); out geom;`;
+        const res=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query));
+        if(!res.ok) throw new Error('Overpass error');
+        const data=await res.json();
+        const features=(data.elements||[])
+          .filter(el=>el.type==='way'&&Array.isArray(el.geometry))
+          .map(el=>({type:'Feature',properties:{name:(el.tags&&(el.tags.name||el.tags.ref))||'Rail',class:el.tags&&el.tags.usage,usage:el.tags&&el.tags.usage,railway:el.tags&&el.tags.railway},geometry:{type:'LineString',coordinates:el.geometry.map(pt=>[pt.lon,pt.lat])}}));
+        railSource.clear();
+        railSource.addFeatures(new ol.format.GeoJSON().readFeatures({type:'FeatureCollection',features},{featureProjection:'EPSG:3857'}));
+        railStatus.textContent='Rail features: '+railSource.getFeatures().length;
+      }catch(e){
+        railStatus.textContent='Error loading rails. Try zooming in and tapping again.';
+        console.error(e);
+      }
     }
-  })();
+    document.getElementById('btn-load-rail').onclick=loadRailFromOverpass;
   </script>
 </body>
 </html>
