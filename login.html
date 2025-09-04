@@ -2,86 +2,35 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>Sign in — RailOps (Diag)</title>
+  <title>Sign in — RailOps</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- Identity widget -->
-  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"
-          onload="window.__idWidgetLoaded = true"
-          onerror="window.__idWidgetError = true"></script>
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <style>
     body{font:14px system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#0b1220;color:#e8eefc}
-    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:320px}
+    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:300px}
     button{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e8eefc;cursor:pointer}
-    .hint{color:#8fa3bf;margin-top:8px;font-size:12px;white-space:pre-line}
-    .bad{color:#ffb3b3}
-    .ok{color:#7bd88f}
+    .hint{color:#8fa3bf;margin-top:8px;font-size:12px}
   </style>
 </head>
 <body>
   <div class="box">
     <h1>RailOps — Sign in</h1>
-    <p><button id="btn" disabled>Open Identity Widget</button></p>
-    <div id="status" class="hint">Loading Identity…</div>
+    <p><button id="btn" style="display:none" onclick="window.netlifyIdentity.open()">Open Identity Widget</button></p>
+    <p class="hint" id="status">Loading Identity…</p>
   </div>
 
   <script>
-    (async function () {
+    document.addEventListener('DOMContentLoaded', function () {
       const s = document.getElementById('status');
       const btn = document.getElementById('btn');
-
-      // 0) Check the /.netlify/identity endpoint (exists only when Identity is enabled)
-      try {
-        const r = await fetch('/.netlify/identity');
-        if (r.status === 404) {
-          s.innerHTML = "❌ Identity endpoint missing.\nEnable Identity in Netlify: Site → Identity → Enable.";
-          return;
-        }
-      } catch (e) {
-        s.innerHTML = "❌ Could not reach /.netlify/identity.\nNetwork/CSP issue or wrong domain.";
-        return;
-      }
-
-      // 1) Did the widget JS load?
-      window.addEventListener('DOMContentLoaded', () => {
-        if (window.__idWidgetError) {
-          s.innerHTML = "❌ Failed to load netlify-identity-widget.js.\nLikely Content-Security-Policy blocking script.\nEnsure _headers has:\nscript-src 'self' 'unsafe-inline' https://identity.netlify.com;";
-          return;
-        }
-        if (!window.__idWidgetLoaded) {
-          s.textContent = "…still loading widget…";
-        }
-      });
-
-      // 2) Wait a tick for the script to attach window.netlifyIdentity
-      function ready() {
-        return new Promise(res => {
-          let tries = 0;
-          const t = setInterval(() => {
-            if (window.netlifyIdentity) { clearInterval(t); res(true); }
-            else if (++tries > 40) { clearInterval(t); res(false); }
-          }, 100);
-        });
-      }
-      const ok = await ready();
-      if (!ok) {
-        s.innerHTML = "❌ Identity widget not available.\nCheck CSP and that the <script defer src='https://identity.netlify.com/...'> tag is present.";
-        return;
-      }
-
-      s.innerHTML = "✅ Identity widget loaded. Opening on click.";
-      btn.disabled = false;
-      btn.onclick = () => window.netlifyIdentity.open();
-
-      // 3) Init + redirect after login
-      netlifyIdentity.on('login', (user) => {
+      if (!window.netlifyIdentity) { s.textContent = '❌ Identity script blocked (CSP) or failed to load.'; return; }
+      s.textContent = '✅ Identity ready.'; btn.style.display = 'inline-block';
+      netlifyIdentity.on('login', user => {
         const roles = (user && user.app_metadata && user.app_metadata.roles) || [];
         location.href = roles.includes('admin') ? '/admin/' : '/dashboard.html';
       });
-      netlifyIdentity.on('error', (e) => {
-        s.innerHTML = "❌ Identity error: " + (e && e.message ? e.message : e);
-      });
       netlifyIdentity.init();
-    })();
+    });
   </script>
 </body>
 </html>
