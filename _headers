@@ -1,9 +1,13 @@
 /*
   Content-Security-Policy: default-src 'self';
     img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
-    script-src 'self';
+    script-src 'self' 'unsafe-inline' https://identity.netlify.com;
     style-src 'self' 'unsafe-inline';
-    connect-src 'self' https://overpass-api.de https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
+    connect-src 'self'
+      https://overpass-api.de
+      https://tile.openstreetmap.org https://*.tile.openstreetmap.org
+      https://identity.netlify.com https://api.netlify.com;
+    frame-src https://identity.netlify.com;
     worker-src 'self' blob:;
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
