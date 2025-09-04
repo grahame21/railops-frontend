@@ -1,0 +1,9 @@
+/*
+  Content-Security-Policy: default-src 'self';
+    img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
+    script-src 'self';
+    style-src 'self' 'unsafe-inline';
+    connect-src 'self' https://overpass-api.de https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
+    worker-src 'self' blob:;
+  Referrer-Policy: no-referrer
+  X-Content-Type-Options: nosniff
