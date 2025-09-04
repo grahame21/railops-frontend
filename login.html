@@ -1,15 +1,30 @@
 <!DOCTYPE html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Sign in — RailOps</title>
-<script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <meta charset="utf-8">
+  <title>Sign in — RailOps</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <style>
+    body{font:14px system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#0b1220;color:#e8eefc}
+    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:280px}
+    button{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e8eefc;cursor:pointer}
+    .hint{color:#8fa3bf;margin-top:8px;font-size:12px}
+  </style>
 </head><body>
-<button onclick="window.netlifyIdentity && window.netlifyIdentity.open()">Sign in</button>
-<script>
-  document.addEventListener('DOMContentLoaded', function(){
-    if (!window.netlifyIdentity) return;
-    window.netlifyIdentity.on('login', () => location.href = '/dashboard.html');
-    window.netlifyIdentity.on('init', user => { /* optional: handle already-logged-in */ });
-    window.netlifyIdentity.init();
-  });
-</script>
+  <div class="box">
+    <h1>RailOps — Sign in</h1>
+    <p><button onclick="window.netlifyIdentity && window.netlifyIdentity.open()">Open Identity Widget</button></p>
+    <p id="status" class="hint">Loading Identity…</p>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const s = document.getElementById('status');
+      if (!window.netlifyIdentity) { s.textContent = 'Identity failed to load.'; return; }
+      s.textContent = 'Identity ready.';
+      netlifyIdentity.on('login', (user) => {
+        const roles = (user && user.app_metadata && user.app_metadata.roles) || [];
+        location.href = roles.includes('admin') ? '/admin/' : '/dashboard.html';
+      });
+      netlifyIdentity.init();
+    });
+  </script>
 </body></html>
