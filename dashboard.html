@@ -31,6 +31,7 @@
     <button class="btn" id="btn-au">🇦🇺 Australia</button>
     <button class="btn" id="btn-locate">📍 My location</button>
     <div id="rail-status" class="status">Rail features: 0</div>
+    <div id="cov-status" class="status">Coverage features: T=0, M=0, O=0</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
@@ -56,6 +57,41 @@
     });
     railLayer.setZIndex(10);
     map.addLayer(railLayer);
+
+    // --- Coverage layers (semi-transparent fill + black outline) ---
+    function tryCoverageLayer(fill, file){
+      const src = new ol.source.Vector();
+      return fetch(file,{cache:'no-store'}).then(r => {
+        if(r.ok) return r.json(); throw 0;
+      }).then(json => {
+        const feats = new ol.format.GeoJSON().readFeatures(json,{featureProjection:'EPSG:3857'});
+        src.addFeatures(feats);
+        return new ol.layer.Vector({
+          source: src,
+          style: new ol.style.Style({
+            fill:  new ol.style.Fill({ color: fill }),
+            stroke:new ol.style.Stroke({ color:'#000000', width:2 })
+          }),
+          visible: true
+        });
+      }).catch(() => null);
+    }
+
+    let telstraLayer, mvnoLayer, optvLayer;
+    Promise.all([
+      tryCoverageLayer('rgba(0,176,255,0.35)','data/coverage/telstra_full.geojson'),
+      tryCoverageLayer('rgba(102,187,106,0.35)','data/coverage/telstra_mvno.geojson'),
+      tryCoverageLayer('rgba(244,67,54,0.35)','data/coverage/optus_vodafone.geojson')
+    ]).then(([t,m,o])=>{
+      telstraLayer=t; mvnoLayer=m; optvLayer=o;
+      if (t) { t.setZIndex(4); map.addLayer(t); }
+      if (m) { m.setZIndex(3); map.addLayer(m); }
+      if (o) { o.setZIndex(2); map.addLayer(o); }
+      updateCoverageStatus();
+      [t?.getSource(), m?.getSource(), o?.getSource()].forEach(src=>{
+        src && src.on('addfeature', updateCoverageStatus);
+      });
+    });
 
     // --- Buttons ---
     document.getElementById('btn-au').onclick=()=>map.getView().animate({center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.5, duration:600});
@@ -95,6 +131,14 @@
       }
     }
     document.getElementById('btn-load-rail').onclick=loadRailFromOverpass;
+
+    // --- Coverage status updater ---
+    function updateCoverageStatus(){
+      const t = telstraLayer?.getSource()?.getFeatures().length || 0;
+      const m = mvnoLayer?.getSource()?.getFeatures().length || 0;
+      const o = optvLayer?.getSource()?.getFeatures().length || 0;
+      document.getElementById('cov-status').textContent = `Coverage features: T=${t}, M=${m}, O=${o}`;
+    }
   </script>
 </body>
 </html>
