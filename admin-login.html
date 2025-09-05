@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Sign in — RailOps</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <style>
+    body{font:14px system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#0b1220;color:#e8eefc}
+    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:320px;text-align:center}
+    button{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e8eefc;cursor:pointer}
+    .hint{color:#8fa3bf;margin-top:10px;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Admin — Sign in</h1>
+    <p><button id="open">Open Identity Widget</button></p>
+    <p id="status" class="hint">Loading Identity…</p>
+  </div>
+
+  <script>
+    function hasAdmin(user){
+      const roles = (user && user.app_metadata && user.app_metadata.roles) || [];
+      return roles.includes('admin');
+    }
+    document.addEventListener('DOMContentLoaded', function(){
+      const s = document.getElementById('status');
+      if (!window.netlifyIdentity) { s.textContent='❌ Identity widget failed to load.'; return; }
+      s.textContent = '✅ Identity ready';
+      document.getElementById('open').onclick = () => netlifyIdentity.open();
+
+      netlifyIdentity.on('login', (user)=>{
+        if (hasAdmin(user)) {
+          location.replace('/admin/');
+        } else {
+          s.textContent = 'You are not an admin. Sending you to dashboard…';
+          setTimeout(()=>location.replace('/dashboard.html'), 800);
+        }
+      });
+      netlifyIdentity.init();
+    });
+  </script>
+</body>
+</html>
