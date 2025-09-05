@@ -1,36 +1,73 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Sign in — RailOps</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <style>
-    body { font:14px system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#0b1220;color:#e8eefc }
-    .box { background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:300px;text-align:center }
-    button, a.btn { padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e8eefc;cursor:pointer;display:inline-block;margin-top:8px }
-    .hint { color:#8fa3bf;margin-top:12px;font-size:12px }
-    a { color:#7bd88f;text-decoration:none }
+    body{font:14px system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#0b1220;color:#e8eefc}
+    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:320px;text-align:center}
+    button,.btn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e8eefc;cursor:pointer;display:inline-block;margin:6px 0}
+    .hint{color:#8fa3bf;margin-top:10px;font-size:12px;white-space:pre-line}
+    a{color:#7bd88f;text-decoration:none}
   </style>
 </head>
 <body>
   <div class="box">
     <h1>RailOps — Sign in</h1>
-    <p><button onclick="window.netlifyIdentity && window.netlifyIdentity.open()">Open Identity Widget</button></p>
-    <p><a href="#" class="btn" onclick="window.netlifyIdentity && window.netlifyIdentity.open('forgot')">Forgot your password?</a></p>
+    <p><button id="open">Open Identity Widget</button></p>
+    <p><a href="#" class="btn" id="forgot">Forgot your password?</a></p>
     <p id="status" class="hint">Loading Identity…</p>
   </div>
 
   <script>
+    // Tiny helpers
+    const q = new URL(location.href);
+    const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
+    const search = q.searchParams;
+    const getToken = (k) => hash.get(k) || search.get(k);
+
+    function redirectAfterLogin(user){
+      const roles = (user && user.app_metadata && user.app_metadata.roles) || [];
+      location.replace(roles.includes('admin') ? '/admin/' : '/dashboard.html');
+    }
+
     document.addEventListener('DOMContentLoaded', function(){
       const s = document.getElementById('status');
-      if (!window.netlifyIdentity) { s.textContent = '❌ Identity widget failed to load'; return; }
+      const openBtn = document.getElementById('open');
+      const forgotBtn = document.getElementById('forgot');
+
+      if (!window.netlifyIdentity) {
+        s.textContent = '❌ Identity widget failed to load. Check CSP (script-src identity.netlify.com).';
+        return;
+      }
       s.textContent = '✅ Identity ready';
-      netlifyIdentity.on('login', (user) => {
-        const roles = (user && user.app_metadata && user.app_metadata.roles) || [];
-        location.href = roles.includes('admin') ? '/admin/' : '/dashboard.html';
-      });
+
+      // Normal buttons
+      openBtn.onclick = () => netlifyIdentity.open();
+      forgotBtn.onclick = (e) => { e.preventDefault(); netlifyIdentity.open('forgot'); };
+
+      // Redirect on login
+      netlifyIdentity.on('login', redirectAfterLogin);
+
+      // Initialize widget
       netlifyIdentity.init();
+
+      // --- Handle email links without “post-registration redirect” setting ---
+      // Invite/confirmation links usually include #confirmation_token or ?confirmation_token
+      const confirm = getToken('confirmation_token') || getToken('signup_token') || getToken('invite_token');
+      // Password recovery links include #recovery_token or ?recovery_token
+      const recovery = getToken('recovery_token') || getToken('reset_token');
+
+      if (confirm) {
+        // Open widget to the “signup/confirm” path so user can set password
+        netlifyIdentity.open('signup');
+        s.textContent = 'Confirming invitation… (if nothing appears, click “Open Identity Widget”)';
+      } else if (recovery) {
+        netlifyIdentity.open('forgot');
+        s.textContent = 'Resetting password… (if nothing appears, click “Forgot your password?”)';
+      }
     });
   </script>
 </body>
