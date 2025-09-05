@@ -18,16 +18,171 @@
   <div id="map"></div>
 
   <script>
-    // Simple working map
+    // ---- Read Admin options from localStorage ----
+    const _opts = JSON.parse(localStorage.getItem('railops.options') || '{}');
+    const OPT = {
+      layers: Object.assign(
+        { rail:true, km:false, locate:true, telstra:true, optus:false, voda:false },
+        _opts.layers || {}
+      ),
+      railStyle: Object.assign({ color:'#000000', width:3 }, _opts.railStyle || {}),
+      sources: Object.assign(
+        { km2me:'', overpass:'https://overpass-api.de/api/interpreter' },
+        _opts.sources || {}
+      )
+    };
+
+    // ---- Base map ----
     const map = new ol.Map({
       target: 'map',
       layers: [
-        new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) })
+        new ol.layer.Tile({
+          source: new ol.source.OSM({ crossOrigin: 'anonymous' })
+        })
       ],
       view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
         zoom: 4.8
       })
+    });
+
+    // ---- Railway lines (Overpass) ----
+    const railSrc = new ol.source.Vector();
+    const railLayer = new ol.layer.Vector({
+      source: railSrc,
+      visible: !!OPT.layers.rail,
+      style: new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color: OPT.railStyle.color || '#000000',
+          width: Math.max(1, OPT.railStyle.width || 3)
+        })
+      })
+    });
+    map.addLayer(railLayer);
+
+    function debounce(fn, ms) {
+      let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+    }
+
+    async function fetchRailsForView() {
+      if (!OPT.layers.rail) return;
+      const extent = map.getView().calculateExtent(map.getSize());
+      const world = ol.proj.transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+      const [minX, minY, maxX, maxY] = world;
+      const bbox = [minY, minX, maxY, maxX]; // S,W,N,E
+
+      const q = `
+        [out:json][timeout:25];
+        (
+          way["railway"~"^(rail|light_rail|subway)$"]["service"!~".*"](${bbox.join(',')});
+        );
+        out geom;`;
+
+      try {
+        const resp = await fetch(OPT.sources.overpass, {
+          method: 'POST',
+          headers: { 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+          body: 'data=' + encodeURIComponent(q)
+        });
+        const data = await resp.json();
+        const feats = (data.elements || [])
+          .filter(el => el.type === 'way' && Array.isArray(el.geometry))
+          .map(el => new ol.Feature({
+            geometry: new ol.geom.LineString(
+              el.geometry.map(p => ol.proj.fromLonLat([p.lon, p.lat]))
+            )
+          }));
+        railSrc.clear(true);
+        railSrc.addFeatures(feats);
+      } catch (e) {
+        console.warn('Rail fetch error:', e);
+      }
+    }
+
+    const refreshRails = debounce(fetchRailsForView, 400);
+    map.once('postrender', refreshRails);
+    map.getView().on('change:center', refreshRails);
+    map.getView().on('change:resolution', refreshRails);
+
+    // ---- KM2ME GeoJSON (if set in Admin) ----
+    let kmLayer;
+    if (OPT.layers.km && OPT.sources.km2me) {
+      kmLayer = new ol.layer.Vector({
+        source: new ol.source.Vector({
+          url: OPT.sources.km2me,
+          format: new ol.format.GeoJSON()
+        }),
+        style: new ol.style.Style({
+          image: new ol.style.Circle({
+            radius: 3,
+            fill: new ol.style.Fill({ color: '#e67e22' }),
+            stroke: new ol.style.Stroke({ color: '#8e4b0a', width: 1 })
+          })
+        })
+      });
+      map.addLayer(kmLayer);
+    }
+
+    // ---- Current location “pin drip” ----
+    if (OPT.layers.locate && 'geolocation' in navigator) {
+      const geoloc = new ol.Geolocation({ tracking: true, projection: map.getView().getProjection() });
+      const posFeature = new ol.Feature();
+      posFeature.setStyle(new ol.style.Style({
+        image: new ol.style.Icon({
+          src: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36">
+              <circle cx="18" cy="18" r="6" fill="#2dd4bf"/>
+              <circle cx="18" cy="18" r="12" fill="none" stroke="#2dd4bf" stroke-width="2" opacity=".35"/>
+            </svg>
+          `),
+          anchor: [0.5, 0.5], anchorXUnits: 'fraction', anchorYUnits: 'fraction'
+        })
+      }));
+      const accFeature = new ol.Feature();
+
+      const locSrc = new ol.source.Vector({ features: [accFeature, posFeature] });
+      const locLayer = new ol.layer.Vector({ source: locSrc, visible: true });
+      map.addLayer(locLayer);
+
+      geoloc.on('change:position', () => {
+        const p = geoloc.getPosition();
+        if (p) posFeature.setGeometry(new ol.geom.Point(p));
+      });
+      geoloc.on('change:accuracyGeometry', () => {
+        accFeature.setGeometry(geoloc.getAccuracyGeometry());
+      });
+    }
+
+    // ---- Coverage layers (stubs) ----
+    function addCoverage(name, urlTemplate, visible) {
+      if (!urlTemplate) return;
+      const layer = new ol.layer.Tile({
+        source: new ol.source.XYZ({ url: urlTemplate, crossOrigin: 'anonymous' }),
+        visible
+      });
+      map.addLayer(layer);
+    }
+    // Replace with real tile servers when you have them:
+    // addCoverage('Telstra', 'https://tiles/telstra/{z}/{x}/{y}.png', !!OPT.layers.telstra);
+    // addCoverage('Optus',   'https://tiles/optus/{z}/{x}/{y}.png',   !!OPT.layers.optus);
+    // addCoverage('Vodafone','https://tiles/voda/{z}/{x}/{y}.png',    !!OPT.layers.voda);
+
+    // ---- Live option changes (when you return from Admin) ----
+    window.addEventListener('storage', (e) => {
+      if (e.key !== 'railops.options') return;
+      try {
+        const next = JSON.parse(e.newValue || '{}');
+        // Rail visibility/style
+        railLayer.setVisible(!!(next.layers && next.layers.rail));
+        if (next.railStyle) {
+          railLayer.setStyle(new ol.style.Style({
+            stroke: new ol.style.Stroke({
+              color: next.railStyle.color || '#000000',
+              width: Math.max(1, next.railStyle.width || 3)
+            })
+          }));
+        }
+      } catch {}
     });
   </script>
 </body>
