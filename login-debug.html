@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RailOps — Identity Debug</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <style>
+    body{margin:0;background:#0b1220;color:#e8eefc;font:14px system-ui;display:grid;grid-template-columns:1fr;min-height:100vh}
+    .wrap{max-width:960px;margin:24px auto;padding:16px}
+    .card{background:#121a2b;border:1px solid rgba(255,255,255,.12);border-radius:12px;padding:16px;margin-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+    h1,h2{margin:0 0 12px}
+    label{display:block;margin:8px 0 4px}
+    input,textarea{width:100%;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:#0b1220;color:#e8eefc;padding:10px}
+    button{margin-top:10px;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e8eefc;cursor:pointer}
+    .row{display:grid;gap:12px}
+    @media(min-width:720px){ .row{grid-template-columns:1fr 1fr} }
+    .muted{color:#8fa3bf}
+    pre{white-space:pre-wrap;word-break:break-word;background:#0b1220;border-radius:10px;border:1px solid rgba(255,255,255,.15);padding:10px;max-height:280px;overflow:auto}
+    a{color:#7bd88f}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Netlify Identity — Debug</h1>
+      <p class="muted">Use this page to finish invite/reset and see exactly what’s happening.</p>
+      <p><button id="open">Open Identity Widget</button></p>
+      <div id="status" class="muted">Loading Identity…</div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h2>Current user</h2>
+        <p><button id="check">Check user</button> <button id="logout">Logout</button></p>
+        <pre id="user">—</pre>
+      </div>
+
+      <div class="card">
+        <h2>Event log</h2>
+        <pre id="log"></pre>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="card">
+        <h2>Complete <em>Invite / Confirm</em> (manual)</h2>
+        <label>confirmation_token / signup_token / invite_token</label>
+        <input id="confirmToken" placeholder="paste token value (the long string)"/>
+        <button id="doConfirm">Run confirm()</button>
+      </div>
+
+      <div class="card">
+        <h2>Complete <em>Password Reset</em> (manual)</h2>
+        <label>recovery_token / reset_token</label>
+        <input id="recoverToken" placeholder="paste token value (the long string)"/>
+        <button id="doRecover">Run recover()</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Paste email or link — auto-extract token</h2>
+      <textarea id="blob" placeholder="Paste the full email body or link…"></textarea>
+      <button id="parse">Extract & Fill</button>
+      <div class="muted" id="tip">Tip: If your email app strips the #hash, copy link and paste here.</div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id)=>document.getElementById(id);
+    const log = (m)=>{ const el=$('log'); el.textContent += (m + '\n'); el.scrollTop = el.scrollHeight; };
+    const showUser = ()=>{
+      const u = window.netlifyIdentity && netlifyIdentity.currentUser();
+      $('user').textContent = u ? JSON.stringify({
+        email: u.email,
+        app_metadata: u.app_metadata,
+        user_metadata: u.user_metadata,
+        tokenExp: (u.token && u.token.expires_at) || null
+      }, null, 2) : 'No user';
+    };
+    function setStatus(s){ $('status').textContent = s; }
+
+    // Extract first URL from text
+    function firstUrlIn(text){ const m=(/https?:\/\/[^\s"'<>]+/i).exec(text); return m?m[0]:null; }
+    // Tokens from URL (hash or query)
+    function tokensFromUrl(raw){
+      try{
+        const u = new URL(raw); const h = new URLSearchParams((u.hash||'').replace(/^#/,'')); const q = u.searchParams;
+        const get=(k)=>h.get(k)||q.get(k);
+        return {
+          confirmation: get('confirmation_token') || get('signup_token') || get('invite_token'),
+          recovery:     get('recovery_token')     || get('reset_token')
+        };
+      }catch{ return {confirmation:null,recovery:null}; }
+    }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      if (!window.netlifyIdentity){ setStatus('❌ Identity widget failed to load (CSP?)'); return; }
+      setStatus('✅ Identity loaded. Open the widget or finish with a token.');
+
+      // Event hooks
+      netlifyIdentity.on('init', u => { log('init'); showUser(); });
+      netlifyIdentity.on('login', u => { log('login'); showUser(); setStatus('Logged in. Redirecting…'); setTimeout(()=>{
+        const roles = (u && u.app_metadata && u.app_metadata.roles) || [];
+        location.replace(roles.includes('admin') ? '/admin/' : '/dashboard.html');
+      }, 600); });
+      netlifyIdentity.on('logout', () => { log('logout'); showUser(); });
+      netlifyIdentity.on('error', e => { log('error: ' + (e?.message || e)); setStatus('Identity error: ' + (e?.message || e)); });
+
+      netlifyIdentity.init();
+
+      $('open').onclick  = ()=> netlifyIdentity.open();
+      $('check').onclick = showUser;
+      $('logout').onclick= ()=> netlifyIdentity.logout();
+
+      // Manual confirm: set hash then call confirm()
+      $('doConfirm').onclick = async ()=>{
+        const t = $('confirmToken').value.trim();
+        if (!t) return alert('Paste your confirmation token first.');
+        history.replaceState(null,'',location.pathname + location.search + '#confirmation_token=' + encodeURIComponent(t));
+        setStatus('Running confirm()…');
+        try { await netlifyIdentity.confirm(); setStatus('Confirmed. Open widget and set password.'); netlifyIdentity.open('login'); }
+        catch(e){ setStatus('Confirm error: ' + (e?.message || e)); log('confirm error: ' + (e?.message || e)); }
+      };
+
+      // Manual recover: set hash then call recover()
+      $('doRecover').onclick = async ()=>{
+        const t = $('recoverToken').value.trim();
+        if (!t) return alert('Paste your recovery token first.');
+        history.replaceState(null,'',location.pathname + location.search + '#recovery_token=' + encodeURIComponent(t));
+        setStatus('Running recover()…');
+        try { await netlifyIdentity.recover(); setStatus('Token accepted. Open widget and set new password.'); netlifyIdentity.open('login'); }
+        catch(e){ setStatus('Recover error: ' + (e?.message || e)); log('recover error: ' + (e?.message || e)); }
+      };
+
+      // Paste email/link → auto-extract
+      $('parse').onclick = ()=>{
+        const text = $('blob').value.trim();
+        if (!text) return;
+        const url = firstUrlIn(text);
+        let tokens = {confirmation:null,recovery:null};
+        if (url) tokens = tokensFromUrl(url);
+
+        // If no URL or no tokens, also try raw text scrape
+        if (!tokens.confirmation && !tokens.recovery){
+          const grab = (names)=>{ for(const n of names){ const re=new RegExp(`${n}\\s*[=:]\\s*([A-Za-z0-9._~-]+)`,'i'); const m=text.match(re); if(m) return m[1]; } return null; };
+          tokens.confirmation = grab(['confirmation_token','signup_token','invite_token']);
+          tokens.recovery     = grab(['recovery_token','reset_token']);
+        }
+        if (tokens.confirmation){ $('confirmToken').value = tokens.confirmation; setStatus('Found confirmation token — click "Run confirm()"'); log('found confirmation token'); }
+        else if (tokens.recovery){ $('recoverToken').value = tokens.recovery; setStatus('Found recovery token — click "Run recover()"'); log('found recovery token'); }
+        else { setStatus('No token found — make sure you pasted the full email or link.'); log('no token found in paste'); }
+      };
+    });
+  </script>
+</body>
+</html>
