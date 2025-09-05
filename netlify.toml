@@ -1,5 +1,9 @@
-<!DOCTYPE html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RailOps</title>
-<meta http-equiv="refresh" content="0; url=/dashboard.html">
-</head><body></body></html>
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://identity.netlify.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org; connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://overpass-api.de https://identity.netlify.com https://api.netlify.com https://*.netlify.com https://*.netlify.app; frame-src 'self' https://identity.netlify.com https://app.netlify.com; child-src 'self' https://identity.netlify.com https://app.netlify.com; worker-src 'self' blob:;"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"
