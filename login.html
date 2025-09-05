@@ -7,9 +7,9 @@
   <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <style>
     body{font:14px system-ui;margin:0;display:grid;place-items:center;height:100vh;background:#0b1220;color:#e8eefc}
-    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:320px;text-align:center}
+    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);min-width:300px;text-align:center}
     button,.btn{padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,.2);background:rgba(255,255,255,.06);color:#e8eefc;cursor:pointer;display:inline-block;margin:6px 0}
-    .hint{color:#8fa3bf;margin-top:10px;font-size:12px;white-space:pre-line}
+    .hint{color:#8fa3bf;margin-top:12px;font-size:12px;white-space:pre-line}
     a{color:#7bd88f;text-decoration:none}
   </style>
 </head>
@@ -19,18 +19,14 @@
     <p><button id="open">Open Identity Widget</button></p>
     <p><a href="#" class="btn" id="forgot">Forgot your password?</a></p>
     <p id="status" class="hint">Loading Identity…</p>
+    <!-- 👇 New helper link -->
+    <p class="hint">Invite/reset link not working on iPad? <a href="/token-helper.html">Paste it here</a>.</p>
   </div>
 
   <script>
-    // Helpers
     function rolesOf(u){ return (u && u.app_metadata && u.app_metadata.roles) || []; }
     function gotoAfterLogin(user){
       location.replace( rolesOf(user).includes('admin') ? '/admin/' : '/dashboard.html' );
-    }
-    function getParamFromHashOrQuery(key){
-      const h = new URLSearchParams(location.hash.replace(/^#/, ''));
-      const q = new URLSearchParams(location.search);
-      return h.get(key) || q.get(key);
     }
 
     document.addEventListener('DOMContentLoaded', function(){
@@ -38,34 +34,17 @@
       const openBtn = document.getElementById('open');
       const forgotBtn = document.getElementById('forgot');
 
-      if(!window.netlifyIdentity){ s.textContent='❌ Identity widget failed to load (check CSP).'; return; }
-      s.textContent='✅ Identity ready';
+      if (!window.netlifyIdentity) {
+        s.textContent = '❌ Identity widget failed to load (check CSP).';
+        return;
+      }
+      s.textContent = '✅ Identity ready';
 
       openBtn.onclick   = () => netlifyIdentity.open();
       forgotBtn.onclick = (e)=>{ e.preventDefault(); netlifyIdentity.open('forgot'); };
 
-      // Redirect after normal login
       netlifyIdentity.on('login', gotoAfterLogin);
       netlifyIdentity.on('error', e => s.textContent = 'Identity error: ' + (e?.message || e));
-
-      // Init, then handle invite/confirm & recovery tokens explicitly
-      netlifyIdentity.on('init', () => {
-        const confirm = getParamFromHashOrQuery('confirmation_token') || getParamFromHashOrQuery('signup_token') || getParamFromHashOrQuery('invite_token');
-        const recover = getParamFromHashOrQuery('recovery_token')   || getParamFromHashOrQuery('reset_token');
-
-        if (confirm) {
-          s.textContent = 'Confirming account…';
-          netlifyIdentity.confirm(location.hash || ('#confirmation_token=' + confirm))
-            .then(() => { s.textContent = 'Confirmed. Set your password in the widget.'; netlifyIdentity.open('login'); })
-            .catch(err => s.textContent = 'Confirm error: ' + (err?.message || err));
-        } else if (recover) {
-          s.textContent = 'Resetting password…';
-          netlifyIdentity.recover(location.hash || ('#recovery_token=' + recover))
-            .then(() => { s.textContent = 'Token accepted. Set a new password in the widget.'; netlifyIdentity.open('login'); })
-            .catch(err => s.textContent = 'Recover error: ' + (err?.message || err));
-        }
-      });
-
       netlifyIdentity.init();
     });
   </script>
