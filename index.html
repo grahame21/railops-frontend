@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>RailOps — Loading…</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <!-- Netlify Identity widget -->
   <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
   <style>
     body{margin:0;height:100vh;display:grid;place-items:center;background:#0b1220;color:#e8eefc;font:14px system-ui}
@@ -20,32 +19,49 @@
   </div>
 
   <script>
-    // Roles helper + destination after login
     function rolesOf(u){ return (u && u.app_metadata && u.app_metadata.roles) || []; }
     function goAfterLogin(user){ location.replace( rolesOf(user).includes('admin') ? '/admin/' : '/dashboard.html'); }
 
-    // Read token presence from hash or query
     function getFromHashOrQuery(key){
       const h = new URLSearchParams(location.hash.replace(/^#/, ''));
       const q = new URLSearchParams(location.search);
-      return h.get(key) || q.get(key);
+      return { hash: h.get(key), query: q.get(key) };
+    }
+    function ensureHashToken(key){
+      const { hash, query } = getFromHashOrQuery(key);
+      if (hash) return true;           // already in #...
+      if (!query) return false;        // nowhere
+      // put it into the hash so the SDK can see it
+      const newHash = `#${key}=${encodeURIComponent(query)}`;
+      // preserve current path/query; just set hash
+      history.replaceState(null, "", location.pathname + location.search + newHash);
+      return true;
     }
 
     (function(){
       const status = document.getElementById('status');
       const title  = document.getElementById('title');
 
-      const hasConfirm =
-        !!(getFromHashOrQuery('confirmation_token') || getFromHashOrQuery('signup_token') || getFromHashOrQuery('invite_token'));
-      const hasRecover =
-        !!(getFromHashOrQuery('recovery_token') || getFromHashOrQuery('reset_token'));
+      const hasConfirm = !!(getFromHashOrQuery('confirmation_token').hash || getFromHashOrQuery('confirmation_token').query
+                         || getFromHashOrQuery('signup_token').hash      || getFromHashOrQuery('signup_token').query
+                         || getFromHashOrQuery('invite_token').hash      || getFromHashOrQuery('invite_token').query);
 
-      // No tokens? Go straight to dashboard
+      const hasRecover = !!(getFromHashOrQuery('recovery_token').hash || getFromHashOrQuery('recovery_token').query
+                         || getFromHashOrQuery('reset_token').hash    || getFromHashOrQuery('reset_token').query);
+
+      // No tokens? Go to dashboard
       if (!hasConfirm && !hasRecover) { location.replace('/dashboard.html'); return; }
 
       title.textContent = 'RailOps — Completing sign-in…';
 
-      // Wait for the widget (defer) to attach
+      // If tokens are only in the query, mirror them into the hash
+      if (hasConfirm) {
+        ensureHashToken('confirmation_token') || ensureHashToken('signup_token') || ensureHashToken('invite_token');
+      } else if (hasRecover) {
+        ensureHashToken('recovery_token') || ensureHashToken('reset_token');
+      }
+
+      // Wait for widget then call SDK (it reads location.hash now)
       let tries = 0;
       const t = setInterval(() => {
         tries++;
@@ -57,30 +73,17 @@
           netlifyIdentity.on('error', e => status.textContent = 'Identity error: ' + (e?.message || e));
           netlifyIdentity.init();
 
-          // IMPORTANT: let the SDK read location.hash itself (no args)
           if (hasConfirm) {
             netlifyIdentity.confirm()
-              .then(() => {
-                status.textContent = 'Confirmed. Please set your password in the widget.';
-                netlifyIdentity.open('login');
-              })
-              .catch(err => {
-                status.textContent = 'Confirm error: ' + (err?.message || err);
-                netlifyIdentity.open('login');
-              });
+              .then(() => { status.textContent = 'Confirmed. Please set your password in the widget.'; netlifyIdentity.open('login'); })
+              .catch(err => { status.textContent = 'Confirm error: ' + (err?.message || err); netlifyIdentity.open('login'); });
           } else if (hasRecover) {
             netlifyIdentity.recover()
-              .then(() => {
-                status.textContent = 'Token accepted. Set a new password in the widget.';
-                netlifyIdentity.open('login');
-              })
-              .catch(err => {
-                status.textContent = 'Recover error: ' + (err?.message || err);
-                netlifyIdentity.open('login');
-              });
+              .then(() => { status.textContent = 'Token accepted. Set a new password in the widget.'; netlifyIdentity.open('login'); })
+              .catch(err => { status.textContent = 'Recover error: ' + (err?.message || err); netlifyIdentity.open('login'); });
           }
 
-          // Fallback: if nothing completes in 8s, open widget anyway
+          // Fallback: still nothing? open widget anyway
           setTimeout(() => {
             if (status.textContent.includes('Finishing')) {
               status.textContent = 'Opening widget…';
@@ -88,7 +91,7 @@
             }
           }, 8000);
 
-        } else if (tries > 50) { // ~5s
+        } else if (tries > 50) {
           clearInterval(t);
           status.innerHTML = "Identity failed to load. <a href='/login.html'>Open login</a>.";
         }
