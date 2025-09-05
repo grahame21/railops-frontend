@@ -1,9 +1,84 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta http-equiv="Refresh" content="0; url=login.html" />
-  </head>
-  <body>
-    <p>If you are not redirected, <a href="login.html">click here</a>.</p>
-  </body>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RailOps — Loading…</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Netlify Identity widget -->
+  <script defer src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
+  <style>
+    body{margin:0;height:100vh;display:grid;place-items:center;background:#0b1220;color:#e8eefc;font:14px system-ui}
+    .box{background:#121a2b;border:1px solid rgba(255,255,255,.1);padding:20px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,.4);text-align:center;min-width:280px}
+    .hint{color:#8fa3bf;margin-top:10px;font-size:12px;white-space:pre-line}
+    a{color:#7bd88f}
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div id="title">RailOps — Loading…</div>
+    <div id="status" class="hint">If this takes more than a few seconds, <a href="/login.html">open the login page</a>.</div>
+  </div>
+
+  <script>
+    // Helpers
+    function rolesOf(u){ return (u && u.app_metadata && u.app_metadata.roles) || []; }
+    function goAfterLogin(user){ location.replace( rolesOf(user).includes('admin') ? '/admin/' : '/dashboard.html'); }
+    function getFromHashOrQuery(key){
+      const h = new URLSearchParams(location.hash.replace(/^#/, ''));
+      const q = new URLSearchParams(location.search);
+      return h.get(key) || q.get(key);
+    }
+
+    (function(){
+      const status = document.getElementById('status');
+      const title  = document.getElementById('title');
+
+      // If no widget yet, just go to dashboard (keeps root fast)
+      function goDash(){ location.replace('/dashboard.html'); }
+
+      // See if this visit has Identity tokens
+      const confirmation = getFromHashOrQuery('confirmation_token') || getFromHashOrQuery('signup_token') || getFromHashOrQuery('invite_token');
+      const recovery     = getFromHashOrQuery('recovery_token')     || getFromHashOrQuery('reset_token');
+
+      // No tokens? Go straight to dashboard
+      if (!confirmation && !recovery) { goDash(); return; }
+
+      title.textContent = 'RailOps — Completing sign-in…';
+
+      // Wait a moment for widget (defer) to attach
+      let tries = 0;
+      const t = setInterval(() => {
+        tries++;
+        if (window.netlifyIdentity) {
+          clearInterval(t);
+          status.textContent = 'Identity ready. Finishing your request…';
+
+          netlifyIdentity.on('login', goAfterLogin);
+          netlifyIdentity.on('error', e => status.textContent = 'Identity error: ' + (e?.message || e));
+          netlifyIdentity.init();
+
+          if (confirmation) {
+            // Use the original hash if present so the SDK can parse it
+            const hash = location.hash && location.hash.includes('confirmation_token')
+              ? location.hash
+              : ('#confirmation_token=' + confirmation);
+            netlifyIdentity.confirm(hash)
+              .then(() => { status.textContent = 'Confirmed. Please set your password in the widget.'; netlifyIdentity.open('login'); })
+              .catch(err => status.textContent = 'Confirm error: ' + (err?.message || err));
+          } else if (recovery) {
+            const hash = location.hash && location.hash.includes('recovery_token')
+              ? location.hash
+              : ('#recovery_token=' + recovery);
+            netlifyIdentity.recover(hash)
+              .then(() => { status.textContent = 'Token accepted. Set a new password in the widget.'; netlifyIdentity.open('login'); })
+              .catch(err => status.textContent = 'Recover error: ' + (err?.message || err));
+          }
+        } else if (tries > 50) { // ~5s
+          clearInterval(t);
+          status.innerHTML = "Identity failed to load. <a href='/login.html'>Open login</a>.";
+        }
+      }, 100);
+    })();
+  </script>
+</body>
 </html>
