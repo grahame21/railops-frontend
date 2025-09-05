@@ -20,9 +20,11 @@
   </div>
 
   <script>
-    // Helpers
+    // Roles helper + destination after login
     function rolesOf(u){ return (u && u.app_metadata && u.app_metadata.roles) || []; }
     function goAfterLogin(user){ location.replace( rolesOf(user).includes('admin') ? '/admin/' : '/dashboard.html'); }
+
+    // Read token presence from hash or query
     function getFromHashOrQuery(key){
       const h = new URLSearchParams(location.hash.replace(/^#/, ''));
       const q = new URLSearchParams(location.search);
@@ -33,19 +35,17 @@
       const status = document.getElementById('status');
       const title  = document.getElementById('title');
 
-      // If no widget yet, just go to dashboard (keeps root fast)
-      function goDash(){ location.replace('/dashboard.html'); }
-
-      // See if this visit has Identity tokens
-      const confirmation = getFromHashOrQuery('confirmation_token') || getFromHashOrQuery('signup_token') || getFromHashOrQuery('invite_token');
-      const recovery     = getFromHashOrQuery('recovery_token')     || getFromHashOrQuery('reset_token');
+      const hasConfirm =
+        !!(getFromHashOrQuery('confirmation_token') || getFromHashOrQuery('signup_token') || getFromHashOrQuery('invite_token'));
+      const hasRecover =
+        !!(getFromHashOrQuery('recovery_token') || getFromHashOrQuery('reset_token'));
 
       // No tokens? Go straight to dashboard
-      if (!confirmation && !recovery) { goDash(); return; }
+      if (!hasConfirm && !hasRecover) { location.replace('/dashboard.html'); return; }
 
       title.textContent = 'RailOps — Completing sign-in…';
 
-      // Wait a moment for widget (defer) to attach
+      // Wait for the widget (defer) to attach
       let tries = 0;
       const t = setInterval(() => {
         tries++;
@@ -57,22 +57,37 @@
           netlifyIdentity.on('error', e => status.textContent = 'Identity error: ' + (e?.message || e));
           netlifyIdentity.init();
 
-          if (confirmation) {
-            // Use the original hash if present so the SDK can parse it
-            const hash = location.hash && location.hash.includes('confirmation_token')
-              ? location.hash
-              : ('#confirmation_token=' + confirmation);
-            netlifyIdentity.confirm(hash)
-              .then(() => { status.textContent = 'Confirmed. Please set your password in the widget.'; netlifyIdentity.open('login'); })
-              .catch(err => status.textContent = 'Confirm error: ' + (err?.message || err));
-          } else if (recovery) {
-            const hash = location.hash && location.hash.includes('recovery_token')
-              ? location.hash
-              : ('#recovery_token=' + recovery);
-            netlifyIdentity.recover(hash)
-              .then(() => { status.textContent = 'Token accepted. Set a new password in the widget.'; netlifyIdentity.open('login'); })
-              .catch(err => status.textContent = 'Recover error: ' + (err?.message || err));
+          // IMPORTANT: let the SDK read location.hash itself (no args)
+          if (hasConfirm) {
+            netlifyIdentity.confirm()
+              .then(() => {
+                status.textContent = 'Confirmed. Please set your password in the widget.';
+                netlifyIdentity.open('login');
+              })
+              .catch(err => {
+                status.textContent = 'Confirm error: ' + (err?.message || err);
+                netlifyIdentity.open('login');
+              });
+          } else if (hasRecover) {
+            netlifyIdentity.recover()
+              .then(() => {
+                status.textContent = 'Token accepted. Set a new password in the widget.';
+                netlifyIdentity.open('login');
+              })
+              .catch(err => {
+                status.textContent = 'Recover error: ' + (err?.message || err);
+                netlifyIdentity.open('login');
+              });
           }
+
+          // Fallback: if nothing completes in 8s, open widget anyway
+          setTimeout(() => {
+            if (status.textContent.includes('Finishing')) {
+              status.textContent = 'Opening widget…';
+              netlifyIdentity.open('login');
+            }
+          }, 8000);
+
         } else if (tries > 50) { // ~5s
           clearInterval(t);
           status.innerHTML = "Identity failed to load. <a href='/login.html'>Open login</a>.";
