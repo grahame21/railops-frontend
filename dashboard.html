@@ -7,13 +7,12 @@
 
   <!-- OpenLayers via CDN -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css" />
-  <script defer src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"
-          onload="window.__olOK=1" onerror="window.__olERR=1"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
 
   <style>
-    /* iPhone-safe full-screen map */
+    /* Mobile-safe full-screen map */
     html, body { margin:0; height:100%; background:#0b1220; }
-    #map { position: fixed; inset: 0; } /* avoids 100vh quirks on iOS */
+    #map { position: fixed; inset: 0; }
 
     /* HUD */
     .hud {
@@ -21,7 +20,7 @@
       background: rgba(18,26,43,.9); color: #e8eefc;
       border: 1px solid rgba(255,255,255,.15); border-radius: 12px;
       padding: 10px 12px; font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 240px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 260px;
       backdrop-filter: saturate(1.1) blur(4px);
     }
     .hud h3 { margin: 0 0 6px; font-size: 14px; }
@@ -36,8 +35,7 @@
       border:1px solid rgba(255,255,255,.15);padding:6px 8px;border-radius:10px;
       font:12px system-ui;z-index:9999
     }
-    .bad{color:#ffb3b3}
-    .ok{color:#7bd88f}
+    .bad{color:#ffb3b3}.ok{color:#7bd88f}
   </style>
 </head>
 <body>
@@ -50,7 +48,11 @@
       <label><input type="checkbox" id="t-rail"> Rails</label>
       <label><input type="checkbox" id="t-km"> KM2ME</label>
       <label><input type="checkbox" id="t-locate"> My location</label>
-      <label><input type="checkbox" id="t-coverage"> Coverage (ACCC)</label>
+      <!-- Coverage toggles -->
+      <label><input type="checkbox" id="t-cov-all"> Coverage (All)</label>
+      <label><input type="checkbox" id="t-cov-tel"> Telstra</label>
+      <label><input type="checkbox" id="t-cov-opt"> Optus</label>
+      <label><input type="checkbox" id="t-cov-vod"> Vodafone/TPG</label>
     </div>
     <div class="clock" id="clock">--:--:--</div>
     <div class="tz" id="tz">—</div>
@@ -67,18 +69,26 @@
     // Read options (safe defaults)
     const _opts = JSON.parse(localStorage.getItem('railops.options') || '{}');
     const OPT = {
-      layers: Object.assign({ rail:true, km:false, locate:true, coverage:false }, _opts.layers || {}),
+      layers: Object.assign(
+        { rail:true, km:false, locate:true, coverage:false, covTel:false, covOpt:false, covVod:false },
+        _opts.layers || {}
+      ),
       railStyle: Object.assign({ color:'#000000', width:3 }, _opts.railStyle || {}),
-      sources: Object.assign({ km2me:'', overpass:'https://overpass-api.de/api/interpreter' }, _opts.sources || {})
+      sources: Object.assign(
+        { km2me:'', overpass:'https://overpass-api.de/api/interpreter' },
+        _opts.sources || {}
+      )
     };
+    function saveOpts(){ localStorage.setItem('railops.options', JSON.stringify(OPT)); }
 
     // Wait for OL to load (helps detect CDN/CSP issues on iOS)
     let tries = 0;
-    const tick = setInterval(()=>{
-      if (window.__olERR) { clearInterval(tick); set('OpenLayers failed (CSP/CDN blocked).', 'bad'); return; }
-      if (window.__olOK && window.ol && ol.Map) { clearInterval(tick); boot(); }
-      else if (++tries > 120) { clearInterval(tick); set('Timed out waiting for OpenLayers.', 'bad'); }
+    const wait = setInterval(()=>{
+      if (window.ol && ol.Map) { clearInterval(wait); boot(); }
+      else if (++tries > 120) { clearInterval(wait); set('Timed out waiting for OpenLayers.', 'bad'); }
     }, 50);
+
+    function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
     function boot(){
       set('OpenLayers OK', 'ok');
@@ -101,7 +111,6 @@
       });
       map.addLayer(railLayer);
 
-      function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
       const refreshRails = debounce(fetchRailsForView, 400);
       map.once('postrender', refreshRails);
       map.getView().on('change:center', refreshRails);
@@ -154,7 +163,7 @@
       function removeKmLayer(){ if (!kmLayer) return; map.removeLayer(kmLayer); kmLayer=null; }
       ensureKmLayer();
 
-      // Current location (requires “Allow” in iOS prompt)
+      // Current location (needs permission)
       let geoloc, posFeature, accFeature, locLayer;
       function ensureLocate() {
         if (!OPT.layers.locate || !('geolocation' in navigator)) return removeLocate();
@@ -177,32 +186,65 @@
       function removeLocate(){ if(!geoloc) return; geoloc.setTracking(false); geoloc=null; map.removeLayer(locLayer); locLayer=null; }
       ensureLocate();
 
-      // ACCC national coverage overlay (ArcGIS REST)
-      const acccCoverage = new ol.layer.Tile({
+      // ===== ACCC coverage layers =====
+      const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/Communications/Mobile_Phone_Coverage/MapServer';
+
+      // "All carriers" (fast tiled)
+      const covAll = new ol.layer.Tile({
         source: new ol.source.TileArcGISRest({
-          url: 'https://spatial.infrastructure.gov.au/server/rest/services/Communications/Mobile_Phone_Coverage/MapServer',
+          url: ACCC_URL,
           params: { layers: 'show:0', format: 'png32', transparent: true }
         }),
         opacity: 0.55,
         visible: !!OPT.layers.coverage
       });
-      map.addLayer(acccCoverage);
+      map.addLayer(covAll);
+
+      // Per-provider layers (dynamic export with layerDefs)
+      function makeProviderLayer(name){
+        return new ol.layer.Image({
+          source: new ol.source.ImageArcGISRest({
+            url: ACCC_URL,
+            params: {
+              layers: 'show:0',
+              layerDefs: JSON.stringify({ 0: `(PROVIDER='${name}') OR (CARRIER='${name}')` }),
+              format: 'png32',
+              transparent: true
+            }
+          }),
+          opacity: 0.55,
+          visible: false,
+          ratio: 1
+        });
+      }
+      const covTel = makeProviderLayer('Telstra');
+      const covOpt = makeProviderLayer('Optus');
+      const covVod = makeProviderLayer('Vodafone');
+      map.addLayer(covTel); map.addLayer(covOpt); map.addLayer(covVod);
+      covTel.setVisible(!!OPT.layers.covTel);
+      covOpt.setVisible(!!OPT.layers.covOpt);
+      covVod.setVisible(!!OPT.layers.covVod);
 
       // HUD wiring
       const hud = {
         rail:  document.getElementById('t-rail'),
         km:    document.getElementById('t-km'),
         locate:document.getElementById('t-locate'),
-        cov:   document.getElementById('t-coverage'),
+        covAll:document.getElementById('t-cov-all'),
+        covTel:document.getElementById('t-cov-tel'),
+        covOpt:document.getElementById('t-cov-opt'),
+        covVod:document.getElementById('t-cov-vod'),
         clock: document.getElementById('clock'),
         tz:    document.getElementById('tz')
       };
       hud.rail.checked   = !!OPT.layers.rail;
       hud.km.checked     = !!OPT.layers.km;
       hud.locate.checked = !!OPT.layers.locate;
-      hud.cov.checked    = !!OPT.layers.coverage;
+      hud.covAll.checked = !!OPT.layers.coverage;
+      hud.covTel.checked = !!OPT.layers.covTel;
+      hud.covOpt.checked = !!OPT.layers.covOpt;
+      hud.covVod.checked = !!OPT.layers.covVod;
 
-      function saveOpts(){ localStorage.setItem('railops.options', JSON.stringify(OPT)); }
       function applyRail(){
         railLayer.setVisible(!!OPT.layers.rail);
         railLayer.setStyle(new ol.style.Style({
@@ -214,7 +256,32 @@
       hud.rail.onchange   = ()=>{ OPT.layers.rail   = hud.rail.checked;   saveOpts(); applyRail(); };
       hud.km.onchange     = ()=>{ OPT.layers.km     = hud.km.checked;     saveOpts(); (OPT.layers.km? ensureKmLayer(): removeKmLayer()); };
       hud.locate.onchange = ()=>{ OPT.layers.locate = hud.locate.checked; saveOpts(); (OPT.layers.locate? ensureLocate(): removeLocate()); };
-      hud.cov.onchange    = ()=>{ OPT.layers.coverage = hud.cov.checked;  saveOpts(); acccCoverage.setVisible(OPT.layers.coverage); };
+
+      // Coverage toggles
+      hud.covAll.onchange = ()=>{
+        OPT.layers.coverage = hud.covAll.checked; covAll.setVisible(hud.covAll.checked); saveOpts();
+        if (hud.covAll.checked) {
+          // turn off per-provider to avoid double stacking
+          hud.covTel.checked = hud.covOpt.checked = hud.covVod.checked = false;
+          OPT.layers.covTel = OPT.layers.covOpt = OPT.layers.covVod = false;
+          covTel.setVisible(false); covOpt.setVisible(false); covVod.setVisible(false);
+          saveOpts();
+        }
+      };
+      function toggleProv(which, layer){
+        which.onchange = ()=>{
+          const checked = which.checked;
+          layer.setVisible(checked);
+          // if any provider is on, force All off
+          if (checked && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
+          saveOpts();
+        };
+      }
+      toggleProv(hud.covTel, covTel); toggleProv(hud.covOpt, covOpt); toggleProv(hud.covVod, covVod);
+      // Persist flags
+      hud.covTel.addEventListener('change', ()=> OPT.layers.covTel = hud.covTel.checked);
+      hud.covOpt.addEventListener('change', ()=> OPT.layers.covOpt = hud.covOpt.checked);
+      hud.covVod.addEventListener('change', ()=> OPT.layers.covVod = hud.covVod.checked);
 
       // Clock
       const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
@@ -222,6 +289,9 @@
       function tick(){ const d=new Date(); hud.clock.textContent =
         String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
       tick(); setInterval(tick,1000);
+
+      // Apply rails once
+      applyRail();
     }
   })();
   </script>
