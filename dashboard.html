@@ -20,7 +20,7 @@
       background: rgba(18,26,43,.9); color: #e8eefc;
       border: 1px solid rgba(255,255,255,.15); border-radius: 12px;
       padding: 10px 12px; font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 260px;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 270px;
       backdrop-filter: saturate(1.1) blur(4px);
     }
     .hud h3 { margin: 0 0 6px; font-size: 14px; }
@@ -81,7 +81,7 @@
     };
     function saveOpts(){ localStorage.setItem('railops.options', JSON.stringify(OPT)); }
 
-    // Wait for OL to load (helps detect CDN/CSP issues on iOS)
+    // Wait for OL to load
     let tries = 0;
     const wait = setInterval(()=>{
       if (window.ol && ol.Map) { clearInterval(wait); boot(); }
@@ -186,13 +186,16 @@
       function removeLocate(){ if(!geoloc) return; geoloc.setTracking(false); geoloc=null; map.removeLayer(locLayer); locLayer=null; }
       ensureLocate();
 
-      // ===== ACCC coverage layers =====
-      const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/Communications/Mobile_Phone_Coverage/MapServer';
+      /* ===========================
+         ACCC Mobile Sites & Coverages
+         Per-provider "All Outdoor" layers (tile sublayers by ID)
+         =========================== */
+      const ACCC2 = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
 
-      // "All carriers" (fast tiled)
+      // “All carriers” (combined)
       const covAll = new ol.layer.Tile({
         source: new ol.source.TileArcGISRest({
-          url: ACCC_URL,
+          url: ACCC2,
           params: { layers: 'show:0', format: 'png32', transparent: true }
         }),
         opacity: 0.55,
@@ -200,27 +203,27 @@
       });
       map.addLayer(covAll);
 
-      // Per-provider layers (dynamic export with layerDefs)
-      function makeProviderLayer(name){
-        return new ol.layer.Image({
-          source: new ol.source.ImageArcGISRest({
-            url: ACCC_URL,
-            params: {
-              layers: 'show:0',
-              layerDefs: JSON.stringify({ 0: `(PROVIDER='${name}') OR (CARRIER='${name}')` }),
-              format: 'png32',
-              transparent: true
-            }
+      // Per-provider “All Outdoor” layer IDs (from service)
+      const LAYER_OPTUS_ALL_OUTDOOR   = 15;
+      const LAYER_TELSTRA_ALL_OUTDOOR = 25;
+      const LAYER_TPG_ALL_OUTDOOR     = 33;
+
+      function makeTile(id){
+        return new ol.layer.Tile({
+          source: new ol.source.TileArcGISRest({
+            url: ACCC2,
+            params: { layers: `show:${id}`, format: 'png32', transparent: true }
           }),
           opacity: 0.55,
-          visible: false,
-          ratio: 1
+          visible: false
         });
       }
-      const covTel = makeProviderLayer('Telstra');
-      const covOpt = makeProviderLayer('Optus');
-      const covVod = makeProviderLayer('Vodafone');
+      const covTel = makeTile(LAYER_TELSTRA_ALL_OUTDOOR);
+      const covOpt = makeTile(LAYER_OPTUS_ALL_OUTDOOR);
+      const covVod = makeTile(LAYER_TPG_ALL_OUTDOOR);
       map.addLayer(covTel); map.addLayer(covOpt); map.addLayer(covVod);
+
+      // Initial visibility from saved options
       covTel.setVisible(!!OPT.layers.covTel);
       covOpt.setVisible(!!OPT.layers.covOpt);
       covVod.setVisible(!!OPT.layers.covVod);
@@ -268,20 +271,18 @@
           saveOpts();
         }
       };
-      function toggleProv(which, layer){
-        which.onchange = ()=>{
-          const checked = which.checked;
-          layer.setVisible(checked);
-          // if any provider is on, force All off
-          if (checked && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
+      function hookProv(cb, layer, key){
+        cb.onchange = ()=>{
+          const on = cb.checked;
+          layer.setVisible(on);
+          OPT.layers[key] = on;
+          if (on && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
           saveOpts();
         };
       }
-      toggleProv(hud.covTel, covTel); toggleProv(hud.covOpt, covOpt); toggleProv(hud.covVod, covVod);
-      // Persist flags
-      hud.covTel.addEventListener('change', ()=> OPT.layers.covTel = hud.covTel.checked);
-      hud.covOpt.addEventListener('change', ()=> OPT.layers.covOpt = hud.covOpt.checked);
-      hud.covVod.addEventListener('change', ()=> OPT.layers.covVod = hud.covVod.checked);
+      hookProv(hud.covTel, covTel, 'covTel');
+      hookProv(hud.covOpt, covOpt, 'covOpt');
+      hookProv(hud.covVod, covVod, 'covVod');
 
       // Clock
       const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
@@ -290,7 +291,7 @@
         String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
       tick(); setInterval(tick,1000);
 
-      // Apply rails once
+      // Apply rails initially
       applyRail();
     }
   })();
