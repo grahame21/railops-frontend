@@ -4,6 +4,9 @@
 [[headers]]
   for = "/*"
   [headers.values]
+    # --- Security & access control ---
+    Basic-Auth = "admin:YOUR-STRONG-PASSWORD"
+
     Content-Security-Policy = """
       default-src 'self';
       script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
