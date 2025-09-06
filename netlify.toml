@@ -1,7 +1,7 @@
 [build]
   publish = "."
 
-# ---------- Public by default (with CSP) ----------
+# Global security/CSP (public by default)
 [[headers]]
   for = "/*"
   [headers.values]
@@ -16,14 +16,11 @@
     Referrer-Policy = "no-referrer"
     X-Content-Type-Options = "nosniff"
 
-# ---------- Protect the dashboard ----------
-[[headers]]
-  for = "/dashboard.html"
-  [headers.values]
-    Basic-Auth = "admin:YOUR-STRONG-PASSWORD"
+# Bind Edge Function to protected routes
+[[edge_functions]]
+  path = "/dashboard.html"
+  function = "protect"
 
-# ---------- Protect the entire /admin/ section ----------
-[[headers]]
-  for = "/admin/*"
-  [headers.values]
-    Basic-Auth = "admin:YOUR-STRONG-PASSWORD"
+[[edge_functions]]
+  path = "/admin/*"
+  function = "protect"
