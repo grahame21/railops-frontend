@@ -10,7 +10,179 @@
     a{color:#7bd88f;text-decoration:none}
   </style>
 </head>
+<<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RailOps — Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <style>
+    /* --- Background image (mobile-safe) --- */
+    html, body { height: 100%; margin: 0; }
+    body {
+      background: #000 url("/static/img/train.jpg") center / cover no-repeat fixed;
+      color: #e8eefc; font: 15px system-ui, -apple-system, Segoe UI, Roboto, Arial;
+    }
+    /* iOS Safari sometimes ignores fixed backgrounds; add a fixed layer behind */
+    @supports (-webkit-touch-callout: none) {
+      body { background-attachment: scroll; } /* avoid jitter */
+      .bg-fix { position: fixed; inset: 0;
+        background: #000 url("/static/img/train.jpg") center / cover no-repeat;
+        z-index: -1;
+      }
+    }
+
+    /* --- Overlay nav --- */
+    .admin-nav{
+      position: fixed; top: env(safe-area-inset-top, 10px); right: 10px; z-index: 10;
+      background: rgba(18,26,43,.85);
+      border: 1px solid rgba(255,255,255,.15);
+      border-radius: 12px; padding: 8px 10px;
+      display: flex; gap: 10px; align-items: center;
+      box-shadow: 0 10px 26px rgba(0,0,0,.35);
+      backdrop-filter: saturate(1.1) blur(6px);
+    }
+    .admin-nav a{
+      color: #7bd88f; text-decoration: none; font-weight: 600; font-size: 13px;
+    }
+
+    /* --- Center card --- */
+    .wrap { min-height: 100%; display: grid; place-items: center; padding: 24px; }
+    .card{
+      width: min(640px, 92vw);
+      background: rgba(18,26,43,.86);
+      border: 1px solid rgba(255,255,255,.16);
+      border-radius: 16px; padding: 22px 24px;
+      box-shadow: 0 18px 40px rgba(0,0,0,.5);
+      backdrop-filter: saturate(1.1) blur(6px);
+    }
+    h1{ margin: 0 0 6px; font-size: 22px; }
+    .muted{ color: #9fb2cf; margin: 0 0 14px; }
+    .row{ display: grid; gap: 10px; }
+    @media (min-width: 640px){ .row-2{ grid-template-columns: 1fr 1fr; } }
+    .btn{
+      display: inline-flex; gap: 8px; align-items:center; justify-content:center;
+      padding: 10px 12px; border-radius: 10px; cursor: pointer;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(255,255,255,.06); color: #e8eefc; text-decoration: none;
+    }
+    .btn.accent{ border-color: rgba(123,216,143,.35); background: rgba(123,216,143,.12); }
+    .hint{ font-size: 12px; color: #8fa3bf; }
+    textarea, input, select{
+      width: 100%; padding: 10px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(11,18,32,.6); color: #e8eefc;
+    }
+  </style>
+</head>
 <body>
+  <!-- iOS fallback layer for fixed background -->
+  <div class="bg-fix" aria-hidden="true"></div>
+
+  <!-- overlay nav -->
+  <nav class="admin-nav">
+    <a href="/dashboard.html">↩ Dashboard</a>
+    <a href="/token-helper.html">Login helper</a>
+  </nav>
+
+  <main class="wrap">
+    <section class="card">
+      <h1>RailOps — Admin</h1>
+      <p class="muted">Welcome back. Use the quick actions below or jump to the dashboard.</p>
+
+      <div class="row row-2" style="margin-top:8px">
+        <a class="btn accent" href="/dashboard.html">Open Dashboard</a>
+        <a class="btn" href="/flights.html">Flights (demo)</a>
+      </div>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,.12);margin:16px 0">
+
+      <!-- Example: simple site settings persisted to localStorage -->
+      <h3 style="margin:0 0 8px">Map Options</h3>
+      <div class="row row-2">
+        <label><input type="checkbox" id="opt-rail"> Show railway lines</label>
+        <label><input type="checkbox" id="opt-km"> Show KM2ME markers</label>
+        <label><input type="checkbox" id="opt-locate"> Show my location</label>
+        <label><input type="checkbox" id="opt-coverage"> Coverage (ACCC)</label>
+      </div>
+
+      <div class="row row-2" style="margin-top:10px">
+        <div>
+          <div class="hint">Rail colour</div>
+          <input type="color" id="rail-color" value="#000000">
+        </div>
+        <div>
+          <div class="hint">Rail width (px)</div>
+          <input type="number" id="rail-width" min="1" max="10" value="3">
+        </div>
+      </div>
+
+      <div style="margin-top:10px">
+        <div class="hint">KM2ME GeoJSON URL (optional)</div>
+        <input type="url" id="km2me-url" placeholder="https://example.com/km2me.geojson">
+      </div>
+      <div style="margin-top:10px">
+        <div class="hint">Overpass API endpoint</div>
+        <input type="url" id="overpass-url" value="https://overpass-api.de/api/interpreter">
+      </div>
+
+      <div style="margin-top:14px">
+        <button class="btn accent" id="save">Save options</button>
+        <button class="btn" id="reset">Reset defaults</button>
+        <span id="msg" class="hint" style="margin-left:8px"></span>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    // Same options schema your dashboard reads
+    const defaultOptions = {
+      layers:{ rail:true, km:false, locate:true, coverage:false },
+      railStyle:{ color:'#000000', width:3 },
+      sources:{ km2me:'', overpass:'https://overpass-api.de/api/interpreter' }
+    };
+    const LSKEY = 'railops.options';
+    const LS = {
+      get(){ try{ return JSON.parse(localStorage.getItem(LSKEY) || 'null') || defaultOptions; }catch{ return defaultOptions; } },
+      set(v){ localStorage.setItem(LSKEY, JSON.stringify(v)); }
+    };
+    const $ = id => document.getElementById(id);
+
+    function loadUI(){
+      const o = LS.get();
+      $('opt-rail').checked = !!o.layers.rail;
+      $('opt-km').checked = !!o.layers.km;
+      $('opt-locate').checked = !!o.layers.locate;
+      $('opt-coverage').checked = !!o.layers.coverage;
+      $('rail-color').value = o.railStyle.color || '#000000';
+      $('rail-width').value = o.railStyle.width || 3;
+      $('km2me-url').value = o.sources.km2me || '';
+      $('overpass-url').value = o.sources.overpass || defaultOptions.sources.overpass;
+    }
+    function saveUI(){
+      const o = LS.get();
+      o.layers.rail = $('opt-rail').checked;
+      o.layers.km = $('opt-km').checked;
+      o.layers.locate = $('opt-locate').checked;
+      o.layers.coverage = $('opt-coverage').checked;
+      o.railStyle.color = $('rail-color').value || '#000000';
+      o.railStyle.width = Math.max(1, Math.min(10, parseInt($('rail-width').value||'3',10)));
+      o.sources.km2me = ($('km2me-url').value || '').trim();
+      o.sources.overpass = ($('overpass-url').value || '').trim() || defaultOptions.sources.overpass;
+      LS.set(o);
+      $('msg').textContent = 'Saved. Open/refresh the Dashboard to see changes.';
+      setTimeout(()=> $('msg').textContent = '', 2500);
+    }
+    function resetDefaults(){ LS.set(defaultOptions); loadUI(); $('msg').textContent = 'Defaults restored.'; setTimeout(()=> $('msg').textContent='', 1500); }
+
+    document.addEventListener('DOMContentLoaded', ()=>{
+      loadUI();
+      $('save').onclick = saveUI;
+      $('reset').onclick = resetDefaults;
+    });
+  </script>
+</body>
+</html>
   <div class="box">
     <h1>Admin OK</h1>
     <p><a href="/dashboard.html">↩ Back to dashboard</a></p>
