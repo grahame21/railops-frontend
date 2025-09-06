@@ -4,6 +4,13 @@
 [[headers]]
   for = "/*"
   [headers.values]
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://identity.netlify.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://spatial.infrastructure.gov.au; connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://overpass-api.de https://identity.netlify.com https://api.netlify.com https://*.netlify.com https://*.netlify.app https://spatial.infrastructure.gov.au; frame-src 'self' https://identity.netlify.com https://app.netlify.com; child-src 'self' https://identity.netlify.com https://app.netlify.com; worker-src 'self' blob:;"
+    Content-Security-Policy = """
+      default-src 'self';
+      script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+      style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+      img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://spatial.infrastructure.gov.au;
+      connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://overpass-api.de https://spatial.infrastructure.gov.au;
+      worker-src 'self' blob:;
+    """
     Referrer-Policy = "no-referrer"
     X-Content-Type-Options = "nosniff"
