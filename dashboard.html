@@ -51,7 +51,6 @@
   <button id="logout-btn" title="Sign out">Logout</button>
   <div class="badge" id="badge">Loading…</div>
 
-  <!-- Load OL last, with defer -->
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
   (function(){
@@ -87,12 +86,11 @@
 
     function boot(){
       set('OpenLayers OK', 'ok');
-      // Base map (north-up)
+      // Base map (north-up). NOTE: removed interactions: defaults(...)
       let map;
       try {
         map = new ol.Map({
           target: 'map',
-          interactions: ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false }),
           layers: [ new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) }) ],
           view: new ol.View({
             center: ol.proj.fromLonLat([133.7751, -25.2744]),
@@ -102,10 +100,10 @@
         });
         map.once('rendercomplete', ()=> set('Base tiles rendered ✔︎', 'ok'));
       } catch(e){
-        console.error(e); set('Failed to construct map (JS error).', 'bad'); return;
+        console.error(e); set('Failed to construct map: ' + (e && e.message ? e.message : e), 'bad'); return;
       }
 
-      // Rails
+      // Rails layer
       const railSrc = new ol.source.Vector();
       const railLayer = new ol.layer.Vector({
         source: railSrc,
