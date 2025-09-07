@@ -1,17 +1,10 @@
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Content-Security-Policy = """
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' https://unpkg.com;
-      style-src  'self' 'unsafe-inline' https://unpkg.com;
-      img-src    'self' data:
-                  https://tile.openstreetmap.org https://*.tile.openstreetmap.org
-                  https://tile.openrailwaymap.org;
-      connect-src 'self'
-                  https://tile.openstreetmap.org https://*.tile.openstreetmap.org
-                  https://tile.openrailwaymap.org;
-      worker-src 'self' blob:;
-    """
-    Referrer-Policy = "no-referrer"
-    X-Content-Type-Options = "nosniff"
+[build]
+  # "publish" is the folder that Netlify serves as your website.
+  # If your site files (dashboard.html, login.html, etc.) are in the repo root, leave this as "."
+  publish = "."
+
+[functions]
+  # Path to your functions folder
+  directory = "netlify/functions"
+  # Ensures Node dependencies bundle correctly
+  node_bundler = "esbuild"
