@@ -1,23 +1,21 @@
-// netlify/edge-functions/protect.js
-// Edge guard: allows public/login + API endpoints, protects /dashboard.html (admin or guest)
-// and /admin/* (admin only). Validates the signed session cookie "railops_session".
+// Edge guard: public login + APIs; protects /dashboard.html (admin or guest) and /admin/* (admin only)
 
 export default async (request, context) => {
   const url = new URL(request.url);
   const path = url.pathname;
 
-  // --- Public paths (no cookie needed) ---
+  // Public paths (no cookie required)
   if (
     path === '/login.html' ||
     path === '/' ||
     path.startsWith('/api/login') ||
     path.startsWith('/api/logout') ||
-    path.startsWith('/api/guests') // unified guests function (login/create/list/revoke)
+    path.startsWith('/api/guests') // unified guest endpoint
   ) {
     return;
   }
 
-  // --- Session cookie required beyond this point ---
+  // Require session cookie
   const cookie = request.headers.get('cookie') || '';
   const m = cookie.match(/railops_session=([^;]+)/);
   if (!m) return Response.redirect(new URL('/login.html', url), 302);
@@ -37,25 +35,21 @@ export default async (request, context) => {
   const expectedSig = btoa(String.fromCharCode(...new Uint8Array(expectedSigBytes)));
   if (expectedSig !== b64Sig) return Response.redirect(new URL('/login.html', url), 302);
 
-  // Parse and check expiry/role
   let obj;
   try { obj = JSON.parse(payload); } catch { return Response.redirect(new URL('/login.html', url), 302); }
   if (!obj || !obj.exp || Date.now() > obj.exp) return Response.redirect(new URL('/login.html', url), 302);
 
   const role = obj.role || 'guest';
 
-  // /admin/* is admin-only
+  // Admin-only area
   if (path.startsWith('/admin/')) {
     if (role !== 'admin') return Response.redirect(new URL('/login.html', url), 302);
   }
 
-  // /dashboard.html allowed for admin or guest
+  // Dashboard allowed for admin or guest
   if (path === '/dashboard.html') {
-    if (role !== 'admin' && role !== 'guest') {
-      return Response.redirect(new URL('/login.html', url), 302);
-    }
+    if (role !== 'admin' && role !== 'guest') return Response.redirect(new URL('/login.html', url), 302);
   }
 
-  // Everything else just proceeds if we reached here
   return;
 };
