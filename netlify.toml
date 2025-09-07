@@ -1,7 +1,10 @@
 [build]
   publish = "."
 
-# Global security/CSP (public by default)
+[functions]
+  directory = "netlify/functions"
+
+# --- Global security headers (CSP good for OSM/Overpass/ACCC) ---
 [[headers]]
   for = "/*"
   [headers.values]
@@ -16,7 +19,7 @@
     Referrer-Policy = "no-referrer"
     X-Content-Type-Options = "nosniff"
 
-# Bind Edge Function to protected routes
+# --- Edge guard bindings ---
 [[edge_functions]]
   path = "/dashboard.html"
   function = "protect"
