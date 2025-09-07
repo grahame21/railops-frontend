@@ -1,11 +1,15 @@
-# Proxy all API calls to your Netlify Functions
-/api/*    /.netlify/functions/:splat    200
+# --- Tile aliases (clean paths that bypass content blockers) ---
+/t/osm/*    /.netlify/functions/osm/:splat    200
+/t/orm/*    /.netlify/functions/orm/:splat    200
 
-# Explicitly allow these pages (bypass catch-all redirect)
-#/map-diagnose.html  /map-diagnose.html 200
-/dashboard.html      /dashboard.html    200
-/login.html          /login.html        200
-/admin.html          /admin.html        200
+# --- Keep your generic API mapping too (optional but fine) ---
+/api/*      /.netlify/functions/:splat        200
 
-# Catch-all: if nothing matches, send user to login
+# --- Explicit routes you want publicly reachable ---
+/dashboard.html  /dashboard.html  200
+/login.html      /login.html      200
+/admin.html      /admin.html      200
+/map-diagnose.html /map-diagnose.html 200
+
+# --- Catch-all: everything else -> login ---
 /*    /login.html    200
