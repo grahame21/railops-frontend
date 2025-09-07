@@ -1,5 +1,11 @@
-/api/*           /.netlify/functions/:splat    200
-/login.html      /login.html                   200
-/dashboard.html  /dashboard.html               200
-/admin/*         /admin/:splat                 200
-/*               /login.html                   200
+# Proxy all API calls to your Netlify Functions
+/api/*    /.netlify/functions/:splat    200
+
+# Explicitly allow these pages (bypass catch-all redirect)
+#/map-diagnose.html  /map-diagnose.html 200
+/dashboard.html      /dashboard.html    200
+/login.html          /login.html        200
+/admin.html          /admin.html        200
+
+# Catch-all: if nothing matches, send user to login
+/*    /login.html    200
