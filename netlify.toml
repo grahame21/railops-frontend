@@ -1,29 +1,19 @@
-[build]
-  publish = "."
-
-[functions]
-  directory = "netlify/functions"
-
-# --- Global security headers (CSP good for OSM/Overpass/ACCC) ---
 [[headers]]
   for = "/*"
   [headers.values]
+    # Allows OpenLayers from unpkg/jsDelivr, OSM tiles, Overpass mirrors, and ACCC tiles
     Content-Security-Policy = """
       default-src 'self';
       script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
       style-src  'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
       img-src    'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://spatial.infrastructure.gov.au;
-      connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://overpass-api.de https://spatial.infrastructure.gov.au;
+      connect-src 'self'
+        https://tile.openstreetmap.org https://*.tile.openstreetmap.org
+        https://overpass-api.de
+        https://overpass.kumi.systems
+        https://overpass.openstreetmap.fr
+        https://spatial.infrastructure.gov.au;
       worker-src 'self' blob:;
     """
     Referrer-Policy = "no-referrer"
     X-Content-Type-Options = "nosniff"
-
-# --- Edge guard bindings ---
-[[edge_functions]]
-  path = "/dashboard.html"
-  function = "protect"
-
-[[edge_functions]]
-  path = "/admin/*"
-  function = "protect"
