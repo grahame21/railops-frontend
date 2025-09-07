@@ -1,1 +1,6 @@
-/*    /login.html    200
+# Map /api/* to Netlify Functions
+/api/*                  /.netlify/functions/:splat    200
+
+# Keep login public, and provide a friendly fallback
+/login.html             /login.html                   200
+/*                      /login.html                   200
