@@ -41,7 +41,9 @@
 <body>
   <div id="map"></div>
 
-  <div class="hud"><label><input type="checkbox" id="rails-toggle" checked> Rails (proxied)</label></div>
+  <div class="hud">
+    <label><input type="checkbox" id="rails-toggle" checked> Rails (proxied)</label>
+  </div>
   <button id="logout-btn" title="Sign out">Logout</button>
 
   <div id="badge">Loading…</div>
@@ -49,7 +51,7 @@
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
-    // Show any JS error on-screen
+    // Show any JS error on-screen (no blank pages)
     window.addEventListener('error', e=>{
       const box=document.getElementById('err'); box.style.display='block';
       box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
@@ -74,7 +76,7 @@
 
       function boot(){
         try{
-          // Base via proxy
+          // Base via Netlify proxy (same-origin)
           const base = new ol.layer.Tile({
             source: new ol.source.XYZ({
               url: '/api/osm/{z}/{x}/{y}.png',
@@ -83,7 +85,7 @@
             zIndex: 0
           });
 
-          // Rails via proxy
+          // Rails via Netlify proxy (same-origin)
           const rails = new ol.layer.Tile({
             source: new ol.source.XYZ({
               url: '/api/orm/standard/{z}/{x}/{y}.png',
@@ -98,19 +100,27 @@
             target: 'map',
             layers: [base, rails],
             view: new ol.View({
-              center: ol.proj.fromLonLat([133.7751, -25.2744]),
+              center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
               zoom: 4.8,
-              constrainRotation: 0
+              constrainRotation: 0   // keep north up
             })
           });
 
+          // Toggle
           document.getElementById('rails-toggle').onchange = e => rails.setVisible(e.target.checked);
 
+          // Status hooks
           map.once('rendercomplete', ()=> say('Base tiles rendered ✔︎','ok'));
           base.getSource().on('tileloadend',  ()=> say('Base tiles loaded ✔︎','ok'));
-          base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check osm.js logs','bad'));
+          base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check netlify/functions/osm.js logs','bad'));
           rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎','ok'));
-          rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check orm.js logs','bad'));
+          rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check netlify/functions/orm.js logs','bad'));
+
+          // iOS/Safari: ensure correct size
+          const reflow = ()=> map.updateSize();
+          window.addEventListener('resize', reflow);
+          window.addEventListener('orientationchange', reflow);
+          setTimeout(reflow, 50);
 
         }catch(e){
           const box=document.getElementById('err'); box.style.display='block';
