@@ -63,7 +63,7 @@
       location.href = '/login.html';
     };
 
-    // Persisted options
+    // Options persisted
     const _opts = JSON.parse(localStorage.getItem('railops.options') || '{}');
     const OPT = {
       layers: Object.assign(
@@ -86,7 +86,6 @@
 
     function boot(){
       set('OpenLayers OK', 'ok');
-      // Base map (north-up). NOTE: removed interactions: defaults(...)
       let map;
       try {
         map = new ol.Map({
@@ -103,7 +102,13 @@
         console.error(e); set('Failed to construct map: ' + (e && e.message ? e.message : e), 'bad'); return;
       }
 
-      // Rails layer
+      // ---- Rails with mirror + cache ----
+      const OVERPASS = [
+        'https://overpass-api.de/api/interpreter',
+        'https://overpass.kumi.systems/api/interpreter',
+        'https://overpass.openstreetmap.fr/api/interpreter',
+      ];
+      let overpassIndex = 0;
       const railSrc = new ol.source.Vector();
       const railLayer = new ol.layer.Vector({
         source: railSrc,
@@ -114,82 +119,86 @@
       });
       map.addLayer(railLayer);
 
-      const refreshRails = debounce(fetchRailsForView, 400);
+      const cache = new Map();
+      let inflight = null;
+      function viewKey() {
+        const v = map.getView();
+        const z = Math.floor(v.getZoom() || 0);
+        const c = ol.proj.toLonLat(v.getCenter());
+        const lon = Math.round(c[0] * 4) / 4;
+        const lat = Math.round(c[1] * 4) / 4;
+        return `${z}:${lon}:${lat}`;
+      }
+
+      const refreshRails = debounce(fetchRailsForView, 500);
       map.once('postrender', refreshRails);
       map.getView().on('change:center', refreshRails);
       map.getView().on('change:resolution', refreshRails);
 
       async function fetchRailsForView(){
         if (!OPT.layers.rail) return;
-        try{
-          const extent = map.getView().calculateExtent(map.getSize());
-          const world = ol.proj.transformExtent(extent,'EPSG:3857','EPSG:4326');
-          const [minX,minY,maxX,maxY] = world;
-          const q = `
-            [out:json][timeout:25];
-            ( way["railway"~"^(rail|light_rail|subway)$"]["service"!~".*"](${minY},${minX},${maxY},${maxX}); );
-            out geom;`;
-          const resp = await fetch(OPT.sources.overpass, {
-            method:'POST',
-            headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-            body: 'data=' + encodeURIComponent(q)
-          });
-          if (!resp.ok) throw new Error(resp.status+' '+resp.statusText);
-          const data = await resp.json();
-          const feats = (data.elements||[])
-            .filter(el=>el.type==='way' && Array.isArray(el.geometry))
-            .map(el=> new ol.Feature({
-              geometry: new ol.geom.LineString(el.geometry.map(p=>ol.proj.fromLonLat([p.lon,p.lat])))
-            }));
+        const v = map.getView();
+        const z = v.getZoom() || 0;
+        if (z < 8) {
           railSrc.clear(true);
-          railSrc.addFeatures(feats);
-          set('Rails loaded: '+feats.length, 'ok');
-        }catch(e){
-          console.warn(e);
-          set('Rail fetch error (Overpass). Check connect-src & rate limit.', 'bad');
+          set('Zoom in (≥8) to load rails', 'bad');
+          return;
+        }
+        const key = viewKey();
+        if (cache.has(key)) {
+          railSrc.clear(true);
+          railSrc.addFeatures(cache.get(key));
+          set('Rails loaded (cache)', 'ok');
+          return;
+        }
+        if (inflight) return;
+        inflight = doOverpassFetch().finally(()=> inflight = null);
+
+        async function doOverpassFetch(retries = OVERPASS.length) {
+          try {
+            const extent = v.calculateExtent(map.getSize());
+            const world = ol.proj.transformExtent(extent,'EPSG:3857','EPSG:4326');
+            const [minX,minY,maxX,maxY] = world;
+            const pad = 0.02;
+            const q = `
+              [out:json][timeout:25];
+              (
+                way["railway"~"^(rail|light_rail|subway)$"]["service"!~".*"](${Math.max(-90,minY-pad)},${Math.max(-180,minX-pad)},${Math.min(90,maxY+pad)},${Math.min(180,maxX+pad)});
+              );
+              out geom;`;
+            const url = OVERPASS[overpassIndex % OVERPASS.length];
+            const resp = await fetch(url, {
+              method:'POST',
+              headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
+              body: 'data=' + encodeURIComponent(q)
+            });
+            if (!resp.ok) {
+              if (([429,502,503,504].includes(resp.status)) && retries > 1) {
+                overpassIndex++;
+                set(`Overpass ${resp.status}; trying mirror…`, 'bad');
+                await new Promise(r => setTimeout(r, 600));
+                return doOverpassFetch(retries - 1);
+              }
+              throw new Error(resp.status+' '+resp.statusText);
+            }
+            const data = await resp.json();
+            const feats = (data.elements||[])
+              .filter(el => el.type==='way' && Array.isArray(el.geometry))
+              .map(el => new ol.Feature({
+                geometry: new ol.geom.LineString(el.geometry.map(p=>ol.proj.fromLonLat([p.lon,p.lat])))
+              }));
+            railSrc.clear(true);
+            railSrc.addFeatures(feats);
+            cache.set(key, feats);
+            set('Rails loaded: ' + feats.length, 'ok');
+          } catch (e) {
+            console.warn(e);
+            set('Rail fetch error. Zoom in further or try again.', 'bad');
+          }
         }
       }
 
-      // KM2ME optional
-      let kmLayer;
-      function ensureKmLayer() {
-        if (!(OPT.layers.km && OPT.sources.km2me)) return removeKmLayer();
-        if (kmLayer) return;
-        kmLayer = new ol.layer.Vector({
-          source: new ol.source.Vector({ url: OPT.sources.km2me, format: new ol.format.GeoJSON() }),
-          style: new ol.style.Style({
-            image:new ol.style.Circle({ radius:3, fill:new ol.style.Fill({color:'#e67e22'}), stroke:new ol.style.Stroke({color:'#8e4b0a', width:1}) })
-          })
-        });
-        map.addLayer(kmLayer);
-      }
-      function removeKmLayer(){ if (!kmLayer) return; map.removeLayer(kmLayer); kmLayer=null; }
-      ensureKmLayer();
-
-      // Current location
-      let geoloc, posFeature, accFeature, locLayer;
-      function ensureLocate() {
-        if (!OPT.layers.locate || !('geolocation' in navigator)) return removeLocate();
-        if (geoloc) return;
-        geoloc = new ol.Geolocation({ tracking: true, projection: map.getView().getProjection() });
-        posFeature = new ol.Feature();
-        posFeature.setStyle(new ol.style.Style({
-          image: new ol.style.Icon({
-            src: 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36"><circle cx="18" cy="18" r="6" fill="#2dd4bf"/><circle cx="18" cy="18" r="12" fill="none" stroke="#2dd4bf" stroke-width="2" opacity=".35"/></svg>'),
-            anchor:[0.5,0.5], anchorXUnits:'fraction', anchorYUnits:'fraction'
-          })
-        }));
-        accFeature = new ol.Feature();
-        const locSrc = new ol.source.Vector({ features:[accFeature,posFeature] });
-        locLayer = new ol.layer.Vector({ source: locSrc });
-        map.addLayer(locLayer);
-        geoloc.on('change:position', ()=>{ const p=geoloc.getPosition(); if(p) posFeature.setGeometry(new ol.geom.Point(p)); });
-        geoloc.on('change:accuracyGeometry', ()=>{ accFeature.setGeometry(geoloc.getAccuracyGeometry()); });
-      }
-      function removeLocate(){ if(!geoloc) return; geoloc.setTracking(false); geoloc=null; map.removeLayer(locLayer); locLayer=null; }
-      ensureLocate();
-
-      // ACCC Mobile Sites & Coverages
+      // ---- Coverage (Telstra + Optus/Vodafone) ----
       const ACCC2 = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
       const covAll = new ol.layer.Tile({
         source: new ol.source.TileArcGISRest({ url: ACCC2, params: { layers: 'show:0', format: 'png32', transparent: true }}),
@@ -200,7 +209,6 @@
       const LAYER_OPTUS_ALL_OUTDOOR   = 15;
       const LAYER_TELSTRA_ALL_OUTDOOR = 25;
       const LAYER_TPG_ALL_OUTDOOR     = 33;
-
       function makeTile(id){ return new ol.layer.Tile({
         source: new ol.source.TileArcGISRest({ url: ACCC2, params: { layers: `show:${id}`, format: 'png32', transparent: true }}),
         opacity: 0.55, visible: false
@@ -232,38 +240,12 @@
       hud.covTel.checked = !!OPT.layers.covTel;
       hud.covOV.checked  = !!OPT.layers.covOV;
 
-      function applyRail(){
-        railLayer.setVisible(!!OPT.layers.rail);
-        railLayer.setStyle(new ol.style.Style({
-          stroke: new ol.style.Stroke({ color: OPT.railStyle.color || '#000', width: Math.max(1, OPT.railStyle.width || 3) })
-        }));
-        if (OPT.layers.rail) refreshRails();
-      }
-
-      hud.rail.onchange   = ()=>{ OPT.layers.rail   = hud.rail.checked;   saveOpts(); applyRail(); };
-      hud.km.onchange     = ()=>{ OPT.layers.km     = hud.km.checked;     saveOpts(); (OPT.layers.km? ensureKmLayer(): removeKmLayer()); };
-      hud.locate.onchange = ()=>{ OPT.layers.locate = hud.locate.checked; saveOpts(); (OPT.layers.locate? ensureLocate(): removeLocate()); };
-
-      hud.covAll.onchange = ()=>{
-        OPT.layers.coverage = hud.covAll.checked; covAll.setVisible(hud.covAll.checked); saveOpts();
-        if (hud.covAll.checked) {
-          hud.covTel.checked = false; hud.covOV.checked = false;
-          OPT.layers.covTel = false; OPT.layers.covOV = false;
-          covTel.setVisible(false); covOpt.setVisible(false); covVod.setVisible(false); saveOpts();
-        }
-      };
-      hud.covTel.onchange = ()=>{
-        const on = hud.covTel.checked;
-        OPT.layers.covTel = on; covTel.setVisible(on);
-        if (on && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
-        saveOpts();
-      };
-      hud.covOV.onchange = ()=>{
-        const on = hud.covOV.checked;
-        OPT.layers.covOV = on; covOpt.setVisible(on); covVod.setVisible(on);
-        if (on && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
-        saveOpts();
-      };
+      hud.rail.onchange   = ()=>{ OPT.layers.rail   = hud.rail.checked;   saveOpts(); railLayer.setVisible(OPT.layers.rail); if (OPT.layers.rail) refreshRails(); };
+      hud.km.onchange     = ()=>{ OPT.layers.km     = hud.km.checked;     saveOpts(); };
+      hud.locate.onchange = ()=>{ OPT.layers.locate = hud.locate.checked; saveOpts(); };
+      hud.covAll.onchange = ()=>{ OPT.layers.coverage = hud.covAll.checked; covAll.setVisible(hud.covAll.checked); saveOpts(); if (hud.covAll.checked) { hud.covTel.checked = hud.covOV.checked = false; covTel.setVisible(false); covOpt.setVisible(false); covVod.setVisible(false); OPT.layers.covTel = OPT.layers.covOV = false; } };
+      hud.covTel.onchange = ()=>{ const on = hud.covTel.checked; OPT.layers.covTel = on; covTel.setVisible(on); if (on && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); } saveOpts(); };
+      hud.covOV.onchange = ()=>{ const on = hud.covOV.checked; OPT.layers.covOV = on; covOpt.setVisible(on); covVod.setVisible(on); if (on && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); } saveOpts(); };
 
       // Clock
       const tzName = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
@@ -271,8 +253,6 @@
       function tick(){ const d=new Date(); hud.clock.textContent =
         String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
       tick(); setInterval(tick,1000);
-
-      applyRail();
     }
   })();
   </script>
