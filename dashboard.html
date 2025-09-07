@@ -72,19 +72,19 @@
 
       function boot(){
         try{
-          // Base via alias -> Netlify function (same-origin, avoids blockers)
+          // Base via built-in functions (no redirects required)
           const base = new ol.layer.Tile({
             source: new ol.source.XYZ({
-              url: '/t/osm/{z}/{x}/{y}.png?v=1',
+              url: '/.netlify/functions/osm/{z}/{x}/{y}.png',
               maxZoom: 19
             }),
             zIndex: 0
           });
 
-          // Rails via alias -> Netlify function
+          // Rails via built-in functions
           const rails = new ol.layer.Tile({
             source: new ol.source.XYZ({
-              url: '/t/orm/standard/{z}/{x}/{y}.png?v=1',
+              url: '/.netlify/functions/orm/standard/{z}/{x}/{y}.png',
               maxZoom: 19
             }),
             opacity: 0.9,
@@ -108,11 +108,11 @@
           // Status
           map.once('rendercomplete', ()=> say('Base tiles rendered ✔︎','ok'));
           base.getSource().on('tileloadend',  ()=> say('Base tiles loaded ✔︎','ok'));
-          base.getSource().on('tileloaderror',()=> say('OSM tile via /t/osm failed — check Functions → osm logs','bad'));
+          base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check osm.js logs','bad'));
           rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎','ok'));
-          rails.getSource().on('tileloaderror',()=> say('Rails tile via /t/orm failed — check Functions → orm logs','bad'));
+          rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check orm.js logs','bad'));
 
-          // iOS/Safari sizing
+          // iOS/Safari sizing nudge
           const reflow = ()=> map.updateSize();
           window.addEventListener('resize', reflow);
           window.addEventListener('orientationchange', reflow);
