@@ -1,27 +1,118 @@
-<!-- RAILS overlay (OpenRailwayMap standard style) -->
-<script>
-  // Remove or comment out the GA rails code you had:
-  // const gaUrl = OPT.sources.gaRails;
-  // const gaRails = new ol.layer.Tile({ ... });
-  // map.addLayer(gaRails);
-  // ...
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RailOps — Dashboard (Safe Mode)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <!-- OpenLayers CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
+  <style>
+    html, body { margin:0; height:100%; background:#0b1220; }
+    #map { position:fixed; inset:0; }
 
-  // Add this instead:
-  const ormRails = new ol.layer.Tile({
-    source: new ol.source.XYZ({
-      url: 'https://tile.openrailwaymap.org/standard/{z}/{x}/{y}.png',
-      crossOrigin: 'anonymous',
-      maxZoom: 19
-    }),
-    visible: !!OPT.layers.rail,
-    opacity: 0.85
-  });
-  map.addLayer(ormRails);
+    /* HUD */
+    .hud {
+      position: fixed; top: 10px; left: 10px; z-index: 1001;
+      background: rgba(18,26,43,.9); color: #e8eefc;
+      border: 1px solid rgba(255,255,255,.15); border-radius: 12px;
+      padding: 10px 12px; font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35);
+    }
+    .hud label { display:flex; align-items:center; gap:6px; }
 
-  // Hook into your existing HUD toggle
-  hud.rail.onchange = ()=>{
-    OPT.layers.rail = hud.rail.checked;
-    ormRails.setVisible(OPT.layers.rail);
-    saveOpts();
-  };
-</script>
+    /* Logout */
+    #logout-btn{
+      position:fixed; top:10px; right:10px; z-index:1002; padding:8px 12px; border-radius:10px; cursor:pointer;
+      border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.5); color:#e8eefc;
+    }
+
+    /* Status badge */
+    .badge{
+      position:fixed; right:10px; bottom:10px; z-index:1003;
+      background:rgba(18,26,43,.9); color:#e8eefc; border:1px solid rgba(255,255,255,.15);
+      padding:6px 8px; border-radius:10px; font:12px system-ui; max-width: 70vw; word-wrap: break-word;
+    }
+    .ok{color:#7bd88f}
+    .bad{color:#ffb3b3}
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="hud">
+    <label><input type="checkbox" id="rails-toggle" checked> Rails (OpenRailwayMap)</label>
+  </div>
+
+  <button id="logout-btn" title="Sign out">Logout</button>
+  <div class="badge" id="badge">Loading…</div>
+
+  <!-- OpenLayers JS (defer so DOM is ready) -->
+  <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
+  <script>
+    (function(){
+      const badge = document.getElementById('badge');
+      const say = (t, cls) => { badge.textContent = t; badge.className = 'badge ' + (cls||''); };
+
+      // Logout
+      document.getElementById('logout-btn').onclick = async () => {
+        try { await fetch('/api/logout'); } catch {}
+        location.href = '/login.html';
+      };
+
+      // Wait for OL to exist
+      let tries = 0;
+      const t = setInterval(()=>{
+        if (window.ol && ol.Map) { clearInterval(t); boot(); }
+        else if (++tries > 200) { clearInterval(t); say('OpenLayers failed to load (CSP/script-src)', 'bad'); }
+      }, 30);
+
+      function boot(){
+        try {
+          // Base OSM
+          const base = new ol.layer.Tile({
+            source: new ol.source.OSM({ crossOrigin: 'anonymous' })
+          });
+
+          // OpenRailwayMap overlay (orange rails)
+          const orm = new ol.layer.Tile({
+            source: new ol.source.XYZ({
+              url: 'https://tile.openrailwaymap.org/standard/{z}/{x}/{y}.png',
+              crossOrigin: 'anonymous',
+              maxZoom: 19
+            }),
+            opacity: 0.9,
+            visible: true
+          });
+
+          // Map
+          const map = new ol.Map({
+            target: 'map',
+            layers: [base, orm],
+            view: new ol.View({
+              center: ol.proj.fromLonLat([133.7751, -25.2744]), // AU
+              zoom: 4.8,
+              constrainRotation: 0
+            })
+          });
+
+          // Toggle
+          document.getElementById('rails-toggle').onchange = (e)=>{
+            orm.setVisible(e.target.checked);
+          };
+
+          // Simple confirmation after first render
+          map.once('rendercomplete', ()=> say('Base tiles rendered ✔︎', 'ok'));
+
+          // Optional: detect tile errors
+          orm.getSource().on('tileloaderror', ()=> say('Rails tiles failed. Check CSP for tile.openrailwaymap.org', 'bad'));
+          base.getSource().on('tileloaderror', ()=> say('OSM tiles failed. Check CSP for tile.openstreetmap.org', 'bad'));
+
+        } catch (e){
+          console.error(e);
+          say('JS error: ' + (e && e.message ? e.message : String(e)), 'bad');
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
