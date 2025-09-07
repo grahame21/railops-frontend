@@ -1,10 +1,6 @@
 [build]
-  # "publish" is the folder that Netlify serves as your website.
-  # If your site files (dashboard.html, login.html, etc.) are in the repo root, leave this as "."
   publish = "."
 
 [functions]
-  # Path to your functions folder
   directory = "netlify/functions"
-  # Ensures Node dependencies bundle correctly
   node_bundler = "esbuild"
