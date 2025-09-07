@@ -1,15 +1,11 @@
-# --- Tile aliases (clean paths that bypass content blockers) ---
-/t/osm/*    /.netlify/functions/osm/:splat    200
-/t/orm/*    /.netlify/functions/orm/:splat    200
+# (Optional) Pretty API paths. You can skip these since we’ll use the built-in paths below.
+#/api/*    /.netlify/functions/:splat    200
 
-# --- Keep your generic API mapping too (optional but fine) ---
-/api/*      /.netlify/functions/:splat        200
+# Allow key pages
+/dashboard.html      /dashboard.html    200
+/login.html          /login.html        200
+/admin.html          /admin.html        200
+/map-diagnose.html   /map-diagnose.html 200
 
-# --- Explicit routes you want publicly reachable ---
-/dashboard.html  /dashboard.html  200
-/login.html      /login.html      200
-/admin.html      /admin.html      200
-/map-diagnose.html /map-diagnose.html 200
-
-# --- Catch-all: everything else -> login ---
+# Catch-all → login
 /*    /login.html    200
