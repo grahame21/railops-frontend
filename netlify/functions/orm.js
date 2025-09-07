@@ -1,12 +1,11 @@
-// netlify/functions/orm.js
+// Proxies OpenRailwayMap tiles
 exports.handler = async (event) => {
   try {
-    // Accepts: /.netlify/functions/orm/standard/{z}/{x}/{y}.png
     const m = event.path.match(/\/orm\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
     if (!m) return { statusCode: 400, body: "Use /.netlify/functions/orm/standard/{z}/{x}/{y}.png" };
     const [, style, z, x, y] = m;
 
-    const ALLOWED = new Set(["standard", "maxspeed", "signals"]);
+    const ALLOWED = new Set(["standard","maxspeed","signals"]);
     if (!ALLOWED.has(style)) return { statusCode: 400, body: "Unknown style." };
 
     const upstream = `https://tile.openrailwaymap.org/${style}/${z}/${x}/${y}.png`;
