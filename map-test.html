@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <title>Map Test (Public)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- Try unpkg CDN (alternative to jsDelivr) -->
   <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
   <style>
     html, body { height:100%; margin:0; }
@@ -30,19 +29,24 @@
 
       function boot(){
         say('OpenLayers OK, creating map…');
-        const map = new ol.Map({
-          target: 'map',
-          interactions: ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false }),
-          layers: [
-            new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) })
-          ],
-          view: new ol.View({
-            center: ol.proj.fromLonLat([133.7751, -25.2744]),
-            zoom: 4.8,
-            constrainRotation: 0
-          })
-        });
-        map.once('rendercomplete', ()=> say('Map rendered ✔︎'));
+        try {
+          const map = new ol.Map({
+            target: 'map',
+            // (Removed interactions: … defaults(...) )
+            layers: [
+              new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) })
+            ],
+            view: new ol.View({
+              center: ol.proj.fromLonLat([133.7751, -25.2744]),
+              zoom: 4.8,
+              constrainRotation: 0
+            })
+          });
+          map.once('rendercomplete', ()=> say('Map rendered ✔︎'));
+        } catch (err) {
+          console.error(err);
+          say('Failed to construct map: ' + (err && err.message ? err.message : String(err)));
+        }
       }
     })();
   </script>
