@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RailOps — Dashboard (Proxy Safe)</title>
+  <title>RailOps — Dashboard (Safe Mode)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
   <style>
@@ -24,7 +24,7 @@
   <div id="map"></div>
 
   <div class="hud">
-    <label><input type="checkbox" id="rails-toggle" checked> Rails (via proxy)</label>
+    <label><input type="checkbox" id="rails-toggle" checked> Rails (OpenRailwayMap)</label>
   </div>
 
   <button id="logout-btn" title="Sign out">Logout</button>
@@ -33,7 +33,7 @@
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
-    // Catch any JS error and show it on screen instead of a blank page
+    // Show any JS error on-screen
     window.addEventListener('error', (e)=>{
       const box = document.getElementById('err');
       box.style.display = 'block';
@@ -44,30 +44,26 @@
       const badge = document.getElementById('badge');
       const say = (t, cls)=>{ badge.textContent=t; badge.className='badge '+(cls||''); };
 
-      // Logout
       document.getElementById('logout-btn').onclick = async () => {
         try { await fetch('/api/logout'); } catch {}
         location.href = '/login.html';
       };
 
-      // Wait for OpenLayers script
+      // Wait for OL
       let tries = 0;
-      const wait = setInterval(()=>{
-        if (window.ol && ol.Map) { clearInterval(wait); boot(); }
-        else if (++tries > 200) { clearInterval(wait); say('OpenLayers failed to load (CSP/script-src)', 'bad'); }
+      const t = setInterval(()=>{
+        if (window.ol && ol.Map) { clearInterval(t); boot(); }
+        else if (++tries > 200) { clearInterval(t); say('OpenLayers failed to load (CSP/script-src)', 'bad'); }
       }, 30);
 
       function boot(){
         try {
-          // Base map
-          const base = new ol.layer.Tile({
-            source: new ol.source.OSM({ crossOrigin: 'anonymous' })
-          });
+          const base = new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) });
 
-          // Rails via SAME-ORIGIN proxy (no CSP host needed)
-          const orm = new ol.layer.Tile({
+          const rails = new ol.layer.Tile({
             source: new ol.source.XYZ({
-              url: '/api/orm/standard/{z}/{x}/{y}.png',   // <-- proxied tiles
+              url: 'https://tile.openrailwaymap.org/standard/{z}/{x}/{y}.png',
+              crossOrigin: 'anonymous',
               maxZoom: 19
             }),
             opacity: 0.9,
@@ -76,7 +72,7 @@
 
           const map = new ol.Map({
             target: 'map',
-            layers: [base, orm],
+            layers: [base, rails],
             view: new ol.View({
               center: ol.proj.fromLonLat([133.7751, -25.2744]),
               zoom: 4.8,
@@ -84,13 +80,11 @@
             })
           });
 
-          // UI toggle
-          document.getElementById('rails-toggle').onchange = (e)=> orm.setVisible(e.target.checked);
+          document.getElementById('rails-toggle').onchange = (e)=> rails.setVisible(e.target.checked);
 
-          // Status
           map.once('rendercomplete', ()=> say('Base tiles rendered ✔︎', 'ok'));
-          orm.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎', 'ok'));
-          orm.getSource().on('tileloaderror', ()=> say('Rails PROXY tile failed — open Deploys → Functions → orm logs', 'bad'));
+          rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎', 'ok'));
+          rails.getSource().on('tileloaderror', ()=> say('Rails tiles blocked — check CSP allows tile.openrailwaymap.org', 'bad'));
         } catch (e){
           const box = document.getElementById('err');
           box.style.display = 'block';
