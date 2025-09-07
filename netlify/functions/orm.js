@@ -1,12 +1,15 @@
-// netlify/functions/osm.js
+// netlify/functions/orm.js
 exports.handler = async (event) => {
   try {
-    // Accept: /api/osm/{z}/{x}/{y}.png
-    const m = event.path.match(/\/osm\/(\d+)\/(\d+)\/(\d+)\.png$/);
-    if (!m) return { statusCode: 400, body: "Use /api/osm/{z}/{x}/{y}.png" };
-    const [, z, x, y] = m;
+    // Accepts: /.netlify/functions/orm/standard/{z}/{x}/{y}.png
+    const m = event.path.match(/\/orm\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
+    if (!m) return { statusCode: 400, body: "Use /.netlify/functions/orm/standard/{z}/{x}/{y}.png" };
+    const [, style, z, x, y] = m;
 
-    const upstream = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    const ALLOWED = new Set(["standard", "maxspeed", "signals"]);
+    if (!ALLOWED.has(style)) return { statusCode: 400, body: "Unknown style." };
+
+    const upstream = `https://tile.openrailwaymap.org/${style}/${z}/${x}/${y}.png`;
     const resp = await fetch(upstream, { headers: { "User-Agent": "RailOps Netlify Proxy" } });
     if (!resp.ok) return { statusCode: resp.status, body: `Upstream ${resp.status} ${resp.statusText}` };
 
@@ -15,7 +18,6 @@ exports.handler = async (event) => {
       statusCode: 200,
       headers: {
         "Content-Type": "image/png",
-        // cache hard (respect OSM; we still hit them once per tile then serve from Netlify’s CDN)
         "Cache-Control": "public, max-age=86400, s-maxage=604800, immutable"
       },
       body: buf.toString("base64"),
