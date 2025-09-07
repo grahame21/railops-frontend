@@ -13,31 +13,15 @@
     }
     @supports (-webkit-touch-callout: none) {
       body { background-attachment: scroll; }
-      .bg-fix { position: fixed; inset: 0;
-        background: #000 url("/static/img/train.jpg") center / cover no-repeat; z-index:-1;
-      }
+      .bg-fix { position: fixed; inset: 0; background: #000 url("/static/img/train.jpg") center / cover no-repeat; z-index:-1; }
     }
-    .box {
-      background: rgba(18,26,43,.86);
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 16px;
-      padding: 28px 32px;
-      width: min(380px, 92vw);
-      box-shadow: 0 18px 40px rgba(0,0,0,.5);
-      backdrop-filter: saturate(1.1) blur(6px);
-    }
+    .box { background: rgba(18,26,43,.86); border: 1px solid rgba(255,255,255,.16); border-radius: 16px; padding: 28px 32px; width: min(380px, 92vw); box-shadow: 0 18px 40px rgba(0,0,0,.5); backdrop-filter: saturate(1.1) blur(6px); }
     h1 { margin: 0 0 16px; font-size: 22px; text-align:center; }
     .tabs { display:flex; gap:10px; justify-content:center; margin-bottom:10px; }
-    .tabs button {
-      padding: 8px 12px; border-radius: 10px; cursor:pointer;
-      border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #e8eefc;
-    }
+    .tabs button { padding: 8px 12px; border-radius: 10px; cursor:pointer; border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #e8eefc; }
     .tabs button.active { border-color: rgba(123,216,143,.35); background: rgba(123,216,143,.12); }
     form { display: grid; gap: 8px; }
-    input, button[type="submit"] {
-      width: 100%; padding: 10px; border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.2); background: rgba(11,18,32,.6); color:#e8eefc;
-    }
+    input, button[type="submit"] { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,.2); background: rgba(11,18,32,.6); color:#e8eefc; }
     button[type="submit"] { cursor:pointer; border-color: rgba(123,216,143,.35); background: rgba(123,216,143,.12); font-weight:600; }
     button[type="submit"]:hover { background: rgba(123,216,143,.2); }
     .msg { min-height: 18px; font-size: 13px; color: #ffb3b3; }
@@ -54,7 +38,7 @@
       <button id="tab-guest" type="button">Guest</button>
     </div>
 
-    <!-- Admin form -->
+    <!-- Admin -->
     <form id="form-admin">
       <input type="text" id="a-username" placeholder="Username (admin)" autocomplete="username" required>
       <input type="password" id="a-password" placeholder="Password" autocomplete="current-password" required>
@@ -62,7 +46,7 @@
       <div class="msg" id="msg-admin"></div>
     </form>
 
-    <!-- Guest form -->
+    <!-- Guest -->
     <form id="form-guest" style="display:none">
       <input type="text" id="g-username" placeholder="Guest username" required>
       <input type="password" id="g-password" placeholder="Guest password" required>
@@ -72,49 +56,37 @@
   </div>
 
   <script>
-    const tAdmin = document.getElementById('tab-admin');
-    const tGuest = document.getElementById('tab-guest');
-    const fAdmin = document.getElementById('form-admin');
-    const fGuest = document.getElementById('form-guest');
+    const tA = document.getElementById('tab-admin');
+    const tG = document.getElementById('tab-guest');
+    const fA = document.getElementById('form-admin');
+    const fG = document.getElementById('form-guest');
+    tA.onclick = ()=>{ tA.classList.add('active'); tG.classList.remove('active'); fA.style.display='grid'; fG.style.display='none'; };
+    tG.onclick = ()=>{ tG.classList.add('active'); tA.classList.remove('active'); fG.style.display='grid'; fA.style.display='none'; };
 
-    tAdmin.onclick = ()=>{ tAdmin.classList.add('active'); tGuest.classList.remove('active'); fAdmin.style.display='grid'; fGuest.style.display='none'; };
-    tGuest.onclick = ()=>{ tGuest.classList.add('active'); tAdmin.classList.remove('active'); fGuest.style.display='grid'; fAdmin.style.display='none'; };
-
-    // Admin submit → /api/login
-    fAdmin.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const msg = document.getElementById('msg-admin'); msg.textContent='';
+    fA.addEventListener('submit', async (e)=>{
+      e.preventDefault(); const m = document.getElementById('msg-admin'); m.textContent='';
       try{
         const res = await fetch('/api/login', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            username: document.getElementById('a-username').value.trim(),
-            password: document.getElementById('a-password').value
-          })
+          body: JSON.stringify({ username: document.getElementById('a-username').value.trim(), password: document.getElementById('a-password').value })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.msg || 'Login failed');
         location.href = '/dashboard.html';
-      }catch(err){ msg.textContent = err.message || 'Login failed'; }
+      }catch(err){ m.textContent = err.message || 'Login failed'; }
     });
 
-    // Guest submit → unified /api/guests with action=login
-    fGuest.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const msg = document.getElementById('msg-guest'); msg.textContent='';
+    fG.addEventListener('submit', async (e)=>{
+      e.preventDefault(); const m = document.getElementById('msg-guest'); m.textContent='';
       try{
         const res = await fetch('/api/guests', {
           method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            action: 'login',
-            username: document.getElementById('g-username').value.trim(),
-            password: document.getElementById('g-password').value
-          })
+          body: JSON.stringify({ action:'login', username: document.getElementById('g-username').value.trim(), password: document.getElementById('g-password').value })
         });
         const data = await res.json();
         if (!res.ok || !data.ok) throw new Error(data.msg || 'Login failed');
         location.href = '/dashboard.html';
-      }catch(err){ msg.textContent = err.message || 'Login failed'; }
+      }catch(err){ m.textContent = err.message || 'Login failed'; }
     });
   </script>
 </body>
