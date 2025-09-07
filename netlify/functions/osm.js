@@ -1,9 +1,9 @@
 // netlify/functions/osm.js
 exports.handler = async (event) => {
   try {
-    // Accept: /api/osm/{z}/{x}/{y}.png  OR  /.netlify/functions/osm/{z}/{x}/{y}.png
+    // Accepts: /.netlify/functions/osm/{z}/{x}/{y}.png
     const m = event.path.match(/\/osm\/(\d+)\/(\d+)\/(\d+)\.png$/);
-    if (!m) return { statusCode: 400, body: "Use /api/osm/{z}/{x}/{y}.png" };
+    if (!m) return { statusCode: 400, body: "Use /.netlify/functions/osm/{z}/{x}/{y}.png" };
     const [, z, x, y] = m;
 
     const upstream = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
