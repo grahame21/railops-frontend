@@ -4,44 +4,28 @@
   <meta charset="UTF-8" />
   <title>RailOps Train Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-
-  <!-- OpenLayers via CDN -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.1.0/ol.css" />
-  <script defer src="https://cdn.jsdelivr.net/npm/ol@v9.1.0/dist/ol.js"></script>
-
+  <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
   <style>
-    /* Full-screen map */
     html, body { margin:0; height:100%; background:#0b1220; }
     #map { position: fixed; inset: 0; }
-
-    /* HUD */
     .hud {
       position: fixed; top: env(safe-area-inset-top, 10px); left: 10px; z-index: 1001;
-      background: rgba(18,26,43,.9); color: #e8eefc;
-      border: 1px solid rgba(255,255,255,.15); border-radius: 12px;
-      padding: 10px 12px; font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 270px;
-      backdrop-filter: saturate(1.1) blur(4px);
+      background: rgba(18,26,43,.9); color: #e8eefc; border: 1px solid rgba(255,255,255,.15);
+      border-radius: 12px; padding: 10px 12px; font: 13px system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 270px; backdrop-filter: saturate(1.1) blur(4px);
     }
-    .hud h3 { margin: 0 0 6px; font-size: 14px; }
-    .hud .row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+    .hud h3 { margin:0 0 6px; font-size:14px; }
+    .hud .row { display:grid; grid-template-columns:1fr 1fr; gap:6px 12px; }
     .hud label { display:flex; align-items:center; gap:6px; line-height:1.2; }
-    .hud .clock { margin-top: 8px; font-weight: 600; text-align: center; }
-    .hud .tz { font-size: 11px; color: #9fb2cf; text-align: center; margin-top: 2px; }
-
-    /* Logout button */
+    .hud .clock { margin-top:8px; font-weight:600; text-align:center; }
+    .hud .tz { font-size:11px; color:#9fb2cf; text-align:center; margin-top:2px; }
     #logout-btn{
-      position:fixed; top:10px; right:10px; z-index:1002;
-      padding:8px 12px; border-radius:10px; cursor:pointer;
-      border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.5); color:#e8eefc;
-      backdrop-filter: saturate(1.1) blur(3px);
+      position:fixed; top:10px; right:10px; z-index:1002; padding:8px 12px; border-radius:10px; cursor:pointer;
+      border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.5); color:#e8eefc; backdrop-filter: saturate(1.1) blur(3px);
     }
-
-    /* Debug badge */
     .badge{
       position:fixed;right:10px;bottom:10px;background:rgba(18,26,43,.9);color:#e8eefc;
-      border:1px solid rgba(255,255,255,.15);padding:6px 8px;border-radius:10px;
-      font:12px system-ui;z-index:999
+      border:1px solid rgba(255,255,255,.15);padding:6px 8px;border-radius:10px;font:12px system-ui;z-index:999
     }
     .bad{color:#ffb3b3}.ok{color:#7bd88f}
   </style>
@@ -49,7 +33,6 @@
 <body>
   <div id="map"></div>
 
-  <!-- HUD -->
   <div class="hud" id="hud" role="region" aria-label="Map controls">
     <h3>Layers</h3>
     <div class="row">
@@ -57,7 +40,6 @@
       <label><input type="checkbox" id="t-km"> KM2ME</label>
       <label><input type="checkbox" id="t-locate"> My location</label>
 
-      <!-- Coverage toggles -->
       <label><input type="checkbox" id="t-cov-all"> Coverage (All)</label>
       <label><input type="checkbox" id="t-cov-tel"> Telstra</label>
       <label style="grid-column: span 2;"><input type="checkbox" id="t-cov-ov"> Optus + Vodafone/TPG (roaming)</label>
@@ -66,38 +48,15 @@
     <div class="tz" id="tz">—</div>
   </div>
 
-  <!-- Logout -->
   <button id="logout-btn" title="Sign out">Logout</button>
-
-  <!-- Debug badge -->
   <div class="badge" id="badge">Loading…</div>
 
+  <!-- Load OL last, with defer -->
+  <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
   (function(){
     const badge = document.getElementById('badge');
     const set = (t, cls)=>{ badge.textContent=t; badge.className='badge '+(cls||''); };
-
-    // Read options (safe defaults), migrate old flags if present
-    const _opts = JSON.parse(localStorage.getItem('railops.options') || '{}');
-    const OPT = {
-      layers: Object.assign(
-        { rail:true, km:false, locate:true, coverage:false, covTel:false, covOV:false /* Optus+Vodafone */ },
-        (function(x){
-          // backward-compat: if old covOpt/covVod present, roll them into covOV
-          const layers = (x.layers||{});
-          if ((layers.covOpt || layers.covVod) && typeof layers.covOV === 'undefined') {
-            layers.covOV = !!(layers.covOpt || layers.covVod);
-          }
-          return layers;
-        })(_opts) || {}
-      ),
-      railStyle: Object.assign({ color:'#000000', width:3 }, _opts.railStyle || {}),
-      sources: Object.assign(
-        { km2me:'', overpass:'https://overpass-api.de/api/interpreter' },
-        _opts.sources || {}
-      )
-    };
-    function saveOpts(){ localStorage.setItem('railops.options', JSON.stringify(OPT)); }
 
     // Logout
     document.getElementById('logout-btn').onclick = async () => {
@@ -105,29 +64,46 @@
       location.href = '/login.html';
     };
 
-    // Wait for OpenLayers
-    let tries = 0;
+    // Persisted options
+    const _opts = JSON.parse(localStorage.getItem('railops.options') || '{}');
+    const OPT = {
+      layers: Object.assign(
+        { rail:true, km:false, locate:true, coverage:false, covTel:false, covOV:false },
+        (function(x){ const l=(x.layers||{}); if ((l.covOpt||l.covVod)&&typeof l.covOV==='undefined') l.covOV=!!(l.covOpt||l.covVod); return l; })(_opts) || {}
+      ),
+      railStyle: Object.assign({ color:'#000000', width:3 }, _opts.railStyle || {}),
+      sources: Object.assign({ km2me:'', overpass:'https://overpass-api.de/api/interpreter' }, _opts.sources || {})
+    };
+    function saveOpts(){ localStorage.setItem('railops.options', JSON.stringify(OPT)); }
+
+    // Wait for OL
+    let ticks = 0;
     const wait = setInterval(()=>{
       if (window.ol && ol.Map) { clearInterval(wait); boot(); }
-      else if (++tries > 120) { clearInterval(wait); set('Timed out waiting for OpenLayers.', 'bad'); }
-    }, 50);
+      else if (++ticks > 200) { clearInterval(wait); set('OpenLayers failed to load. Check CSP/script-src.', 'bad'); }
+    }, 30);
 
     function debounce(fn, ms){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), ms); }; }
 
     function boot(){
       set('OpenLayers OK', 'ok');
-
-      // Base map, north-up
-      const map = new ol.Map({
-        target: 'map',
-        interactions: ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false }),
-        layers: [ new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) }) ],
-        view: new ol.View({
-          center: ol.proj.fromLonLat([133.7751, -25.2744]),
-          zoom: 4.8,
-          constrainRotation: 0 // always north-up
-        })
-      });
+      // Base map (north-up)
+      let map;
+      try {
+        map = new ol.Map({
+          target: 'map',
+          interactions: ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false }),
+          layers: [ new ol.layer.Tile({ source: new ol.source.OSM({ crossOrigin: 'anonymous' }) }) ],
+          view: new ol.View({
+            center: ol.proj.fromLonLat([133.7751, -25.2744]),
+            zoom: 4.8,
+            constrainRotation: 0
+          })
+        });
+        map.once('rendercomplete', ()=> set('Base tiles rendered ✔︎', 'ok'));
+      } catch(e){
+        console.error(e); set('Failed to construct map (JS error).', 'bad'); return;
+      }
 
       // Rails
       const railSrc = new ol.source.Vector();
@@ -172,11 +148,11 @@
           set('Rails loaded: '+feats.length, 'ok');
         }catch(e){
           console.warn(e);
-          set('Rail fetch error (CSP connect-src overpass-api.de?)', 'bad');
+          set('Rail fetch error (Overpass). Check connect-src & rate limit.', 'bad');
         }
       }
 
-      // KM2ME (optional)
+      // KM2ME optional
       let kmLayer;
       function ensureKmLayer() {
         if (!(OPT.layers.km && OPT.sources.km2me)) return removeKmLayer();
@@ -215,47 +191,30 @@
       function removeLocate(){ if(!geoloc) return; geoloc.setTracking(false); geoloc=null; map.removeLayer(locLayer); locLayer=null; }
       ensureLocate();
 
-      /* ===========================
-         ACCC Mobile Sites & Coverages (per-provider layers)
-         =========================== */
+      // ACCC Mobile Sites & Coverages
       const ACCC2 = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
-
-      // All carriers (combined)
       const covAll = new ol.layer.Tile({
-        source: new ol.source.TileArcGISRest({
-          url: ACCC2,
-          params: { layers: 'show:0', format: 'png32', transparent: true }
-        }),
-        opacity: 0.55,
-        visible: !!OPT.layers.coverage
+        source: new ol.source.TileArcGISRest({ url: ACCC2, params: { layers: 'show:0', format: 'png32', transparent: true }}),
+        opacity: 0.55, visible: !!OPT.layers.coverage
       });
       map.addLayer(covAll);
 
-      // Per-provider “All Outdoor” sublayer IDs
       const LAYER_OPTUS_ALL_OUTDOOR   = 15;
       const LAYER_TELSTRA_ALL_OUTDOOR = 25;
       const LAYER_TPG_ALL_OUTDOOR     = 33;
 
-      function makeTile(id){
-        return new ol.layer.Tile({
-          source: new ol.source.TileArcGISRest({
-            url: ACCC2,
-            params: { layers: `show:${id}`, format: 'png32', transparent: true }
-          }),
-          opacity: 0.55,
-          visible: false
-        });
-      }
+      function makeTile(id){ return new ol.layer.Tile({
+        source: new ol.source.TileArcGISRest({ url: ACCC2, params: { layers: `show:${id}`, format: 'png32', transparent: true }}),
+        opacity: 0.55, visible: false
+      });}
       const covTel = makeTile(LAYER_TELSTRA_ALL_OUTDOOR);
       const covOpt = makeTile(LAYER_OPTUS_ALL_OUTDOOR);
       const covVod = makeTile(LAYER_TPG_ALL_OUTDOOR);
       map.addLayer(covTel); map.addLayer(covOpt); map.addLayer(covVod);
 
       covTel.setVisible(!!OPT.layers.covTel);
-      // For combined Optus+Vodafone
       const ovVisible = !!OPT.layers.covOV;
-      covOpt.setVisible(ovVisible);
-      covVod.setVisible(ovVisible);
+      covOpt.setVisible(ovVisible); covVod.setVisible(ovVisible);
 
       // HUD wiring
       const hud = {
@@ -287,33 +246,24 @@
       hud.km.onchange     = ()=>{ OPT.layers.km     = hud.km.checked;     saveOpts(); (OPT.layers.km? ensureKmLayer(): removeKmLayer()); };
       hud.locate.onchange = ()=>{ OPT.layers.locate = hud.locate.checked; saveOpts(); (OPT.layers.locate? ensureLocate(): removeLocate()); };
 
-      // Coverage: All vs specific
       hud.covAll.onchange = ()=>{
         OPT.layers.coverage = hud.covAll.checked; covAll.setVisible(hud.covAll.checked); saveOpts();
         if (hud.covAll.checked) {
-          // turn off Telstra & Optus/Vodafone to avoid stacking
           hud.covTel.checked = false; hud.covOV.checked = false;
           OPT.layers.covTel = false; OPT.layers.covOV = false;
-          covTel.setVisible(false); covOpt.setVisible(false); covVod.setVisible(false);
-          saveOpts();
+          covTel.setVisible(false); covOpt.setVisible(false); covVod.setVisible(false); saveOpts();
         }
       };
-
       hud.covTel.onchange = ()=>{
         const on = hud.covTel.checked;
-        OPT.layers.covTel = on;
-        covTel.setVisible(on);
-        if (on && hud.covAll.checked) { hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
+        OPT.layers.covTel = on; covTel.setVisible(on);
+        if (on && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
         saveOpts();
       };
-
-      // Combined Optus + Vodafone/TPG (roaming)
       hud.covOV.onchange = ()=>{
         const on = hud.covOV.checked;
-        OPT.layers.covOV = on;
-        covOpt.setVisible(on);
-        covVod.setVisible(on);
-        if (on && hud.covAll.checked) { hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
+        OPT.layers.covOV = on; covOpt.setVisible(on); covVod.setVisible(on);
+        if (on && hud.covAll.checked){ hud.covAll.checked=false; OPT.layers.coverage=false; covAll.setVisible(false); }
         saveOpts();
       };
 
@@ -324,7 +274,6 @@
         String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+':'+String(d.getSeconds()).padStart(2,'0'); }
       tick(); setInterval(tick,1000);
 
-      // Apply rails initially
       applyRail();
     }
   })();
