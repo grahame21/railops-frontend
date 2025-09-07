@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Map Diagnose</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
+  <style>
+    html, body { margin:0; height:100%; }
+    body { background:#0b1220; color:#e8eefc; font:14px system-ui, -apple-system, Segoe UI, Roboto, Arial; }
+    #topbar { padding:8px 10px; background:#122; position:sticky; top:0; z-index:2; border-bottom:1px solid #234; }
+    #stats { font:12px/1.4 ui-monospace,Menlo,Consolas,monospace; white-space:pre-wrap; }
+    #mapWrap { position:relative; height:calc(100vh - 60px); border:3px solid #3fa7ff; margin:8px; border-radius:10px; background:#444; }
+    #map { position:absolute; inset:0; }
+    #badge { position:fixed; right:10px; bottom:10px; z-index:10; background:rgba(18,26,43,.9); border:1px solid rgba(255,255,255,.15);
+             padding:6px 8px; border-radius:10px; font:12px system-ui; }
+    .ok{color:#7bd88f} .bad{color:#ffb3b3}
+    button { margin-right:8px; }
+  </style>
+</head>
+<body>
+  <div id="topbar">
+    <button id="reflow">Force reflow</button>
+    <span>OpenLayers base map smoke test</span>
+    <div id="stats"></div>
+  </div>
+
+  <div id="mapWrap">
+    <div id="map"></div>
+  </div>
+
+  <div id="badge">booting…</div>
+
+  <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
+  <script>
+    const badge = document.getElementById('badge');
+    const say = (t, cls) => { badge.textContent = t; badge.className = (cls ? cls : ''); };
+    const stats = document.getElementById('stats');
+
+    // Show any JS error on screen
+    window.addEventListener('error', (e)=>{
+      say('JavaScript error: ' + (e?.error?.message || e.message || String(e)), 'bad');
+    });
+
+    // Poll OL load
+    let tries=0;
+    const t = setInterval(()=>{
+      if (window.ol && ol.Map) { clearInterval(t); boot(); }
+      else if (++tries > 200) { clearInterval(t); say('OpenLayers failed to load (CSP/script-src)', 'bad'); }
+    }, 30);
+
+    function updateStats() {
+      const w = window.innerWidth + 'x' + window.innerHeight;
+      const b = document.body.clientWidth + 'x' + document.body.clientHeight;
+      const m = mapEl.clientWidth + 'x' + mapEl.clientHeight;
+      stats.textContent = `window: ${w}\nbody:   ${b}\n#map:   ${m}`;
+    }
+
+    let map, mapEl = document.getElementById('map');
+
+    function boot(){
+      say('OpenLayers OK');
+      try {
+        const base = new ol.layer.Tile({
+          source: new ol.source.OSM({ crossOrigin: 'anonymous' }),
+          zIndex: 0
+        });
+
+        map = new ol.Map({
+          target: 'map',
+          layers: [base],
+          view: new ol.View({
+            center: ol.proj.fromLonLat([133.7751, -25.2744]),
+            zoom: 4.8,
+            constrainRotation: 0
+          })
+        });
+
+        // Status hooks
+        map.once('rendercomplete', ()=> say('Base tiles rendered ✔︎', 'ok'));
+        base.getSource().on('tileloaderror', ()=> say('OSM tile error — check CSP for tile.openstreetmap.org', 'bad'));
+
+        // Force reflow/resize (Safari sometimes needs this)
+        const doReflow = () => { map.updateSize(); updateStats(); };
+        window.addEventListener('resize', doReflow);
+        window.addEventListener('orientationchange', doReflow);
+        document.getElementById('reflow').onclick = doReflow;
+
+        // Initial stats & reflow after a tick
+        updateStats();
+        setTimeout(doReflow, 50);
+        setTimeout(doReflow, 500);
+
+      } catch (e) {
+        say('Boot error: ' + (e?.message || String(e)), 'bad');
+      }
+    }
+  </script>
+</body>
+</html>
