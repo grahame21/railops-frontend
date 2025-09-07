@@ -3,15 +3,13 @@
   [headers.values]
     Content-Security-Policy = """
       default-src 'self';
-      script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-      style-src  'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
+      script-src 'self' 'unsafe-inline' https://unpkg.com;
+      style-src  'self' 'unsafe-inline' https://unpkg.com;
       img-src    'self' data:
                   https://tile.openstreetmap.org https://*.tile.openstreetmap.org
-                  https://tile.openrailwaymap.org
-                  https://spatial.infrastructure.gov.au https://services.ga.gov.au;
+                  https://tile.openrailwaymap.org;
       connect-src 'self'
                   https://tile.openstreetmap.org https://*.tile.openstreetmap.org
-                  https://tile.openrailwaymap.org
-                  https://spatial.infrastructure.gov.au https://services.ga.gov.au;
+                  https://tile.openrailwaymap.org;
       worker-src 'self' blob:;
     """
