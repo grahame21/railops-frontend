@@ -1,4 +1,5 @@
 /api/*           /.netlify/functions/:splat    200
+/map-test.html   /map-test.html                200
 /login.html      /login.html                   200
 /dashboard.html  /dashboard.html               200
 /admin/*         /admin/:splat                 200
