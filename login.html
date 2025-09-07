@@ -5,7 +5,6 @@
   <title>RailOps — Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <style>
-    /* --- Background image (mobile-safe) --- */
     html, body { height: 100%; margin: 0; }
     body {
       background: #000 url("/static/img/train.jpg") center / cover no-repeat fixed;
@@ -15,67 +14,108 @@
     @supports (-webkit-touch-callout: none) {
       body { background-attachment: scroll; }
       .bg-fix { position: fixed; inset: 0;
-        background: #000 url("/static/img/train.jpg") center / cover no-repeat;
-        z-index: -1;
+        background: #000 url("/static/img/train.jpg") center / cover no-repeat; z-index:-1;
       }
     }
-
-    /* --- Login box --- */
-    .login-box {
+    .box {
       background: rgba(18,26,43,.86);
       border: 1px solid rgba(255,255,255,.16);
       border-radius: 16px;
       padding: 28px 32px;
-      width: min(340px, 92vw);
+      width: min(380px, 92vw);
       box-shadow: 0 18px 40px rgba(0,0,0,.5);
       backdrop-filter: saturate(1.1) blur(6px);
-      text-align: center;
     }
-    h1 { margin: 0 0 16px; font-size: 22px; }
-    input {
-      width: 100%; margin: 6px 0; padding: 10px;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.2);
-      background: rgba(11,18,32,.6);
-      color: #e8eefc;
+    h1 { margin: 0 0 16px; font-size: 22px; text-align:center; }
+    .tabs { display:flex; gap:10px; justify-content:center; margin-bottom:10px; }
+    .tabs button {
+      padding: 8px 12px; border-radius: 10px; cursor:pointer;
+      border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.06); color: #e8eefc;
     }
-    input[type="submit"] {
-      cursor: pointer; font-weight: 600;
-      border: 1px solid rgba(123,216,143,.35);
-      background: rgba(123,216,143,.12);
+    .tabs button.active { border-color: rgba(123,216,143,.35); background: rgba(123,216,143,.12); }
+    form { display: grid; gap: 8px; }
+    input, button[type="submit"] {
+      width: 100%; padding: 10px; border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.2); background: rgba(11,18,32,.6); color:#e8eefc;
     }
-    input[type="submit"]:hover {
-      background: rgba(123,216,143,.2);
-    }
+    button[type="submit"] { cursor:pointer; border-color: rgba(123,216,143,.35); background: rgba(123,216,143,.12); font-weight:600; }
+    button[type="submit"]:hover { background: rgba(123,216,143,.2); }
+    .msg { min-height: 18px; font-size: 13px; color: #ffb3b3; }
   </style>
 </head>
 <body>
   <div class="bg-fix" aria-hidden="true"></div>
 
-  <div class="login-box">
+  <div class="box">
     <h1>RailOps Login</h1>
-    <form onsubmit="return login();">
-      <input type="text" id="username" placeholder="Username" required>
-      <input type="password" id="password" placeholder="Password" required>
-      <input type="submit" value="Login">
+
+    <div class="tabs">
+      <button id="tab-admin" class="active" type="button">Admin</button>
+      <button id="tab-guest" type="button">Guest</button>
+    </div>
+
+    <!-- Admin form -->
+    <form id="form-admin">
+      <input type="text" id="a-username" placeholder="Username (admin)" autocomplete="username" required>
+      <input type="password" id="a-password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit">Sign in as Admin</button>
+      <div class="msg" id="msg-admin"></div>
+    </form>
+
+    <!-- Guest form -->
+    <form id="form-guest" style="display:none">
+      <input type="text" id="g-username" placeholder="Guest username" required>
+      <input type="password" id="g-password" placeholder="Guest password" required>
+      <button type="submit">Sign in as Guest</button>
+      <div class="msg" id="msg-guest"></div>
     </form>
   </div>
 
   <script>
-    // Simple front-end login redirect
-    function login() {
-      const user = document.getElementById('username').value;
-      const pass = document.getElementById('password').value;
+    const tAdmin = document.getElementById('tab-admin');
+    const tGuest = document.getElementById('tab-guest');
+    const fAdmin = document.getElementById('form-admin');
+    const fGuest = document.getElementById('form-guest');
 
-      if (user === "admin" && pass === "railops") {
-        window.location.href = "/admin/";
-      } else if (user === "guest" && pass === "guestpass") {
-        window.location.href = "/dashboard.html";
-      } else {
-        alert("Invalid login");
-      }
-      return false;
-    }
+    tAdmin.onclick = ()=>{ tAdmin.classList.add('active'); tGuest.classList.remove('active'); fAdmin.style.display='grid'; fGuest.style.display='none'; };
+    tGuest.onclick = ()=>{ tGuest.classList.add('active'); tAdmin.classList.remove('active'); fGuest.style.display='grid'; fAdmin.style.display='none'; };
+
+    // Admin submit → /api/login
+    fAdmin.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const msg = document.getElementById('msg-admin'); msg.textContent='';
+      try{
+        const res = await fetch('/api/login', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            username: document.getElementById('a-username').value.trim(),
+            password: document.getElementById('a-password').value
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.msg || 'Login failed');
+        location.href = '/dashboard.html';
+      }catch(err){ msg.textContent = err.message || 'Login failed'; }
+    });
+
+    // Guest submit → unified /api/guests with action=login
+    fGuest.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const msg = document.getElementById('msg-guest'); msg.textContent='';
+      try{
+        const res = await fetch('/api/guests', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action: 'login',
+            username: document.getElementById('g-username').value.trim(),
+            password: document.getElementById('g-password').value
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.ok) throw new Error(data.msg || 'Login failed');
+        location.href = '/dashboard.html';
+      }catch(err){ msg.textContent = err.message || 'Login failed'; }
+    });
   </script>
 </body>
 </html>
