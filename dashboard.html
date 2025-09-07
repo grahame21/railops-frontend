@@ -44,7 +44,7 @@
   <div class="hud" id="hud" role="region" aria-label="Map controls">
     <h3>Layers</h3>
     <div class="row">
-      <label><input type="checkbox" id="t-rail"> Rails</label>
+      <label><input type="checkbox" id="t-rail"> Rails (GA)</label>
       <label><input type="checkbox" id="t-km"> KM2ME</label>
       <label><input type="checkbox" id="t-locate"> My location</label>
 
@@ -89,14 +89,13 @@
         },
         (function(x){
           const l=(x.layers||{});
-          // backward-compat: roll old covOpt/covVod into covOV
           if ((l.covOpt || l.covVod) && typeof l.covOV === 'undefined') l.covOV = !!(l.covOpt || l.covVod);
           return l;
         })(_opts) || {}
       ),
       railStyle: Object.assign({ color:'#000000', width:3 }, _opts.railStyle || {}),
       sources: Object.assign(
-        { km2me:'', overpass:'https://overpass-api.de/api/interpreter' },
+        { km2me:'', gaRails:'https://services.ga.gov.au/gis/rest/services/Foundation_Rail_Infrastructure/MapServer' },
         _opts.sources || {}
       )
     };
@@ -132,112 +131,24 @@
       }
 
       /* ===========================
-         RAILS (Overpass, mirrors, cache, zoom gate)
+         RAILS (Geoscience Australia MapServer)
+         - Layer: Railway_Lines (ID 1) in "Foundation_Rail_Infrastructure"
          =========================== */
-      const OVERPASS = [
-        'https://overpass-api.de/api/interpreter',
-        'https://overpass.kumi.systems/api/interpreter',
-        'https://overpass.openstreetmap.fr/api/interpreter',
-      ];
-      let overpassIndex = 0;
-
-      const railSrc = new ol.source.Vector();
-      const railLayer = new ol.layer.Vector({
-        source: railSrc,
+      const gaUrl = OPT.sources.gaRails; // https://services.ga.gov.au/gis/rest/services/Foundation_Rail_Infrastructure/MapServer
+      const gaRails = new ol.layer.Tile({
+        source: new ol.source.TileArcGISRest({
+          url: gaUrl,
+          params: { layers: 'show:1', format: 'png32', transparent: true } // ID 1 = Railway_Lines
+        }),
         visible: !!OPT.layers.rail,
-        style: new ol.style.Style({
-          stroke: new ol.style.Stroke({ color: OPT.railStyle.color || '#000', width: Math.max(1, OPT.railStyle.width || 3) })
-        })
+        opacity: 0.9
       });
-      map.addLayer(railLayer);
+      map.addLayer(gaRails);
 
-      const cache = new Map(); // key -> features
-      let inflight = null;
-
-      function viewKey() {
-        const v = map.getView();
-        const z = Math.floor(v.getZoom() || 0);
-        const c = ol.proj.toLonLat(v.getCenter());
-        const lon = Math.round(c[0] * 4) / 4;
-        const lat = Math.round(c[1] * 4) / 4;
-        return `${z}:${lon}:${lat}`;
-      }
-
-      const refreshRails = debounce(fetchRailsForView, 500);
-      map.once('postrender', refreshRails);
-      map.getView().on('change:center', refreshRails);
-      map.getView().on('change:resolution', refreshRails);
-
-      async function fetchRailsForView(){
-        if (!OPT.layers.rail) return;
-
-        const v = map.getView();
-        const z = v.getZoom() || 0;
-        if (z < 8) { // encourage zoom-in to reduce rate limits & data
-          railSrc.clear(true);
-          set('Zoom in (≥8) to load rails', 'bad');
-          return;
-        }
-
-        const key = viewKey();
-        if (cache.has(key)) {
-          railSrc.clear(true);
-          railSrc.addFeatures(cache.get(key));
-          set('Rails loaded (cache)', 'ok');
-          return;
-        }
-
-        if (inflight) return;
-        inflight = doOverpassFetch().finally(()=> inflight = null);
-
-        async function doOverpassFetch(retries = OVERPASS.length) {
-          try {
-            const extent = v.calculateExtent(map.getSize());
-            const world = ol.proj.transformExtent(extent,'EPSG:3857','EPSG:4326');
-            const [minX,minY,maxX,maxY] = world;
-
-            const pad = 0.02; // small padding to avoid cutting
-            const q = `
-              [out:json][timeout:25];
-              (
-                way["railway"~"^(rail|light_rail|subway)$"]["service"!~".*"](${Math.max(-90,minY-pad)},${Math.max(-180,minX-pad)},${Math.min(90,maxY+pad)},${Math.min(180,maxX+pad)});
-              );
-              out geom;`;
-
-            const url = OVERPASS[overpassIndex % OVERPASS.length];
-            const resp = await fetch(url, {
-              method:'POST',
-              headers:{ 'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8' },
-              body: 'data=' + encodeURIComponent(q)
-            });
-
-            if (!resp.ok) {
-              if (([429,502,503,504].includes(resp.status)) && retries > 1) {
-                overpassIndex++;
-                set(`Overpass ${resp.status}; trying mirror…`, 'bad');
-                await new Promise(r => setTimeout(r, 600));
-                return doOverpassFetch(retries - 1);
-              }
-              throw new Error(resp.status+' '+resp.statusText);
-            }
-
-            const data = await resp.json();
-            const feats = (data.elements||[])
-              .filter(el => el.type==='way' && Array.isArray(el.geometry))
-              .map(el => new ol.Feature({
-                geometry: new ol.geom.LineString(el.geometry.map(p=>ol.proj.fromLonLat([p.lon,p.lat])))
-              }));
-
-            railSrc.clear(true);
-            railSrc.addFeatures(feats);
-            cache.set(key, feats);
-            set('Rails loaded: ' + feats.length, 'ok');
-          } catch (e) {
-            console.warn(e);
-            set('Rail fetch error. Zoom in further or try again.', 'bad');
-          }
-        }
-      }
+      // Basic diagnostics for GA tiles
+      const s = gaRails.getSource();
+      s.on('tileloadend', ()=> set('Rails (GA) tiles loaded ✔︎', 'ok'));
+      s.on('tileloaderror', ()=> set('Rails (GA) tile error — check CSP for services.ga.gov.au', 'bad'));
 
       /* ===========================
          KM2ME (optional)
@@ -342,11 +253,11 @@
       hud.covOV.checked  = !!OPT.layers.covOV;
       hud.covTw.checked  = !!OPT.layers.covTw;
 
-      // Rails toggle
-      hud.rail.onchange   = ()=>{ OPT.layers.rail   = hud.rail.checked;   saveOpts(); railLayer.setVisible(OPT.layers.rail); if (OPT.layers.rail) fetchRailsForView(); };
+      // Rails toggle (GA)
+      hud.rail.onchange   = ()=>{ OPT.layers.rail = hud.rail.checked; saveOpts(); gaRails.setVisible(OPT.layers.rail); };
 
-      // KM2ME toggle (layer is created only when needed)
-      hud.km.onchange     = ()=>{ OPT.layers.km     = hud.km.checked;     saveOpts(); (OPT.layers.km? ensureKmLayer(): removeKmLayer()); };
+      // KM2ME toggle
+      hud.km.onchange     = ()=>{ OPT.layers.km = hud.km.checked; saveOpts(); (OPT.layers.km? ensureKmLayer(): removeKmLayer()); };
 
       // Locate toggle
       hud.locate.onchange = ()=>{ OPT.layers.locate = hud.locate.checked; saveOpts(); (OPT.layers.locate? ensureLocate(): removeLocate()); };
