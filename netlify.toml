@@ -10,9 +10,9 @@
   [headers.values]
     Content-Security-Policy = """
       default-src 'self';
-      script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-      style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-      img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://spatial.infrastructure.gov.au;
+      script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
+      style-src  'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
+      img-src    'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://spatial.infrastructure.gov.au;
       connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://overpass-api.de https://spatial.infrastructure.gov.au;
       worker-src 'self' blob:;
     """
