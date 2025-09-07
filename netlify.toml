@@ -7,11 +7,11 @@
       style-src  'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
       img-src    'self' data:
                   https://tile.openstreetmap.org https://*.tile.openstreetmap.org
-                  https://spatial.infrastructure.gov.au
-                  https://services.ga.gov.au;
+                  https://tile.openrailwaymap.org
+                  https://spatial.infrastructure.gov.au https://services.ga.gov.au;
       connect-src 'self'
                   https://tile.openstreetmap.org https://*.tile.openstreetmap.org
-                  https://spatial.infrastructure.gov.au
-                  https://services.ga.gov.au;
+                  https://tile.openrailwaymap.org
+                  https://spatial.infrastructure.gov.au https://services.ga.gov.au;
       worker-src 'self' blob:;
     """
