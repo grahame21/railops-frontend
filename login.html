@@ -5,6 +5,7 @@
   <title>RailOps — Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <style>
+    /* --- Background image (mobile-safe) --- */
     html, body { height: 100%; margin: 0; }
     body {
       background: #000 url("/static/img/train.jpg") center / cover no-repeat fixed;
@@ -14,15 +15,18 @@
     @supports (-webkit-touch-callout: none) {
       body { background-attachment: scroll; }
       .bg-fix { position: fixed; inset: 0;
-        background: #000 url("/static/img/train.jpg") center / cover no-repeat; z-index:-1;
+        background: #000 url("/static/img/train.jpg") center / cover no-repeat;
+        z-index: -1;
       }
     }
+
+    /* --- Login box --- */
     .login-box {
       background: rgba(18,26,43,.86);
       border: 1px solid rgba(255,255,255,.16);
       border-radius: 16px;
       padding: 28px 32px;
-      width: min(360px, 92vw);
+      width: min(340px, 92vw);
       box-shadow: 0 18px 40px rgba(0,0,0,.5);
       backdrop-filter: saturate(1.1) blur(6px);
       text-align: center;
@@ -30,16 +34,19 @@
     h1 { margin: 0 0 16px; font-size: 22px; }
     input {
       width: 100%; margin: 6px 0; padding: 10px;
-      border-radius: 10px; border: 1px solid rgba(255,255,255,.2);
-      background: rgba(11,18,32,.6); color: #e8eefc;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,.2);
+      background: rgba(11,18,32,.6);
+      color: #e8eefc;
     }
-    button {
-      width: 100%; margin-top: 8px; padding: 10px; cursor: pointer; font-weight: 600;
-      border-radius: 10px; border: 1px solid rgba(123,216,143,.35);
-      background: rgba(123,216,143,.12); color: #e8eefc;
+    input[type="submit"] {
+      cursor: pointer; font-weight: 600;
+      border: 1px solid rgba(123,216,143,.35);
+      background: rgba(123,216,143,.12);
     }
-    button:hover { background: rgba(123,216,143,.2); }
-    .msg { margin-top: 8px; font-size: 13px; color: #ffb3b3; min-height: 18px; }
+    input[type="submit"]:hover {
+      background: rgba(123,216,143,.2);
+    }
   </style>
 </head>
 <body>
@@ -47,39 +54,28 @@
 
   <div class="login-box">
     <h1>RailOps Login</h1>
-    <form id="form">
-      <input type="text" id="username" placeholder="Username (admin)" autocomplete="username" required>
-      <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
-      <button type="submit">Sign in</button>
-      <div class="msg" id="msg"></div>
+    <form onsubmit="return login();">
+      <input type="text" id="username" placeholder="Username" required>
+      <input type="password" id="password" placeholder="Password" required>
+      <input type="submit" value="Login">
     </form>
   </div>
 
   <script>
-    const form = document.getElementById('form');
-    const msg  = document.getElementById('msg');
+    // Simple front-end login redirect
+    function login() {
+      const user = document.getElementById('username').value;
+      const pass = document.getElementById('password').value;
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      msg.textContent = '';
-      const body = {
-        username: document.getElementById('username').value.trim(),
-        password: document.getElementById('password').value
-      };
-      try {
-        const res = await fetch('/api/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.msg || 'Login failed');
-        // success → go to dashboard
-        location.href = '/dashboard.html';
-      } catch (err) {
-        msg.textContent = err.message || 'Login failed';
+      if (user === "admin" && pass === "railops") {
+        window.location.href = "/admin/";
+      } else if (user === "guest" && pass === "guestpass") {
+        window.location.href = "/dashboard.html";
+      } else {
+        alert("Invalid login");
       }
-    });
+      return false;
+    }
   </script>
 </body>
 </html>
