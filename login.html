@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Grahame's RailOps Login</title>
+  <meta charset="UTF-8" />
+  <title>RailOps Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html,body{margin:0;height:100%;font:16px system-ui;background:#0b1220;color:#e8eefc}
@@ -11,6 +11,7 @@
     input{width:100%;margin:8px 0;padding:10px;border-radius:8px;border:1px solid #2a3b5a;background:#0e1526;color:#e8eefc}
     button{width:100%;padding:10px;border-radius:8px;border:1px solid #2a3b5a;background:#1d2a44;color:#e8eefc;cursor:pointer}
     .hint{opacity:.8;font-size:13px;margin-top:8px}
+    .err{margin-top:8px;color:#ffb3b3;min-height:1.2em}
   </style>
 </head>
 <body>
@@ -19,16 +20,37 @@
     <input id="u" placeholder="Username" autocomplete="username">
     <input id="p" placeholder="Password" type="password" autocomplete="current-password">
     <button id="b">Login</button>
-    <div class="hint">Demo: <code>admin / railops</code> or <code>guest / guestpass</code></div>
+    <div class="err" id="e"></div>
+    <div class="hint">Demo creds — admin: <code>admin / railops</code>, guest: <code>guest / guestpass</code></div>
   </div>
 
   <script>
+    // If already logged in, skip login screen
+    (function(){
+      const sess = localStorage.getItem('railops_session');
+      if (sess) {
+        try {
+          const { role } = JSON.parse(sess);
+          if (role === 'admin') location.replace('/admin.html');
+          else if (role === 'guest') location.replace('/dashboard.html');
+        } catch {}
+      }
+    })();
+
     document.getElementById('b').onclick = () => {
       const u = document.getElementById('u').value.trim();
       const p = document.getElementById('p').value.trim();
-      if (u === 'admin' && p === 'railops') location.href = '/admin.html';
-      else if (u === 'guest' && p === 'guestpass') location.href = '/dashboard.html';
-      else alert('Invalid login');
+      const err = document.getElementById('e');
+
+      if (u === 'admin' && p === 'railops') {
+        localStorage.setItem('railops_session', JSON.stringify({ role: 'admin', ts: Date.now() }));
+        location.href = '/admin.html';
+      } else if (u === 'guest' && p === 'guestpass') {
+        localStorage.setItem('railops_session', JSON.stringify({ role: 'guest', ts: Date.now() }));
+        location.href = '/dashboard.html';
+      } else {
+        err.textContent = 'Invalid username or password';
+      }
     };
   </script>
 </body>
