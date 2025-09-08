@@ -1,6 +1,7 @@
-// Proxies OpenRailwayMap tiles
+// Proxies OpenRailwayMap tiles through your own origin.
 exports.handler = async (event) => {
   try {
+    // Accepts: /.netlify/functions/orm/standard/{z}/{x}/{y}.png
     const m = event.path.match(/\/orm\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
     if (!m) return { statusCode: 400, body: "Use /.netlify/functions/orm/standard/{z}/{x}/{y}.png" };
     const [, style, z, x, y] = m;
