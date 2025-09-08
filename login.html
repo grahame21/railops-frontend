@@ -6,27 +6,43 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html,body{margin:0;height:100%;font:16px system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b1220;color:#e8eefc}
-    .box{max-width:360px;margin:10vh auto;background:#121a2b;border:1px solid #31405e;border-radius:12px;padding:24px}
+    .box{max-width:380px;margin:10vh auto;background:#121a2b;border:1px solid #31405e;border-radius:12px;padding:24px}
     h1{margin:0 0 16px;font-size:20px}
-    label{display:block;font-size:13px;margin-top:10px;margin-bottom:4px;opacity:.9}
+    label{display:block;font-size:13px;margin-top:10px;margin-bottom:6px;opacity:.9}
     input{width:100%;margin:0 0 10px;padding:10px;border-radius:8px;border:1px solid #2a3b5a;background:#0e1526;color:#e8eefc}
-    button{width:100%;padding:12px;border-radius:8px;border:1px solid #2a3b5a;background:#1d2a44;color:#e8eefc;cursor:pointer}
+    .row{display:flex;align-items:center;gap:8px}
+    button{padding:10px 12px;border-radius:8px;border:1px solid #2a3b5a;background:#1d2a44;color:#e8eefc;cursor:pointer}
+    .full{width:100%}
     .err{margin-top:10px;color:#ffb3b3;min-height:1.2em}
     .hint{opacity:.8;font-size:13px;margin-top:10px}
+    .dbg{opacity:.7;font:12px ui-monospace,Menlo,Consolas;margin-top:6px}
   </style>
 </head>
 <body>
   <div class="box">
     <h1>RailOps Login</h1>
+
     <form id="login-form" novalidate>
       <label for="u">Username</label>
-      <input id="u" name="u" placeholder="admin or guest" autocomplete="username" inputmode="email" />
+      <input id="u" name="u" placeholder="admin or guest" autocomplete="username" autocapitalize="off" />
+
       <label for="p">Password</label>
-      <input id="p" name="p" placeholder="Password" type="password" autocomplete="current-password" />
-      <button type="submit">Login</button>
+      <div class="row">
+        <input id="p" name="p" placeholder="Password" type="password" class="full" autocomplete="current-password" />
+        <label class="row" style="font-size:12px;"><input type="checkbox" id="show"> Show</label>
+      </div>
+
+      <button type="submit" class="full">Login</button>
+      <div class="row" style="margin-top:8px;justify-content:space-between">
+        <button type="button" id="quick-admin">Login as Admin</button>
+        <button type="button" id="quick-guest">Login as Guest</button>
+      </div>
+
+      <div class="dbg" id="dbg"></div>
       <div class="err" id="e"></div>
     </form>
-    <div class="hint">Demo creds — <code>admin / railops</code> or <code>guest / guestpass</code></div>
+
+    <div class="hint">Demo creds — <code>admin / railops</code> or <code>guest / guestpass</code> (any casing)</div>
   </div>
 
   <script>
@@ -39,18 +55,39 @@
       } catch {}
     })();
 
-    const form = document.getElementById('login-form');
-    const err  = document.getElementById('e');
+    const $ = (id)=>document.getElementById(id);
+    const form = $('login-form'), err = $('e'), dbg = $('dbg');
+
+    // Show/hide password
+    $('show').addEventListener('change', (e)=>{
+      $('p').type = e.target.checked ? 'text' : 'password';
+    });
+
+    // Quick buttons
+    $('quick-admin').onclick = () => { $('u').value = 'admin'; $('p').value = 'railops'; form.requestSubmit(); };
+    $('quick-guest').onclick  = () => { $('u').value = 'guest'; $('p').value = 'guestpass'; form.requestSubmit(); };
+
+    function normalize(s){
+      return (s ?? '')
+        .normalize('NFKC')               // fix odd Unicode forms
+        .replace(/[\u200B-\u200D\uFEFF]/g, '') // strip zero-width spaces
+        .trim();
+    }
 
     form.addEventListener('submit', function(ev){
       ev.preventDefault();
       err.textContent = '';
 
-      // Normalize: trim spaces; username case-insensitive
-      const u = (document.getElementById('u').value || '').trim().toLowerCase();
-      const p = (document.getElementById('p').value || '').trim();
+      // Normalize + lower-case username; normalize password (and lower-case for demo)
+      const uRaw = normalize($('u').value);
+      const pRaw = normalize($('p').value);
 
-      // Accept only the two demo accounts
+      const u = uRaw.toLowerCase();
+      const p = pRaw.toLowerCase(); // demo: accept any casing to avoid iOS auto-cap issues
+
+      // Debug line (doesn't show password, only its length)
+      dbg.textContent = `Seen → user="${u}" (len ${u.length}), pass length=${pRaw.length}`;
+
       if (u === 'admin' && p === 'railops') {
         localStorage.setItem('railops_session', JSON.stringify({ role: 'admin', ts: Date.now() }));
         location.href = '/admin.html';
@@ -62,8 +99,7 @@
         return;
       }
 
-      // Helpful error (and show what we got)
-      err.textContent = 'Invalid username or password. Tip: username is not case-sensitive; password is.';
+      err.textContent = 'Invalid username or password.';
     });
   </script>
 </body>
