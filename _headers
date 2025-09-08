@@ -1,4 +1,9 @@
 /*
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org; connect-src 'self' blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org; worker-src 'self' blob:
+  Content-Security-Policy: default-src 'self';
+    script-src 'self' 'unsafe-inline' https://unpkg.com;
+    style-src  'self' 'unsafe-inline' https://unpkg.com;
+    img-src    'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://coverage.telstra.com https://*.coverage.telstra.com https://coverage.optus.com.au https://*.coverage.optus.com.au https://coverage.vodafone.com.au https://*.coverage.vodafone.com.au;
+    connect-src 'self' blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://coverage.telstra.com https://*.coverage.telstra.com https://coverage.optus.com.au https://*.coverage.optus.com.au https://coverage.vodafone.com.au https://*.coverage.vodafone.com.au https://identity.netlify.com https://api.netlify.com https://*.netlify.com https://*.netlify.app;
+    worker-src 'self' blob:;
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
