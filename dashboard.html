@@ -16,32 +16,38 @@
       box-shadow:0 10px 30px rgba(0,0,0,.35);
     }
     .hud label{display:flex; align-items:center; gap:6px;}
-    #badge{
-      position:fixed; right:10px; bottom:10px; z-index:1003;
-      background:rgba(18,26,43,.9); color:#e8eefc; border:1px solid rgba(255,255,255,.15);
-      padding:6px 8px; border-radius:10px; font:12px system-ui; max-width:70vw; word-wrap:break-word;
-    }
-    .ok{color:#7bd88f} .bad{color:#ffb3b3}
-    #err{
-      position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
-      background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px;
-      padding:10px 12px; font:13px/1.3 ui-monospace,Consolas,Menlo,monospace; white-space:pre-wrap;
-    }
     #logout{
       position:fixed; top:10px; right:10px; z-index:1002;
       padding:8px 12px; border-radius:10px; cursor:pointer;
       border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.5); color:#e8eefc;
     }
+    #badge{
+      position:fixed; right:10px; bottom:10px; z-index:1003;
+      background:rgba(18,26,43,.9); color:#e8eefc;
+      border:1px solid rgba(255,255,255,.15); border-radius:10px;
+      padding:6px 8px; font:12px system-ui; max-width:70vw; word-wrap:break-word;
+    }
+    .ok{color:#7bd88f} .bad{color:#ffb3b3}
+    #err{
+      position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
+      background:#3b0d0d; color:#ffe9e9;
+      border:2px solid #ff8c8c; border-radius:10px;
+      padding:10px 12px; font:13px/1.3 ui-monospace,Consolas,Menlo,monospace;
+      white-space:pre-wrap;
+    }
   </style>
 </head>
 <body>
+  <!-- Auth guard -->
   <script>
-    // Auth guard — allow admin or guest
     (function(){
-      const sess = localStorage.getItem('railops_session');
-      let ok = false;
-      if (sess) { try { const r = JSON.parse(sess).role; ok = (r==='admin'||r==='guest'); } catch {} }
-      if (!ok) location.replace('/login.html');
+      let ok=false;
+      try {
+        const sess = JSON.parse(localStorage.getItem('railops_session')||'null');
+        const r = sess?.role;
+        ok = (r==='admin'||r==='guest');
+      } catch {}
+      if(!ok) location.replace('/login.html');
     })();
   </script>
 
@@ -57,7 +63,7 @@
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js?v=1" defer></script>
   <script>
-    // On-screen error box
+    // Show JS errors on-screen
     window.addEventListener('error', e=>{
       const box=document.getElementById('err'); box.style.display='block';
       box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
@@ -73,6 +79,7 @@
       }
 
       try{
+        // Base via Netlify function
         const base = new ol.layer.Tile({
           source: new ol.source.XYZ({
             url: '/.netlify/functions/osm/{z}/{x}/{y}.png',
@@ -81,6 +88,7 @@
           zIndex: 0
         });
 
+        // Rails via Netlify function
         const rails = new ol.layer.Tile({
           source: new ol.source.XYZ({
             url: '/.netlify/functions/orm/standard/{z}/{x}/{y}.png',
@@ -95,22 +103,26 @@
           target: 'map',
           layers: [base, rails],
           view: new ol.View({
-            center: ol.proj.fromLonLat([133.7751, -25.2744]),
+            center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
             zoom: 4.8,
-            constrainRotation: 0
+            constrainRotation: 0 // keep north-up
           })
         });
 
+        // Toggle rails
         document.getElementById('rails-toggle').onchange = e => rails.setVisible(e.target.checked);
 
-        map.once('rendercomplete', ()=> say('Base canvas rendered ✔︎','ok'));
+        // Status hooks
+        map.once('rendercomplete', ()=> say('Canvas rendered ✔︎','ok'));
         base.getSource().on('tileloadend',  ()=> say('Base tiles loaded ✔︎','ok'));
         base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check osm.js logs','bad'));
         rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎','ok'));
         rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check orm.js logs','bad'));
 
+        // Safari/iOS reflow nudges
         setTimeout(()=> map.updateSize(), 60);
         setTimeout(()=> map.updateSize(), 800);
+
       }catch(e){
         const box=document.getElementById('err'); box.style.display='block';
         box.textContent='Boot error: '+(e?.stack||e?.message||String(e));
