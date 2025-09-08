@@ -1,138 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>RailOps — Login</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta charset="UTF-8">
+  <title>Grahame's RailOps Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
-    html, body { height: 100%; margin: 0; }
-    body {
-      background: #000 url("/static/img/train.jpg") center / cover no-repeat fixed;
-      color: #e8eefc;
-      font: 15px system-ui, -apple-system, Segoe UI, Roboto, Arial;
-      display: grid;
-      place-items: center;
-    }
-    @supports (-webkit-touch-callout: none) {
-      body { background-attachment: scroll; }
-      .bg-fix {
-        position: fixed; inset: 0;
-        background: #000 url("/static/img/train.jpg") center / cover no-repeat;
-        z-index: -1;
-      }
-    }
-    .box {
-      background: rgba(18,26,43,.86);
-      border: 1px solid rgba(255,255,255,.16);
-      border-radius: 16px;
-      padding: 28px 32px;
-      width: min(380px, 92vw);
-      box-shadow: 0 18px 40px rgba(0,0,0,.5);
-      backdrop-filter: saturate(1.1) blur(6px);
-    }
-    h1 { margin: 0 0 16px; font-size: 22px; text-align:center; }
-    .tabs { display:flex; gap:10px; justify-content:center; margin-bottom:10px; }
-    .tabs button {
-      padding: 8px 12px; border-radius: 10px; cursor:pointer;
-      border: 1px solid rgba(255,255,255,.2);
-      background: rgba(255,255,255,.06); color: #e8eefc;
-    }
-    .tabs button.active {
-      border-color: rgba(123,216,143,.35);
-      background: rgba(123,216,143,.12);
-    }
-    form { display: grid; gap: 8px; }
-    input, button[type="submit"] {
-      width: 100%; padding: 10px; border-radius: 10px;
-      border: 1px solid rgba(255,255,255,.2);
-      background: rgba(11,18,32,.6); color:#e8eefc;
-    }
-    button[type="submit"] {
-      cursor:pointer; font-weight:600;
-      border-color: rgba(123,216,143,.35);
-      background: rgba(123,216,143,.12);
-    }
-    button[type="submit"]:hover { background: rgba(123,216,143,.2); }
-    .msg { min-height: 18px; font-size: 13px; color: #ffb3b3; }
+    html,body{margin:0;height:100%;font:16px system-ui;background:#0b1220;color:#e8eefc}
+    .box{max-width:360px;margin:10vh auto;background:#121a2b;border:1px solid #31405e;border-radius:12px;padding:24px}
+    h1{margin:0 0 16px;font-size:20px}
+    input{width:100%;margin:8px 0;padding:10px;border-radius:8px;border:1px solid #2a3b5a;background:#0e1526;color:#e8eefc}
+    button{width:100%;padding:10px;border-radius:8px;border:1px solid #2a3b5a;background:#1d2a44;color:#e8eefc;cursor:pointer}
+    .hint{opacity:.8;font-size:13px;margin-top:8px}
   </style>
 </head>
 <body>
-  <div class="bg-fix" aria-hidden="true"></div>
-
   <div class="box">
     <h1>RailOps Login</h1>
-
-    <div class="tabs">
-      <button id="tab-admin" class="active" type="button">Admin</button>
-      <button id="tab-guest" type="button">Guest</button>
-    </div>
-
-    <!-- Admin -->
-    <form id="form-admin">
-      <input type="text" id="a-username" placeholder="Username (admin)" autocomplete="username" required>
-      <input type="password" id="a-password" placeholder="Password" autocomplete="current-password" required>
-      <button type="submit">Sign in as Admin</button>
-      <div class="msg" id="msg-admin"></div>
-    </form>
-
-    <!-- Guest -->
-    <form id="form-guest" style="display:none">
-      <input type="text" id="g-username" placeholder="Guest username" required>
-      <input type="password" id="g-password" placeholder="Guest password" required>
-      <button type="submit">Sign in as Guest</button>
-      <div class="msg" id="msg-guest"></div>
-    </form>
+    <input id="u" placeholder="Username" autocomplete="username">
+    <input id="p" placeholder="Password" type="password" autocomplete="current-password">
+    <button id="b">Login</button>
+    <div class="hint">Demo: <code>admin / railops</code> or <code>guest / guestpass</code></div>
   </div>
 
   <script>
-    const tA = document.getElementById('tab-admin');
-    const tG = document.getElementById('tab-guest');
-    const fA = document.getElementById('form-admin');
-    const fG = document.getElementById('form-guest');
-
-    tA.onclick = ()=>{ tA.classList.add('active'); tG.classList.remove('active'); fA.style.display='grid'; fG.style.display='none'; };
-    tG.onclick = ()=>{ tG.classList.add('active'); tA.classList.remove('active'); fG.style.display='grid'; fA.style.display='none'; };
-
-    // Admin submit → /api/login → redirect to /admin/
-    fA.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const m = document.getElementById('msg-admin'); m.textContent='';
-      try {
-        const res = await fetch('/api/login', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            username: document.getElementById('a-username').value.trim(),
-            password: document.getElementById('a-password').value
-          })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.msg || 'Login failed');
-        location.href = '/admin/'; // <-- Admins go here now
-      } catch(err) {
-        m.textContent = err.message || 'Login failed';
-      }
-    });
-
-    // Guest submit → /api/guests with action=login → redirect to /dashboard.html
-    fG.addEventListener('submit', async (e)=>{
-      e.preventDefault();
-      const m = document.getElementById('msg-guest'); m.textContent='';
-      try {
-        const res = await fetch('/api/guests', {
-          method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            action: 'login',
-            username: document.getElementById('g-username').value.trim(),
-            password: document.getElementById('g-password').value
-          })
-        });
-        const data = await res.json();
-        if (!res.ok || !data.ok) throw new Error(data.msg || 'Login failed');
-        location.href = '/dashboard.html'; // Guests go here
-      } catch(err) {
-        m.textContent = err.message || 'Login failed';
-      }
-    });
+    document.getElementById('b').onclick = () => {
+      const u = document.getElementById('u').value.trim();
+      const p = document.getElementById('p').value.trim();
+      if (u === 'admin' && p === 'railops') location.href = '/admin.html';
+      else if (u === 'guest' && p === 'guestpass') location.href = '/dashboard.html';
+      else alert('Invalid login');
+    };
   </script>
 </body>
 </html>
