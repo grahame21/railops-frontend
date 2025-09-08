@@ -6,30 +6,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css">
   <style>
+    :root{color-scheme:dark}
     html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-    #map { position:fixed; inset:64px 0 0 0; }
+    #map { position:fixed; inset:60px 0 0 0; background:#0b1220; }
     #top {
-      position:fixed; left:0; top:0; right:0; height:64px; display:flex; flex-wrap:wrap; gap:8px 10px;
-      align-items:center; padding:10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a;
+      position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap;
+      padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a;
     }
-    .btn, label.chip {
-      display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px;
-      border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; user-select:none;
-    }
-    label.chip i { display:inline-block; width:12px; height:12px; border-radius:2px }
-    .telstra { background:#1f6feb } .mvno{ background:#7d8590 } .optus{ background:#ffd33d } .voda{ background:#ff7b72 }
+    .btn, label.chip { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px;
+      border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; user-select:none; }
+    label.chip i{display:inline-block;width:12px;height:12px;border-radius:2px}
+    .telstra{background:#1f6feb}.mvno{background:#7d8590}.optus{background:#ffd33d}.voda{background:#ff7b72}
+    #hud { margin-left:auto; opacity:.85 }
     #badge {
       position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
-      border-radius:10px; padding:8px 10px; min-width:220px; white-space:pre-wrap;
+      border-radius:10px; padding:8px 10px; min-width:260px; white-space:pre-wrap;
     }
-    .ok{color:#7bd88f} .bad{color:#ffb3b3}
+    .ok{color:#7bd88f}.bad{color:#ffb3b3}
     #err { position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
       background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px; padding:10px 12px; white-space:pre-wrap; }
-    #right { margin-left:auto; display:flex; align-items:center; gap:10px; opacity:.9 }
   </style>
 </head>
 <body>
-  <!-- simple auth guard (admin or guest) -->
+  <!-- minimal auth guard (admin or guest) -->
   <script>
     (function(){
       try {
@@ -51,7 +50,7 @@
     <button class="btn" id="locBtn" title="Center on my location">📍 My location</button>
     <button class="btn" id="recenter">Recenter AU</button>
 
-    <span id="right">z=<span id="z">–</span> DPR=<span id="dpr">–</span></span>
+    <div id="hud">z=<span id="z">–</span> · DPR=<span id="dpr">–</span></div>
   </div>
 
   <div id="map"></div>
@@ -60,15 +59,16 @@
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
-    // Show JS errors on-screen
+    // Show any JS errors on-screen
     window.addEventListener('error', e=>{
       const box=document.getElementById('err'); box.style.display='block';
       box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
+      console.error(e?.error||e);
     });
 
     window.addEventListener('load', () => {
       const badge = document.getElementById('badge');
-      const say = (t, cls) => { badge.textContent = t; badge.className=''; if (cls) badge.classList.add(cls); };
+      const say = (t, cls) => { badge.textContent = t; badge.className=''; if (cls) badge.classList.add(cls); console.log('[badge]', t); };
 
       // Logout
       document.getElementById('logout').onclick = ()=>{ localStorage.removeItem('railops_session'); location.href='/login.html'; };
@@ -77,7 +77,7 @@
       if (!(window.ol && ol.Map)) { say('OpenLayers failed to load (CSP/content blocker).', 'bad'); return; }
       say('OpenLayers OK ✔︎');
 
-      // ---------- Base + Rails (DIRECT tiles; matches your CSP) ----------
+      // ----- Base OSM (direct) -----
       const base = new ol.layer.Tile({
         source: new ol.source.XYZ({
           url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -87,67 +87,60 @@
         zIndex: 0
       });
 
+      // ----- Rails (OpenRailwayMap, direct) -----
       const rails = new ol.layer.Tile({
         source: new ol.source.XYZ({
           url: 'https://tile.openrailwaymap.org/standard/{z}/{x}/{y}.png',
           maxZoom: 19,
           crossOrigin: 'anonymous'
         }),
-        opacity: 0.9,
+        opacity: 0.95,
         visible: true,
         zIndex: 10
       });
 
-      // ---------- Placeholder carrier layers (vector polygons for now) ----------
-      const to3857Extent = (minLon,minLat,maxLon,maxLat) =>
-        ol.proj.transformExtent([minLon,minLat,maxLon,maxLat], 'EPSG:4326', 'EPSG:3857');
-
-      const poly = (b)=> ol.geom.Polygon.fromExtent(to3857Extent(...b));
-      const rgba = (hex,a)=>{ const c=hex.replace('#',''); const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16); return `rgba(${r},${g},${b},${a})`; };
+      // ----- Placeholder carrier layers (vector polygons) -----
+      const to3857 = (ext) => ol.proj.transformExtent(ext, 'EPSG:4326', 'EPSG:3857');
+      const poly = (ext)=> new ol.Feature(ol.geom.Polygon.fromExtent(to3857(ext)));
+      const rgba = (hex,a)=>{const c=hex.replace('#','');const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);return `rgba(${r},${g},${b},${a})`;};
       const carrier = (boxes, stroke, fillA, z) => new ol.layer.Vector({
-        source: new ol.source.Vector({ features: boxes.map(b => new ol.Feature(poly(b))) }),
-        style: new ol.style.Style({ stroke: new ol.style.Stroke({ color: stroke, width: 1.6 }), fill: new ol.style.Fill({ color: rgba(stroke, fillA) }) }),
+        source: new ol.source.Vector({ features: boxes.map(poly) }),
+        style: new ol.style.Style({ stroke:new ol.style.Stroke({color:stroke,width:1.6}), fill:new ol.style.Fill({color:rgba(stroke,fillA)}) }),
         zIndex: z
       });
 
-      // Rough demo footprints (Melbourne/Sydney/Adelaide vicinities)
-      const telstraLayer = carrier([[144.5,-38.5,145.5,-37.5],[150.5,-34.2,151.5,-33.5],[138.3,-35.2,138.9,-34.7]], '#3aa0ff', 0.20, 6);
-      const mvnoLayer    = carrier([[144.6,-38.4,145.4,-37.6],[150.6,-34.15,151.45,-33.6]],                                   '#9aa3ad', 0.18, 5);
-      const optusLayer   = carrier([[144.7,-38.45,145.6,-37.55],[150.4,-34.25,151.6,-33.45]],                                   '#ffd33d', 0.20, 7);
-      const vodaLayer    = carrier([[144.8,-38.42,145.55,-37.58],[150.55,-34.2,151.55,-33.55]],                                  '#ff7b72', 0.18, 8);
+      const telstraLayer = carrier([[144.5,-38.5,145.5,-37.5],[150.5,-34.2,151.5,-33.5],[138.3,-35.2,138.9,-34.7]], '#3aa0ff', 0.22, 6);
+      const mvnoLayer    = carrier([[144.6,-38.4,145.4,-37.6],[150.6,-34.15,151.45,-33.6]],                                   '#9aa3ad', 0.20, 5);
+      const optusLayer   = carrier([[144.7,-38.45,145.6,-37.55],[150.4,-34.25,151.6,-33.45]],                                   '#ffd33d', 0.22, 7);
+      const vodaLayer    = carrier([[144.8,-38.42,145.55,-37.58],[150.55,-34.2,151.55,-33.55]],                                  '#ff7b72', 0.20, 8);
 
-      // ---------- Map ----------
+      // ----- Map/view -----
       const view = new ol.View({
         center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
         zoom: 4.8,
-        constrainRotation: 0 // keep north-up
+        constrainRotation: 0 // north-up
       });
 
       const map = new ol.Map({ target: 'map', layers: [base, rails, telstraLayer, mvnoLayer, optusLayer, vodaLayer], view });
 
-      // Zoom/DPR display
-      const updateHUD = ()=>{
-        document.getElementById('z').textContent = view.getZoom().toFixed(2);
-        document.getElementById('dpr').textContent = window.devicePixelRatio;
-      };
+      // HUD
+      const updateHUD = ()=>{ document.getElementById('z').textContent=view.getZoom().toFixed(2); document.getElementById('dpr').textContent=window.devicePixelRatio; };
       view.on('change:resolution', updateHUD); updateHUD();
 
-      // ---------- Toggles ----------
+      // Toggles
       document.getElementById('railsToggle').onchange   = e => rails.setVisible(e.target.checked);
       document.getElementById('telstraToggle').onchange = e => telstraLayer.setVisible(e.target.checked);
       document.getElementById('mvnoToggle').onchange    = e => mvnoLayer.setVisible(e.target.checked);
       document.getElementById('optusToggle').onchange   = e => optusLayer.setVisible(e.target.checked);
       document.getElementById('vodaToggle').onchange    = e => vodaLayer.setVisible(e.target.checked);
 
-      // ---------- My Location (live) ----------
-      const locLayer = new ol.layer.Vector({ source: new ol.source.Vector(), zIndex: 20 });
-      map.addLayer(locLayer);
-      const pin = new ol.Feature(); pin.setStyle(new ol.style.Style({ image: new ol.style.Circle({ radius:6, fill:new ol.style.Fill({color:'#00e6a8'}), stroke:new ol.style.Stroke({color:'#003b2f', width:2}) }) }));
-      const acc = new ol.Feature(); acc.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:'#00e6a8', width:1}), fill:new ol.style.Fill({color:'rgba(0,230,168,0.10)'}) }));
-      locLayer.getSource().addFeatures([acc, pin]);
-
+      // My location
+      const locLayer = new ol.layer.Vector({ source:new ol.source.Vector(), zIndex:20 }); map.addLayer(locLayer);
+      const pin = new ol.Feature(); pin.setStyle(new ol.style.Style({ image:new ol.style.Circle({ radius:6, fill:new ol.style.Fill({color:'#00e6a8'}), stroke:new ol.style.Stroke({color:'#003b2f', width:2}) }) }));
+      const acc = new ol.Feature(); acc.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:'#00e6a8', width:1}), fill:new ol.style.Fill({color:'rgba(0,230,168,0.12)'}) }));
+      locLayer.getSource().addFeatures([acc,pin]);
       document.getElementById('locBtn').onclick = ()=>{
-        if (!navigator.geolocation) { say('Geolocation not supported', 'bad'); return; }
+        if (!navigator.geolocation){ say('Geolocation not supported', 'bad'); return; }
         say('Locating…');
         navigator.geolocation.watchPosition((pos)=>{
           const { latitude, longitude, accuracy } = pos.coords;
@@ -158,12 +151,12 @@
           acc.setGeometry(circle);
           view.animate({ center:c, duration:250 });
           say(`Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} (±${Math.round(accuracy)} m)`, 'ok');
-        }, (err)=>{ say('Location error: '+(err?.message||err), 'bad'); }, { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
+        }, (err)=> say('Location error: '+(err?.message||err), 'bad'), { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
       };
 
-      document.getElementById('recenter').onclick = () => view.animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.8, duration:250 });
+      document.getElementById('recenter').onclick = () => view.animate({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.8, duration:250 });
 
-      // ---------- Status hooks ----------
+      // Status hooks
       map.once('rendercomplete', ()=> say('Canvas rendered ✔︎','ok'));
       base.getSource().on('tileloadstart', ()=> say('Base loading…'));
       base.getSource().on('tileloadend',   ()=> say('Base tiles loaded ✔︎','ok'));
@@ -172,9 +165,17 @@
       rails.getSource().on('tileloadend',   ()=> say('Rails tiles loaded ✔︎','ok'));
       rails.getSource().on('tileloaderror', ()=> say('Rails tile FAILED — CSP img-src may block tile.openrailwaymap.org','bad'));
 
-      // iOS/Safari reflow nudges
+      // iOS reflow nudges
       setTimeout(()=> map.updateSize(), 60);
-      setTimeout(()=> map.updateSize(), 800);
+      setTimeout(()=> map.updateSize(), 700);
+
+      // If nothing starts loading in 2s, warn loudly
+      setTimeout(()=> {
+        const anyListenersFired = base.getSource().tileCache.getCount()>0 || rails.getSource().tileCache.getCount()>0;
+        // if caches are empty and we never saw tileloadstart, likely CSP or content blocker
+        // (badge updates already occur in events; this is just an extra nudge)
+        if (!anyListenersFired) say('No tile requests fired. If you use a content blocker, try “Reload Without Content Blockers”. Also confirm /csp-probe.html shows both tiles loaded.', 'bad');
+      }, 2000);
     });
   </script>
 </body>
