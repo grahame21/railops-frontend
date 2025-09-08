@@ -7,15 +7,25 @@
   <style>
     html,body{margin:0;height:100%;font:16px system-ui;background:#0b1220;color:#e8eefc}
     .wrap{max-width:900px;margin:6vh auto;padding:0 16px}
-    a.btn{display:inline-block;margin:8px 8px 8px 0;padding:10px 14px;border:1px solid #2a3b5a;border-radius:10px;background:#1d2a44;color:#e8eefc;text-decoration:none}
+    a.btn,button.btn{display:inline-block;margin:8px 8px 8px 0;padding:10px 14px;border:1px solid #2a3b5a;border-radius:10px;background:#1d2a44;color:#e8eefc;text-decoration:none;cursor:pointer}
   </style>
 </head>
 <body>
+  <script>
+    // Auth guard — only admin
+    (function(){
+      const sess = localStorage.getItem('railops_session');
+      let ok = false;
+      if (sess) { try { ok = JSON.parse(sess).role === 'admin'; } catch {} }
+      if (!ok) location.replace('/login.html');
+    })();
+  </script>
+
   <div class="wrap">
     <h1>Admin</h1>
     <p>Welcome, admin.</p>
     <a class="btn" href="/dashboard.html">Open Dashboard</a>
-    <a class="btn" href="/login.html">Logout</a>
+    <button class="btn" onclick="localStorage.removeItem('railops_session');location.href='/login.html'">Logout</button>
   </div>
 </body>
 </html>
