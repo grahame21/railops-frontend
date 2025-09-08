@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>CSP Probe</title>
+<style>
+  body{font:14px system-ui;margin:20px;background:#0b1220;color:#e8eefc}
+  .card{background:#121a2b;border:1px solid #2a3b5a;border-radius:10px;padding:12px;margin:10px 0}
+  .ok{color:#7bd88f}.bad{color:#ffb3b3}
+</style>
+<h1>CSP Probe</h1>
+<div class="card">
+  <div>OSM tile</div>
+  <img id="osm" src="https://tile.openstreetmap.org/4/9/6.png" width="256" height="256" alt="OSM tile">
+  <div id="osmStatus">loading…</div>
+</div>
+<div class="card">
+  <div>OpenRailwayMap tile</div>
+  <img id="orm" src="https://tile.openrailwaymap.org/standard/5/27/19.png" width="256" height="256" alt="ORM tile">
+  <div id="ormStatus">loading…</div>
+</div>
+<script>
+  function hook(imgId, statusId){
+    const img=document.getElementById(imgId), s=document.getElementById(statusId);
+    img.onload = ()=>{ s.textContent='loaded ✔︎'; s.className='ok'; };
+    img.onerror= ()=>{ s.textContent='❌ blocked by CSP/img-src'; s.className='bad'; };
+  }
+  hook('osm','osmStatus'); hook('orm','ormStatus');
+</script>
