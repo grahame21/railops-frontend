@@ -2,24 +2,26 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RailOps — Dashboard (Direct Tiles)</title>
+  <title>RailOps — Dashboard (Direct Tiles, Verbose)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css">
   <style>
     html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui; }
-    #map { position:fixed; inset:48px 0 0 0; }
-    #top { position:fixed; left:0; top:0; right:0; height:48px; display:flex; align-items:center; gap:10px;
+    #map { position:fixed; inset:56px 0 0 0; }
+    #top { position:fixed; left:0; top:0; right:0; height:56px; display:flex; align-items:center; gap:10px;
            background:#121a2b; border-bottom:1px solid #2a3b5a; padding:8px 10px; z-index:1001; }
     .btn, label { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:10px;
                   border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; }
     #badge { position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
-             border-radius:10px; padding:8px 10px; min-width:220px; }
+             border-radius:10px; padding:8px 10px; min-width:260px; white-space:pre-wrap; }
     .ok{color:#7bd88f} .bad{color:#ffb3b3}
+    #err { position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
+           background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px; padding:10px 12px; white-space:pre-wrap; }
   </style>
 </head>
 <body>
-  <!-- simple guard -->
   <script>
+    // simple guard
     (function(){
       try {
         const r = JSON.parse(localStorage.getItem('railops_session')||'null')?.role;
@@ -32,20 +34,31 @@
     <button class="btn" onclick="localStorage.removeItem('railops_session');location.href='/login.html'">Logout</button>
     <label><input type="checkbox" id="railsToggle" checked> Rails (ORM)</label>
     <button class="btn" id="recenter">Recenter AU</button>
+    <span id="info" style="margin-left:auto;opacity:.8"></span>
   </div>
 
   <div id="map"></div>
   <div id="badge">Booting…</div>
+  <div id="err"></div>
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
+    // show JS errors
+    window.addEventListener('error', e=>{
+      const box=document.getElementById('err'); box.style.display='block';
+      box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
+    });
+
     window.addEventListener('load', () => {
-      const badge = document.getElementById('badge');
-      const say = (t, cls) => { badge.textContent = t; badge.className=''; if (cls) badge.classList.add(cls); };
+      const badge=document.getElementById('badge');
+      const info=document.getElementById('info');
+      const say=(t,cls)=>{ badge.textContent=t; badge.className=''; if(cls) badge.classList.add(cls); };
 
-      if (!(window.ol && ol.Map)) { say('Failed to load OpenLayers (CSP/content blocker)', 'bad'); return; }
+      // Step A: confirm OL
+      if(!(window.ol && ol.Map)){ say('❌ OpenLayers failed to load (CSP/content blocker).', 'bad'); return; }
+      say('A) OpenLayers OK ✔︎');
 
-      // Base — direct OSM
+      // Step B: build layers (direct, no functions)
       const base = new ol.layer.Tile({
         source: new ol.source.XYZ({
           url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
@@ -55,7 +68,6 @@
         zIndex: 0
       });
 
-      // Rails — direct OpenRailwayMap
       const rails = new ol.layer.Tile({
         source: new ol.source.XYZ({
           url: 'https://tile.openrailwaymap.org/standard/{z}/{x}/{y}.png',
@@ -73,18 +85,31 @@
         constrainRotation: 0
       });
 
+      // Step C: make the map
       const map = new ol.Map({ target: 'map', layers: [base, rails], view });
+      say('B) Map created — waiting for first paint…');
+
+      // update top-right info
+      const updateInfo = ()=>{ info.textContent=`z=${view.getZoom().toFixed(2)} DPR=${window.devicePixelRatio}`; };
+      view.on('change:resolution', updateInfo);
+      updateInfo();
+
+      // Step D: confirm canvas paint
+      map.once('rendercomplete', ()=> say('C) Canvas rendered ✔︎','ok'));
+
+      // Step E: tile events — these WILL change the badge if requests fire
+      base.getSource().on('tileloadstart', ()=> say('D) Base loading…'));
+      base.getSource().on('tileloadend',   ()=> say('D) Base tiles loaded ✔︎','ok'));
+      base.getSource().on('tileloaderror', ()=> say('❌ Base tile FAILED — CSP img-src may block tile.openstreetmap.org','bad'));
+
+      rails.getSource().on('tileloadstart', ()=> say('E) Rails loading…'));
+      rails.getSource().on('tileloadend',   ()=> say('E) Rails tiles loaded ✔︎','ok'));
+      rails.getSource().on('tileloaderror', ()=> say('❌ Rails tile FAILED — CSP img-src may block tile.openrailwaymap.org','bad'));
 
       // UI
       document.getElementById('railsToggle').onchange = e => rails.setVisible(e.target.checked);
       document.getElementById('recenter').onclick = () =>
         view.animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, duration: 250 });
-
-      // Status
-      base.getSource().on('tileloadend',  () => say('Base tiles loaded ✔︎', 'ok'));
-      base.getSource().on('tileloaderror',() => say('Base tile FAILED — CSP img-src may block tile.openstreetmap.org', 'bad'));
-      rails.getSource().on('tileloadend', () => say('Rails tiles loaded ✔︎', 'ok'));
-      rails.getSource().on('tileloaderror',() => say('Rails tile FAILED — CSP img-src may block tile.openrailwaymap.org', 'bad'));
 
       // iOS size nudge
       setTimeout(()=> map.updateSize(), 60);
