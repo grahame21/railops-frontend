@@ -1,13 +1,14 @@
-# If you want pretty API paths (optional). We’ll use built-in paths in the HTML, so this is optional.
+# (Optional) Functions pretty paths — keep if you use them
 #/api/*    /.netlify/functions/:splat    200
+#/t/osm/*  /.netlify/functions/osm/:splat  200
+#/t/orm/*  /.netlify/functions/orm/:splat  200
 
-# Allow key pages directly
-/index.html       /index.html       200
-/login.html       /login.html       200
-/admin.html       /admin.html       200
-/dashboard.html   /dashboard.html   200
+# Allow pages explicitly BEFORE the catch-all
+/index.html       /index.html        200
+/login.html       /login.html        200
+/admin.html       /admin.html        200
+/dashboard.html   /dashboard.html    200
 /map-diagnose.html /map-diagnose.html 200
 
-# Catch-all → login (keeps random paths from exposing dashboard)
-# Comment this out if it interferes with other routes.
-/*    /login.html    200
+# Catch-all → login (must be LAST)
+ /*  /login.html  200
