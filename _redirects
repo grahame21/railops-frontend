@@ -1,11 +1,13 @@
-# (Optional) Pretty API paths. You can skip these since we’ll use the built-in paths below.
+# If you want pretty API paths (optional). We’ll use built-in paths in the HTML, so this is optional.
 #/api/*    /.netlify/functions/:splat    200
 
-# Allow key pages
-/dashboard.html      /dashboard.html    200
-/login.html          /login.html        200
-/admin.html          /admin.html        200
-/map-diagnose.html   /map-diagnose.html 200
+# Allow key pages directly
+/index.html       /index.html       200
+/login.html       /login.html       200
+/admin.html       /admin.html       200
+/dashboard.html   /dashboard.html   200
+/map-diagnose.html /map-diagnose.html 200
 
-# Catch-all → login
+# Catch-all → login (keeps random paths from exposing dashboard)
+# Comment this out if it interferes with other routes.
 /*    /login.html    200
