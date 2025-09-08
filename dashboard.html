@@ -16,11 +16,6 @@
       box-shadow:0 10px 30px rgba(0,0,0,.35);
     }
     .hud label{display:flex; align-items:center; gap:6px;}
-    #logout-btn{
-      position:fixed; top:10px; right:10px; z-index:1002;
-      padding:8px 12px; border-radius:10px; cursor:pointer;
-      border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.5); color:#e8eefc;
-    }
     #badge{
       position:fixed; right:10px; bottom:10px; z-index:1003;
       background:rgba(18,26,43,.9); color:#e8eefc; border:1px solid rgba(255,255,255,.15);
@@ -40,7 +35,6 @@
   <div class="hud">
     <label><input type="checkbox" id="rails-toggle" checked> Rails (proxied)</label>
   </div>
-  <button id="logout-btn" title="Sign out">Logout</button>
 
   <div id="badge">Loading…</div>
   <div id="err"></div>
@@ -56,12 +50,6 @@
     (function(){
       const badge=document.getElementById('badge');
       const say=(t,cls)=>{ badge.textContent=t; badge.className=''; if(cls) badge.classList.add(cls); };
-
-      // Logout
-      document.getElementById('logout-btn').onclick = async () => {
-        try { await fetch('/api/logout'); } catch {}
-        location.href = '/login.html';
-      };
 
       // Wait for OpenLayers
       let tries=0;
@@ -102,21 +90,16 @@
             })
           });
 
-          // Toggle
           document.getElementById('rails-toggle').onchange = e => rails.setVisible(e.target.checked);
 
-          // Status
           map.once('rendercomplete', ()=> say('Base tiles rendered ✔︎','ok'));
           base.getSource().on('tileloadend',  ()=> say('Base tiles loaded ✔︎','ok'));
           base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check osm.js logs','bad'));
           rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎','ok'));
           rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check orm.js logs','bad'));
 
-          // iOS/Safari sizing nudge
-          const reflow = ()=> map.updateSize();
-          window.addEventListener('resize', reflow);
-          window.addEventListener('orientationchange', reflow);
-          setTimeout(reflow, 50);
+          // iOS/Safari: ensure proper size after first paint
+          setTimeout(()=> map.updateSize(), 60);
 
         }catch(e){
           const box=document.getElementById('err'); box.style.display='block';
