@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- Cache-bust OL to avoid stale CDN -->
   <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css?v=1" />
   <style>
     html, body { margin:0; height:100%; background:#0b1220; }
@@ -28,39 +27,52 @@
       background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px;
       padding:10px 12px; font:13px/1.3 ui-monospace,Consolas,Menlo,monospace; white-space:pre-wrap;
     }
+    #logout{
+      position:fixed; top:10px; right:10px; z-index:1002;
+      padding:8px 12px; border-radius:10px; cursor:pointer;
+      border:1px solid rgba(255,255,255,.2); background:rgba(0,0,0,.5); color:#e8eefc;
+    }
   </style>
 </head>
 <body>
+  <script>
+    // Auth guard — allow admin or guest
+    (function(){
+      const sess = localStorage.getItem('railops_session');
+      let ok = false;
+      if (sess) { try { const r = JSON.parse(sess).role; ok = (r==='admin'||r==='guest'); } catch {} }
+      if (!ok) location.replace('/login.html');
+    })();
+  </script>
+
   <div id="map"></div>
 
   <div class="hud">
     <label><input type="checkbox" id="rails-toggle" checked> Rails (proxied)</label>
   </div>
+  <button id="logout" onclick="localStorage.removeItem('railops_session');location.href='/login.html'">Logout</button>
 
   <div id="badge">Booting…</div>
   <div id="err"></div>
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js?v=1" defer></script>
   <script>
-    // On-screen error box so we never have a silent failure
+    // On-screen error box
     window.addEventListener('error', e=>{
       const box=document.getElementById('err'); box.style.display='block';
       box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
     });
 
-    // Run only after DOM is ready *and* the OL script tag has fired (defer + load)
     window.addEventListener('load', () => {
       const badge=document.getElementById('badge');
       const say=(t,cls)=>{ badge.textContent=t; badge.className=''; if(cls) badge.classList.add(cls); };
 
-      // Guard in case OL CDN was blocked
       if(!(window.ol && ol.Map)){
         say('OpenLayers failed to load (CSP/content blocker)', 'bad');
         return;
       }
 
       try{
-        // Base via built-in functions (no redirects)
         const base = new ol.layer.Tile({
           source: new ol.source.XYZ({
             url: '/.netlify/functions/osm/{z}/{x}/{y}.png',
@@ -69,7 +81,6 @@
           zIndex: 0
         });
 
-        // Rails via built-in functions
         const rails = new ol.layer.Tile({
           source: new ol.source.XYZ({
             url: '/.netlify/functions/orm/standard/{z}/{x}/{y}.png',
@@ -84,27 +95,22 @@
           target: 'map',
           layers: [base, rails],
           view: new ol.View({
-            center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
+            center: ol.proj.fromLonLat([133.7751, -25.2744]),
             zoom: 4.8,
-            constrainRotation: 0   // keep north-up
+            constrainRotation: 0
           })
         });
 
-        // Toggle
         document.getElementById('rails-toggle').onchange = e => rails.setVisible(e.target.checked);
 
-        // Status hooks
         map.once('rendercomplete', ()=> say('Base canvas rendered ✔︎','ok'));
         base.getSource().on('tileloadend',  ()=> say('Base tiles loaded ✔︎','ok'));
-        base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check netlify/functions/osm.js logs','bad'));
+        base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check osm.js logs','bad'));
         rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎','ok'));
-        rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check netlify/functions/orm.js logs','bad'));
+        rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check orm.js logs','bad'));
 
-        // iOS/Safari: ensure proper size after first paint
         setTimeout(()=> map.updateSize(), 60);
-        // Extra nudge after a second (covers keyboard/toolbar transitions)
         setTimeout(()=> map.updateSize(), 800);
-
       }catch(e){
         const box=document.getElementById('err'); box.style.display='block';
         box.textContent='Boot error: '+(e?.stack||e?.message||String(e));
