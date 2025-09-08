@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
+  <!-- Cache-bust OL to avoid stale CDN -->
+  <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css?v=1" />
   <style>
     html, body { margin:0; height:100%; background:#0b1220; }
     #map { position:fixed; inset:0; }
@@ -36,77 +37,79 @@
     <label><input type="checkbox" id="rails-toggle" checked> Rails (proxied)</label>
   </div>
 
-  <div id="badge">Loading…</div>
+  <div id="badge">Booting…</div>
   <div id="err"></div>
 
-  <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
+  <script src="https://unpkg.com/ol@9.1.0/dist/ol.js?v=1" defer></script>
   <script>
-    // Show any JS error on-screen
+    // On-screen error box so we never have a silent failure
     window.addEventListener('error', e=>{
       const box=document.getElementById('err'); box.style.display='block';
       box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
     });
 
-    (function(){
+    // Run only after DOM is ready *and* the OL script tag has fired (defer + load)
+    window.addEventListener('load', () => {
       const badge=document.getElementById('badge');
       const say=(t,cls)=>{ badge.textContent=t; badge.className=''; if(cls) badge.classList.add(cls); };
 
-      // Wait for OpenLayers
-      let tries=0;
-      const w=setInterval(()=>{
-        if(window.ol && ol.Map){ clearInterval(w); boot(); }
-        else if(++tries>200){ clearInterval(w); say('OpenLayers failed to load (CSP/script-src)', 'bad'); }
-      },30);
-
-      function boot(){
-        try{
-          // Base via built-in functions (no redirects required)
-          const base = new ol.layer.Tile({
-            source: new ol.source.XYZ({
-              url: '/.netlify/functions/osm/{z}/{x}/{y}.png',
-              maxZoom: 19
-            }),
-            zIndex: 0
-          });
-
-          // Rails via built-in functions
-          const rails = new ol.layer.Tile({
-            source: new ol.source.XYZ({
-              url: '/.netlify/functions/orm/standard/{z}/{x}/{y}.png',
-              maxZoom: 19
-            }),
-            opacity: 0.9,
-            visible: true,
-            zIndex: 10
-          });
-
-          const map = new ol.Map({
-            target: 'map',
-            layers: [base, rails],
-            view: new ol.View({
-              center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
-              zoom: 4.8,
-              constrainRotation: 0
-            })
-          });
-
-          document.getElementById('rails-toggle').onchange = e => rails.setVisible(e.target.checked);
-
-          map.once('rendercomplete', ()=> say('Base tiles rendered ✔︎','ok'));
-          base.getSource().on('tileloadend',  ()=> say('Base tiles loaded ✔︎','ok'));
-          base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check osm.js logs','bad'));
-          rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎','ok'));
-          rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check orm.js logs','bad'));
-
-          // iOS/Safari: ensure proper size after first paint
-          setTimeout(()=> map.updateSize(), 60);
-
-        }catch(e){
-          const box=document.getElementById('err'); box.style.display='block';
-          box.textContent='Boot error: '+(e?.stack||e?.message||String(e));
-        }
+      // Guard in case OL CDN was blocked
+      if(!(window.ol && ol.Map)){
+        say('OpenLayers failed to load (CSP/content blocker)', 'bad');
+        return;
       }
-    })();
+
+      try{
+        // Base via built-in functions (no redirects)
+        const base = new ol.layer.Tile({
+          source: new ol.source.XYZ({
+            url: '/.netlify/functions/osm/{z}/{x}/{y}.png',
+            maxZoom: 19
+          }),
+          zIndex: 0
+        });
+
+        // Rails via built-in functions
+        const rails = new ol.layer.Tile({
+          source: new ol.source.XYZ({
+            url: '/.netlify/functions/orm/standard/{z}/{x}/{y}.png',
+            maxZoom: 19
+          }),
+          opacity: 0.9,
+          visible: true,
+          zIndex: 10
+        });
+
+        const map = new ol.Map({
+          target: 'map',
+          layers: [base, rails],
+          view: new ol.View({
+            center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
+            zoom: 4.8,
+            constrainRotation: 0   // keep north-up
+          })
+        });
+
+        // Toggle
+        document.getElementById('rails-toggle').onchange = e => rails.setVisible(e.target.checked);
+
+        // Status hooks
+        map.once('rendercomplete', ()=> say('Base canvas rendered ✔︎','ok'));
+        base.getSource().on('tileloadend',  ()=> say('Base tiles loaded ✔︎','ok'));
+        base.getSource().on('tileloaderror',()=> say('OSM proxy tile failed — check netlify/functions/osm.js logs','bad'));
+        rails.getSource().on('tileloadend', ()=> say('Rails tiles loaded ✔︎','ok'));
+        rails.getSource().on('tileloaderror',()=> say('Rails proxy tile failed — check netlify/functions/orm.js logs','bad'));
+
+        // iOS/Safari: ensure proper size after first paint
+        setTimeout(()=> map.updateSize(), 60);
+        // Extra nudge after a second (covers keyboard/toolbar transitions)
+        setTimeout(()=> map.updateSize(), 800);
+
+      }catch(e){
+        const box=document.getElementById('err'); box.style.display='block';
+        box.textContent='Boot error: '+(e?.stack||e?.message||String(e));
+      }
+    });
   </script>
 </body>
 </html>
