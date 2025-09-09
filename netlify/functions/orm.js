@@ -1,20 +1,15 @@
-// netlify/functions/orm.js
-// Proxies OpenRailwayMap tiles through your domain to bypass CSP/content blockers.
+// Proxies OpenRailwayMap tiles via your domain.
 // Usage: /.netlify/functions/orm/standard/{z}/{x}/{y}.png
-
 const ORIGIN = "https://tile.openrailwaymap.org";
 
 exports.handler = async (event) => {
   try {
-    // Expect paths like: /.netlify/functions/orm/standard/5/27/19.png
     const upstreamPath = event.path.replace(/^\/\.netlify\/functions\/orm\//, "");
     if (!/^(standard|maxspeed|signals)\/\d+\/\d+\/\d+\.png$/.test(upstreamPath)) {
-      return { statusCode: 400, body: "Bad path. Try /standard/{z}/{x}/{y}.png" };
+      return { statusCode: 400, body: "Bad path. Use /standard/{z}/{x}/{y}.png" };
     }
-
     const url = `${ORIGIN}/${upstreamPath}`;
     const resp = await fetch(url, { headers: { "User-Agent": "RailOps Proxy" } });
-
     const ab = await resp.arrayBuffer();
     return {
       statusCode: resp.status,
@@ -27,6 +22,6 @@ exports.handler = async (event) => {
       isBase64Encoded: true
     };
   } catch (e) {
-    return { statusCode: 500, body: "Proxy error: " + (e?.message || String(e)) };
+    return { statusCode: 500, body: "ORM proxy error: " + (e?.message || String(e)) };
   }
 };
