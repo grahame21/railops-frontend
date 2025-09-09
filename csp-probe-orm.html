@@ -1,0 +1,41 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ORM CSP Probe</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body{font:14px system-ui;margin:20px;background:#0b1220;color:#e8eefc}
+  .card{background:#121a2b;border:1px solid #2a3b5a;border-radius:10px;padding:12px;margin:10px 0}
+  .ok{color:#7bd88f}.bad{color:#ffb3b3}
+  img{width:256px;height:256px;display:block;background:#0b1220}
+</style>
+
+<h1>OpenRailwayMap CSP Probe</h1>
+
+<div class="card">
+  <div>tile.openrailwaymap.org (no subdomain)</div>
+  <img id="root" src="https://tile.openrailwaymap.org/standard/5/27/19.png" alt="">
+  <div id="rootStatus">loading…</div>
+</div>
+
+<div class="card">
+  <div>a.tile.openrailwaymap.org</div>
+  <img id="a" src="https://a.tile.openrailwaymap.org/standard/5/27/19.png" alt="">
+  <div id="aStatus">loading…</div>
+</div>
+
+<div class="card">
+  <div>b.tile.openrailwaymap.org</div>
+  <img id="b" src="https://b.tile.openrailwaymap.org/standard/5/27/19.png" alt="">
+  <div id="bStatus">loading…</div>
+</div>
+
+<script>
+function hook(id,sid){
+  const im=document.getElementById(id), s=document.getElementById(sid);
+  im.onload=()=>{s.textContent='loaded ✔︎'; s.className='ok';};
+  im.onerror=()=>{s.textContent='❌ blocked by CSP/img-src'; s.className='bad';};
+  im.referrerPolicy='no-referrer';
+  im.src=im.src + (im.src.includes('?')?'&':'?') + 't=' + Date.now();
+}
+hook('root','rootStatus'); hook('a','aStatus'); hook('b','bStatus');
+</script>
