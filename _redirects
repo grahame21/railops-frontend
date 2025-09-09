@@ -1,19 +1,8 @@
-# --- API FIRST (force with !) ---
-/api/ping        /.netlify/functions/ping         200!
-/api/osm/*       /.netlify/functions/osm/:splat   200!
-/api/orm/*       /.netlify/functions/orm/:splat   200!
+# Proxy OSM through function
+/api/osm/*   /.netlify/functions/osm/:splat   200
 
-# --- Normal pages ---
-/index.html      /index.html     200
-/login.html      /login.html     200
-/admin.html      /admin.html     200
-/dashboard.html  /dashboard.html 200
+# Proxy ORM through function
+/api/orm/*   /.netlify/functions/orm/:splat   200
 
-# (optional diagnostics)
-/csp-probe.html        /csp-probe.html        200
-/csp-probe-orm.html    /csp-probe-orm.html    200
-/csp-dump.html         /csp-dump.html         200
-/map-min.html          /map-min.html          200
-
-# --- SPA catch-all LAST ---
-/*               /login.html     200
+# Catch-all at the very bottom
+/*           /index.html                      200
