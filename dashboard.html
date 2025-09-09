@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <!-- OpenLayers CSS/JS from UNPKG (no defer to guarantee availability before our code) -->
-  <link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
-  <script src="https://unpkg.com/ol@9.1.0/dist/ol.js"></script>
+
+  <!-- OpenLayers served from your own origin via Netlify Function -->
+  <link rel="stylesheet" href="/api/cdn/ol.css" />
+  <script src="/api/cdn/ol.js"></script>
 
   <style>
     :root{color-scheme:dark}
@@ -28,7 +29,7 @@
   </style>
 </head>
 <body>
-  <!-- Simple auth guard -->
+  <!-- Simple auth guard: require admin or guest -->
   <script>
     (function(){
       try {
@@ -70,11 +71,8 @@
 
       document.getElementById('logout').onclick = ()=>{ localStorage.removeItem('railops_session'); location.href='/login.html'; };
 
-      // Verify OpenLayers loaded
-      if (!window.ol || !ol.Map) {
-        say('OpenLayers JS not available. Check CSP script-src for unpkg.', 'bad');
-        return;
-      }
+      // Verify OpenLayers loaded (from /api/cdn/ol.js)
+      if (!window.ol || !ol.Map) { say('OpenLayers JS not available. Check /api/cdn/ol.js and _redirects.', 'bad'); return; }
       say('OpenLayers OK ✔︎');
 
       // Base OSM
@@ -101,21 +99,23 @@
       map.once('rendercomplete', ()=> say('Canvas rendered ✔︎','ok'));
       base.getSource().on('tileloadstart', ()=> say('Base loading…'));
       base.getSource().on('tileloadend',   ()=> say('Base tiles loaded ✔︎','ok'));
-      base.getSource().on('tileloaderror', ()=> say('Base tile FAILED — CSP img-src may block tile.openstreetmap.org','bad'));
+      base.getSource().on('tileloaderror', ()=> say('Base tile FAILED — check CSP img-src for tile.openstreetmap.org','bad'));
 
       // --- Rails via Overpass (vector) ---
-      const railStyle = new ol.style.Style({ stroke: new ol.style.Stroke({ color:'#000', width:2.2 }) });
+      // Blue casing + black core so lines pop on dark base
+      const railCore   = new ol.style.Style({ stroke: new ol.style.Stroke({ color:'#000',    width:2.2 }) });
       const railCasing = new ol.style.Style({ stroke: new ol.style.Stroke({ color:'#1f6feb', width:4.2 }) });
 
       const railsSource = new ol.source.Vector();
       const railsLayer  = new ol.layer.Vector({
         source: railsSource,
-        style: () => [railCasing, railStyle],
+        style: () => [railCasing, railCore],
         zIndex: 10,
         visible: true
       });
       map.addLayer(railsLayer);
 
+      // Fetch rails for current extent when zoom >= 8; throttle requests
       let inFlight = null, lastBBox = null, lastZoom = 0, fetchTimer = 0;
       const queueFetch = ()=>{ clearTimeout(fetchTimer); fetchTimer = setTimeout(fetchRails, 400); };
 
@@ -165,14 +165,14 @@
 
       view.on('change:center', queueFetch);
       view.on('change:resolution', queueFetch);
-      queueFetch(); // initial
+      queueFetch(); // initial fetch when page opens
 
       document.getElementById('railsToggle').onchange = e => {
         railsLayer.setVisible(e.target.checked);
         if (e.target.checked) queueFetch();
       };
 
-      // --- Placeholder coverage layers (you can hook real sources later) ---
+      // --- Placeholder carrier overlays (swap to real sources later) ---
       const to3857 = (ext) => ol.proj.transformExtent(ext, 'EPSG:4326', 'EPSG:3857');
       const poly = (ext)=> new ol.Feature(ol.geom.Polygon.fromExtent(to3857(ext)));
       const rgba = (hex,a)=>{const c=hex.replace('#','');const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);return `rgba(${r},${g},${b},${a})`;};
@@ -187,6 +187,11 @@
       const optusLayer   = carrier([[144.7,-38.45,145.6,-37.55],[150.4,-34.25,151.6,-33.45]],                                   '#ffd33d', 0.22, 7);
       const vodaLayer    = carrier([[144.8,-38.42,145.55,-37.58],[150.55,-34.2,151.55,-33.55]],                                  '#ff7b72', 0.20, 8);
       map.addLayer(telstraLayer); map.addLayer(mvnoLayer); map.addLayer(optusLayer); map.addLayer(vodaLayer);
+
+      document.getElementById('telstraToggle').onchange = e => telstraLayer.setVisible(e.target.checked);
+      document.getElementById('mvnoToggle').onchange    = e => mvnoLayer.setVisible(e.target.checked);
+      document.getElementById('optusToggle').onchange   = e => optusLayer.setVisible(e.target.checked);
+      document.getElementById('vodaToggle').onchange    = e => vodaLayer.setVisible(e.target.checked);
 
       // My location
       const locLayer = new ol.layer.Vector({ source:new ol.source.Vector(), zIndex:20 }); map.addLayer(locLayer);
