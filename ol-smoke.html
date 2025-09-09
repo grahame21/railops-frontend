@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>OL Smoke</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="https://unpkg.com/ol@9.1.0/ol.css" />
+<style>
+  html,body{margin:0;height:100%}
+  #hud{position:fixed;inset:auto 0 0 0;background:#111;color:#eee;padding:8px 10px;font:13px system-ui}
+  #map{position:fixed;inset:0 0 36px 0;background:#0b1220}
+  .ok{color:#6f6}.bad{color:#f99}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="hud">Booting…</div>
+
+<script src="https://unpkg.com/ol@9.1.0/dist/ol.js"></script>
+<script>
+(function(){
+  const hud = document.getElementById('hud');
+  const say = (m, cls) => { hud.textContent = m; hud.className = cls||''; console.log('[SMOKE]', m); };
+
+  if (!window.ol || !ol.Map) { say("❌ OpenLayers didn't load (CSP or content blocker).", "bad"); return; }
+  say('OpenLayers JS loaded ✔︎');
+
+  const base = new ol.layer.Tile({
+    source: new ol.source.XYZ({
+      url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+      maxZoom: 19,
+      crossOrigin: 'anonymous'
+    })
+  });
+
+  const view = new ol.View({
+    center: ol.proj.fromLonLat([133.7751, -25.2744]),
+    zoom: 4.8,
+    constrainRotation: 0
+  });
+
+  const map = new ol.Map({ target: 'map', layers: [base], view });
+
+  base.getSource().on('tileloadstart', ()=>say('Loading base tiles…'));
+  base.getSource().on('tileloadend',   ()=>say('Base tiles rendered ✔︎','ok'));
+  base.getSource().on('tileloaderror', ()=>say('❌ Base tile blocked — check CSP img-src for tile.openstreetmap.org','bad'));
+})();
+</script>
+</body>
+</html>
