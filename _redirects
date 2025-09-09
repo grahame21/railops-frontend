@@ -2,13 +2,13 @@
 /login.html        /login.html        200
 /admin.html        /admin.html        200
 /dashboard.html    /dashboard.html    200
-
-# allow the two debug pages explicitly
 /csp-probe.html    /csp-probe.html    200
 /map-min.html      /map-min.html      200
+/csp-probe-orm.html /csp-probe-orm.html 200
+/csp-dump.html     /csp-dump.html     200
 
-# (optional) keep API/function pretty paths if you add them later
-#/api/*            /.netlify/functions/:splat   200
+# (optional pretty API path)
+/api/orm/*         /.netlify/functions/orm/:splat   200
 
-# must be LAST
+# keep last
 /*                 /login.html         200
