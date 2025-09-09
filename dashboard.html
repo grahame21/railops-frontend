@@ -9,15 +9,19 @@
     :root{color-scheme:dark}
     html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     #map { position:fixed; inset:60px 0 0 0; background:#0b1220; }
-    #top { position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap;
-           padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a; }
+    #top {
+      position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap;
+      padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a;
+    }
     .btn, label.chip { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px;
       border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; user-select:none; }
     label.chip i{display:inline-block;width:12px;height:12px;border-radius:2px}
     .telstra{background:#1f6feb}.mvno{background:#7d8590}.optus{background:#ffd33d}.voda{background:#ff7b72}
     #hud { margin-left:auto; opacity:.85 }
-    #badge { position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
-             border-radius:10px; padding:8px 10px; min-width:260px; white-space:pre-wrap; }
+    #badge {
+      position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
+      border-radius:10px; padding:8px 10px; min-width:260px; white-space:pre-wrap;
+    }
     .ok{color:#7bd88f}.bad{color:#ffb3b3}
     #err { position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
       background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px; padding:10px 12px; white-space:pre-wrap; }
@@ -27,8 +31,10 @@
   <!-- minimal auth guard -->
   <script>
     (function(){
-      try { const r = JSON.parse(localStorage.getItem('railops_session')||'null')?.role;
-        if (r!=='admin' && r!=='guest') location.replace('/login.html'); } catch { location.replace('/login.html'); }
+      try {
+        const r = JSON.parse(localStorage.getItem('railops_session')||'null')?.role;
+        if (r!=='admin' && r!=='guest') location.replace('/login.html');
+      } catch { location.replace('/login.html'); }
     })();
   </script>
 
@@ -40,10 +46,10 @@
     <label class="chip"><i class="optus"></i><input type="checkbox" id="optusToggle" checked> Optus</label>
     <label class="chip"><i class="voda"></i><input type="checkbox" id="vodaToggle" checked> Vodafone/TPG (Optus roaming)</label>
 
-    <label class="chip"><input type="checkbox" id="railsToggle" checked> Rails (ORM via proxy)</label>
+    <label class="chip"><input type="checkbox" id="railsToggle" checked> Rails (ORM)</label>
+    <label class="chip"><input type="checkbox" id="proxyToggle" checked> Use proxy (for OSM & ORM)</label>
     <button class="btn" id="locBtn" title="Center on my location">📍 My location</button>
     <button class="btn" id="recenter">Recenter AU</button>
-
     <div id="hud">z=<span id="z">–</span> · DPR=<span id="dpr">–</span></div>
   </div>
 
@@ -53,7 +59,7 @@
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
-    // show JS errors on-screen
+    // on-screen JS errors
     window.addEventListener('error', e=>{
       const box=document.getElementById('err'); box.style.display='block';
       box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
@@ -69,28 +75,18 @@
       if (!(window.ol && ol.Map)) { say('OpenLayers failed to load (CSP/content blocker).', 'bad'); return; }
       say('OpenLayers OK ✔︎');
 
-      // Base OSM (direct — this already worked in your probe)
-      const base = new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          maxZoom: 19,
-          crossOrigin: 'anonymous'
-        }),
-        zIndex: 0
-      });
+      const useProxyEl = document.getElementById('proxyToggle');
+      const baseSrc = ()=> useProxyEl.checked
+        ? new ol.source.XYZ({ url:'/.netlify/functions/osm/{z}/{x}/{y}.png', maxZoom:19 })
+        : new ol.source.XYZ({ url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom:19, crossOrigin:'anonymous' });
 
-      // Rails via PROXY (same-origin → bypasses stubborn CSP/content blockers)
-      const rails = new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: '/.netlify/functions/orm/standard/{z}/{x}/{y}.png',
-          maxZoom: 19
-        }),
-        opacity: 0.95,
-        visible: true,
-        zIndex: 10
-      });
+      const railsSrc = ()=> useProxyEl.checked
+        ? new ol.source.XYZ({ url:'/.netlify/functions/orm/standard/{z}/{x}/{y}.png', maxZoom:19 })
+        : new ol.source.XYZ({ url:'https://tile.openrailwaymap.org/standard/{z}/{x}/{y}.png', maxZoom:19, crossOrigin:'anonymous' });
 
-      // Placeholder vector overlays for carriers (same as before)
+      const base = new ol.layer.Tile({ source: baseSrc(), zIndex: 0 });
+      const rails = new ol.layer.Tile({ source: railsSrc(), opacity: 0.95, visible: true, zIndex: 10 });
+
       const to3857 = (ext) => ol.proj.transformExtent(ext, 'EPSG:4326', 'EPSG:3857');
       const poly = (ext)=> new ol.Feature(ol.geom.Polygon.fromExtent(to3857(ext)));
       const rgba = (hex,a)=>{const c=hex.replace('#','');const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);return `rgba(${r},${g},${b},${a})`;};
@@ -105,17 +101,27 @@
       const optusLayer   = carrier([[144.7,-38.45,145.6,-37.55],[150.4,-34.25,151.6,-33.45]],                                   '#ffd33d', 0.22, 7);
       const vodaLayer    = carrier([[144.8,-38.42,145.55,-37.58],[150.55,-34.2,151.55,-33.55]],                                  '#ff7b72', 0.20, 8);
 
-      const view = new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]),
-        zoom: 4.8,
-        constrainRotation: 0
-      });
-
+      const view = new ol.View({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 4.8, constrainRotation: 0 });
       const map = new ol.Map({ target: 'map', layers: [base, rails, telstraLayer, mvnoLayer, optusLayer, vodaLayer], view });
 
-      // HUD
+      // HUD + events
       const upd=()=>{ document.getElementById('z').textContent=view.getZoom().toFixed(2); document.getElementById('dpr').textContent=window.devicePixelRatio; };
       view.on('change:resolution', upd); upd();
+
+      map.once('rendercomplete', ()=> say('Canvas rendered ✔︎','ok'));
+      base.getSource().on('tileloadstart', ()=> say(useProxyEl.checked?'Base (proxy) loading…':'Base loading…'));
+      base.getSource().on('tileloadend',   ()=> say(useProxyEl.checked?'Base (proxy) tiles loaded ✔︎':'Base tiles loaded ✔︎','ok'));
+      base.getSource().on('tileloaderror', ()=> say(useProxyEl.checked?'Base (proxy) FAILED — check functions/osm.js':'Base FAILED — CSP/img-src','bad'));
+      rails.getSource().on('tileloadstart',()=> say(useProxyEl.checked?'Rails (proxy) loading…':'Rails loading…'));
+      rails.getSource().on('tileloadend',  ()=> say(useProxyEl.checked?'Rails (proxy) tiles loaded ✔︎':'Rails tiles loaded ✔︎','ok'));
+      rails.getSource().on('tileloaderror',()=> say(useProxyEl.checked?'Rails (proxy) FAILED — check functions/orm.js':'Rails FAILED — CSP/img-src','bad'));
+
+      // Proxy toggle hot-swap
+      document.getElementById('proxyToggle').onchange = ()=>{
+        base.setSource(baseSrc());
+        rails.setSource(railsSrc());
+        say('Switched to ' + (useProxyEl.checked?'PROXY (both)':'DIRECT tiles'));
+      };
 
       // Toggles
       document.getElementById('railsToggle').onchange   = e => rails.setVisible(e.target.checked);
@@ -144,15 +150,6 @@
       };
 
       document.getElementById('recenter').onclick = () => view.animate({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.8, duration:250 });
-
-      // Status hooks
-      map.once('rendercomplete', ()=> say('Canvas rendered ✔︎','ok'));
-      base.getSource().on('tileloadstart', ()=> say('Base loading…'));
-      base.getSource().on('tileloadend',   ()=> say('Base tiles loaded ✔︎','ok'));
-      base.getSource().on('tileloaderror', ()=> say('Base tile FAILED — CSP/img-src may block tile.openstreetmap.org','bad'));
-      rails.getSource().on('tileloadstart', ()=> say('Rails (proxy) loading…'));
-      rails.getSource().on('tileloadend',   ()=> say('Rails (proxy) tiles loaded ✔︎','ok'));
-      rails.getSource().on('tileloaderror', ()=> say('Rails (proxy) tile FAILED — check netlify/functions/orm.js','bad'));
 
       setTimeout(()=> map.updateSize(), 60);
       setTimeout(()=> map.updateSize(), 700);
