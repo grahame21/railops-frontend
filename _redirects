@@ -1,19 +1,20 @@
-# --- API routes (force with ! so they win over catch-all) ---
-/api/osm/*   /.netlify/functions/osm/:splat   200!
-/api/orm/*   /.netlify/functions/orm/:splat   200!
-/api/ping    /.netlify/functions/ping         200!
+# --- API routes (forced) ---
+/api/osm/*    /.netlify/functions/osm/:splat    200!
+/api/orm/*    /.netlify/functions/orm/:splat    200!
+/api/orm2     /.netlify/functions/orm2          200!
+/api/ping     /.netlify/functions/ping          200!
 
-# --- Core pages ---
+# --- Pages ---
 /index.html      /index.html      200
 /login.html      /login.html      200
 /admin.html      /admin.html      200
 /dashboard.html  /dashboard.html  200
 
 # --- Diagnostics (optional) ---
-/csp-probe.html     /csp-probe.html     200
-/csp-probe-orm.html /csp-probe-orm.html 200
-/csp-dump.html      /csp-dump.html      200
-/map-min.html       /map-min.html       200
+/csp-probe.html        /csp-probe.html        200
+/csp-probe-orm.html    /csp-probe-orm.html    200
+/csp-dump.html         /csp-dump.html         200
+/map-min.html          /map-min.html          200
 
-# --- Catch-all (MUST be last) ---
+# --- Catch-all LAST ---
 /*  /login.html  200
