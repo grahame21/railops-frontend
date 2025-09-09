@@ -1,49 +1,82 @@
 // netlify/functions/orm.js
-// Proxies OpenRailwayMap tiles via your domain.
-// Works whether request path is /api/orm/... or /.netlify/functions/orm/...
+// Proxies OpenRailwayMap tiles and includes a ?debug=1 mode to print diagnostics.
 
 const ORIGIN = 'https://tile.openrailwaymap.org';
 
 exports.handler = async (event) => {
   try {
-    // Get pathname without query
-    const url = new URL(event.rawUrl || (`https://x${event.path}`));
-    let p = url.pathname;
+    // Build a URL object (event.rawUrl is present on Netlify Functions)
+    const raw = event.rawUrl || ('https://dummy' + event.path + (event.queryStringParameters ? ('?' + new URLSearchParams(event.queryStringParameters)) : ''));
+    const reqUrl = new URL(raw);
 
-    // Accept either prefix
+    // Accept either prefix: /.netlify/functions/orm/...  OR /api/orm/...
+    let p = reqUrl.pathname;
     p = p.replace(/^\/\.netlify\/functions\/orm\//, '');
     p = p.replace(/^\/api\/orm\//, '');
 
-    // Expect e.g. standard/5/27/19.png
-    const ok = /^(standard|maxspeed|signals)\/\d+\/\d+\/\d+\.png$/.test(p);
-    if (!ok) {
+    // Allow only known layers (but don't block on regex while debugging)
+    const isExpected = /^(standard|maxspeed|signals)\/\d+\/\d+\/\d+\.png$/.test(p);
+
+    const upstream = `${ORIGIN}/${p}`;
+
+    // If debug requested, short-circuit to show what we’re about to do
+    if (reqUrl.searchParams.get('debug') === '1') {
       return {
-        statusCode: 400,
-        headers: { 'Content-Type': 'text/plain' },
-        body: `Bad path: ${p}\nExpected /standard|maxspeed|signals/{z}/{x}/{y}.png`
+        statusCode: 200,
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body:
+`DEBUG
+event.path: ${event.path}
+event.rawUrl: ${event.rawUrl || '(none)'}
+computed p: ${p}
+expectedPathFormat: /{standard|maxspeed|signals}/{z}/{x}/{y}.png
+regexMatch: ${isExpected}
+upstream: ${upstream}
+`
       };
     }
 
-    const upstream = `${ORIGIN}/${p}`;
-    const resp = await fetch(upstream, { headers: { 'User-Agent': 'RailOps Proxy' } });
+    // Fetch the upstream tile
+    const r = await fetch(upstream, { headers: { 'User-Agent': 'RailOps Proxy' }, redirect: 'follow' });
 
-    // Pass through status; encode body as base64
-    const ab = await resp.arrayBuffer();
+    // Get content-type and body
+    const ct = r.headers.get('content-type') || '';
+    const ab = await r.arrayBuffer();
+    const b64 = Buffer.from(ab).toString('base64');
+
+    // If it's an image, return as base64
+    if (ct.startsWith('image/')) {
+      return {
+        statusCode: r.status,
+        headers: {
+          'Content-Type': ct || 'image/png',
+          'Cache-Control': 'public, max-age=3600, s-maxage=86400',
+          'Access-Control-Allow-Origin': '*'
+        },
+        body: b64,
+        isBase64Encoded: true
+      };
+    }
+
+    // Otherwise, return a readable text diagnostic
     return {
-      statusCode: resp.status,
-      headers: {
-        'Content-Type': resp.headers.get('content-type') || 'image/png',
-        'Cache-Control': 'public, max-age=3600, s-maxage=86400',
-        'Access-Control-Allow-Origin': '*'
-      },
-      body: Buffer.from(ab).toString('base64'),
-      isBase64Encoded: true
+      statusCode: r.status,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body:
+`UPSTREAM NON-IMAGE RESPONSE
+status: ${r.status}
+content-type: ${ct}
+requested: ${upstream}
+
+(Sample of response body, base64-encoded):
+${b64.slice(0, 400)} ...`
     };
+
   } catch (e) {
     return {
       statusCode: 500,
-      headers: { 'Content-Type': 'text/plain' },
-      body: 'ORM proxy error: ' + (e?.message || String(e))
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body: 'ORM proxy error: ' + (e && e.message ? e.message : String(e))
     };
   }
 };
