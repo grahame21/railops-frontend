@@ -1,17 +1,16 @@
-# --- API proxies (forced with ! so they win over catch-all) ---
+# --- API proxies (forced so they win over catch-all) ---
 /api/osm/*     /.netlify/functions/osm/:splat     200!
 /api/orm/*     /.netlify/functions/orm/:splat     200!
 /api/orm2      /.netlify/functions/orm2           200!
 /api/cdn/*     /.netlify/functions/cdn/:splat     200!
 /api/ping      /.netlify/functions/ping           200!
+/api/who       /.netlify/functions/who            200!
 
-# --- Core pages ---
+# --- Pages ---
 /index.html      /index.html      200
 /login.html      /login.html      200
 /admin.html      /admin.html      200
 /dashboard.html  /dashboard.html  200
-
-# --- Diagnostics/test pages ---
 /ol-smoke.html   /ol-smoke.html   200
 /img-probe.html  /img-probe.html  200
 
