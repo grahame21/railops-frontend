@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <title>OL Smoke</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css" />
+<link rel="stylesheet" href="/api/cdn/ol.css" />
 <style>
   html,body{margin:0;height:100%}
   #hud{position:fixed;inset:auto 0 0 0;background:#111;color:#eee;padding:8px 10px;font:13px system-ui}
@@ -16,13 +16,13 @@
 <div id="map"></div>
 <div id="hud">Booting…</div>
 
-<script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
+<script src="/api/cdn/ol.js"></script>
 <script>
 (function(){
   const hud = document.getElementById('hud');
   const say = (m, cls) => { hud.textContent = m; hud.className = cls||''; console.log('[SMOKE]', m); };
 
-  if (!window.ol || !ol.Map) { say("❌ OpenLayers didn't load (CSP or content blocker).", "bad"); return; }
+  if (!window.ol || !ol.Map) { say("❌ OpenLayers didn't load.", "bad"); return; }
   say('OpenLayers JS loaded ✔︎');
 
   const base = new ol.layer.Tile({
