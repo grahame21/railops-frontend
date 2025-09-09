@@ -1,26 +1,29 @@
-// Proxies OpenRailwayMap tiles through your own origin.
+// netlify/functions/orm.js
+// Proxies OpenRailwayMap tiles through your domain to bypass CSP/content blockers.
+// Usage: /.netlify/functions/orm/standard/{z}/{x}/{y}.png
+
+const ORIGIN = "https://tile.openrailwaymap.org";
+
 exports.handler = async (event) => {
   try {
-    // Accepts: /.netlify/functions/orm/standard/{z}/{x}/{y}.png
-    const m = event.path.match(/\/orm\/([^/]+)\/(\d+)\/(\d+)\/(\d+)\.png$/);
-    if (!m) return { statusCode: 400, body: "Use /.netlify/functions/orm/standard/{z}/{x}/{y}.png" };
-    const [, style, z, x, y] = m;
+    // Expect paths like: /.netlify/functions/orm/standard/5/27/19.png
+    const upstreamPath = event.path.replace(/^\/\.netlify\/functions\/orm\//, "");
+    if (!/^(standard|maxspeed|signals)\/\d+\/\d+\/\d+\.png$/.test(upstreamPath)) {
+      return { statusCode: 400, body: "Bad path. Try /standard/{z}/{x}/{y}.png" };
+    }
 
-    const ALLOWED = new Set(["standard","maxspeed","signals"]);
-    if (!ALLOWED.has(style)) return { statusCode: 400, body: "Unknown style." };
+    const url = `${ORIGIN}/${upstreamPath}`;
+    const resp = await fetch(url, { headers: { "User-Agent": "RailOps Proxy" } });
 
-    const upstream = `https://tile.openrailwaymap.org/${style}/${z}/${x}/${y}.png`;
-    const resp = await fetch(upstream, { headers: { "User-Agent": "RailOps Netlify Proxy" } });
-    if (!resp.ok) return { statusCode: resp.status, body: `Upstream ${resp.status} ${resp.statusText}` };
-
-    const buf = Buffer.from(await resp.arrayBuffer());
+    const ab = await resp.arrayBuffer();
     return {
-      statusCode: 200,
+      statusCode: resp.status,
       headers: {
-        "Content-Type": "image/png",
-        "Cache-Control": "public, max-age=86400, s-maxage=604800, immutable"
+        "Content-Type": resp.headers.get("content-type") || "image/png",
+        "Cache-Control": "public, max-age=3600, s-maxage=86400",
+        "Access-Control-Allow-Origin": "*"
       },
-      body: buf.toString("base64"),
+      body: Buffer.from(ab).toString("base64"),
       isBase64Encoded: true
     };
   } catch (e) {
