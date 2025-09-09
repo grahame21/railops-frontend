@@ -9,26 +9,22 @@
     :root{color-scheme:dark}
     html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     #map { position:fixed; inset:60px 0 0 0; background:#0b1220; }
-    #top {
-      position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap;
-      padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a;
-    }
+    #top { position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap;
+           padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a; }
     .btn, label.chip { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px;
       border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; user-select:none; }
     label.chip i{display:inline-block;width:12px;height:12px;border-radius:2px}
     .telstra{background:#1f6feb}.mvno{background:#7d8590}.optus{background:#ffd33d}.voda{background:#ff7b72}
     #hud { margin-left:auto; opacity:.85 }
-    #badge {
-      position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
-      border-radius:10px; padding:8px 10px; min-width:260px; white-space:pre-wrap;
-    }
+    #badge { position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
+             border-radius:10px; padding:8px 10px; min-width:280px; white-space:pre-wrap; }
     .ok{color:#7bd88f}.bad{color:#ffb3b3}
     #err { position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
       background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px; padding:10px 12px; white-space:pre-wrap; }
   </style>
 </head>
 <body>
-  <!-- minimal auth guard -->
+  <!-- Guard: must be admin or guest -->
   <script>
     (function(){
       try {
@@ -48,6 +44,7 @@
 
     <label class="chip"><input type="checkbox" id="railsToggle" checked> Rails (ORM)</label>
     <label class="chip"><input type="checkbox" id="proxyToggle" checked> Use proxy (for OSM & ORM)</label>
+
     <button class="btn" id="locBtn" title="Center on my location">📍 My location</button>
     <button class="btn" id="recenter">Recenter AU</button>
     <div id="hud">z=<span id="z">–</span> · DPR=<span id="dpr">–</span></div>
@@ -59,7 +56,7 @@
 
   <script src="https://unpkg.com/ol@9.1.0/dist/ol.js" defer></script>
   <script>
-    // on-screen JS errors
+    // Show JS errors on-page
     window.addEventListener('error', e=>{
       const box=document.getElementById('err'); box.style.display='block';
       box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
@@ -76,17 +73,20 @@
       say('OpenLayers OK ✔︎');
 
       const useProxyEl = document.getElementById('proxyToggle');
+
+      // Use /api/* which your _redirects routes to functions
       const baseSrc = ()=> useProxyEl.checked
-        ? new ol.source.XYZ({ url:'/.netlify/functions/osm/{z}/{x}/{y}.png', maxZoom:19 })
+        ? new ol.source.XYZ({ url:'/api/osm/{z}/{x}/{y}.png', maxZoom:19 })
         : new ol.source.XYZ({ url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png', maxZoom:19, crossOrigin:'anonymous' });
 
       const railsSrc = ()=> useProxyEl.checked
-        ? new ol.source.XYZ({ url:'/.netlify/functions/orm/standard/{z}/{x}/{y}.png', maxZoom:19 })
+        ? new ol.source.XYZ({ url:'/api/orm/standard/{z}/{x}/{y}.png', maxZoom:19 })
         : new ol.source.XYZ({ url:'https://tile.openrailwaymap.org/standard/{z}/{x}/{y}.png', maxZoom:19, crossOrigin:'anonymous' });
 
       const base = new ol.layer.Tile({ source: baseSrc(), zIndex: 0 });
       const rails = new ol.layer.Tile({ source: railsSrc(), opacity: 0.95, visible: true, zIndex: 10 });
 
+      // Placeholder coverage layers (can swap to real services later)
       const to3857 = (ext) => ol.proj.transformExtent(ext, 'EPSG:4326', 'EPSG:3857');
       const poly = (ext)=> new ol.Feature(ol.geom.Polygon.fromExtent(to3857(ext)));
       const rgba = (hex,a)=>{const c=hex.replace('#','');const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);return `rgba(${r},${g},${b},${a})`;};
@@ -111,19 +111,18 @@
       map.once('rendercomplete', ()=> say('Canvas rendered ✔︎','ok'));
       base.getSource().on('tileloadstart', ()=> say(useProxyEl.checked?'Base (proxy) loading…':'Base loading…'));
       base.getSource().on('tileloadend',   ()=> say(useProxyEl.checked?'Base (proxy) tiles loaded ✔︎':'Base tiles loaded ✔︎','ok'));
-      base.getSource().on('tileloaderror', ()=> say(useProxyEl.checked?'Base (proxy) FAILED — check functions/osm.js':'Base FAILED — CSP/img-src','bad'));
+      base.getSource().on('tileloaderror', ()=> say(useProxyEl.checked?'Base (proxy) FAILED — check /api/osm function':'Base FAILED — CSP/img-src','bad'));
       rails.getSource().on('tileloadstart',()=> say(useProxyEl.checked?'Rails (proxy) loading…':'Rails loading…'));
       rails.getSource().on('tileloadend',  ()=> say(useProxyEl.checked?'Rails (proxy) tiles loaded ✔︎':'Rails tiles loaded ✔︎','ok'));
-      rails.getSource().on('tileloaderror',()=> say(useProxyEl.checked?'Rails (proxy) FAILED — check functions/orm.js':'Rails FAILED — CSP/img-src','bad'));
+      rails.getSource().on('tileloaderror',()=> say(useProxyEl.checked?'Rails (proxy) FAILED — check /api/orm function':'Rails FAILED — CSP/img-src','bad'));
 
-      // Proxy toggle hot-swap
       document.getElementById('proxyToggle').onchange = ()=>{
         base.setSource(baseSrc());
         rails.setSource(railsSrc());
         say('Switched to ' + (useProxyEl.checked?'PROXY (both)':'DIRECT tiles'));
       };
 
-      // Toggles
+      // Layer toggles
       document.getElementById('railsToggle').onchange   = e => rails.setVisible(e.target.checked);
       document.getElementById('telstraToggle').onchange = e => telstraLayer.setVisible(e.target.checked);
       document.getElementById('mvnoToggle').onchange    = e => mvnoLayer.setVisible(e.target.checked);
