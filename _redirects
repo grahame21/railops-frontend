@@ -1,14 +1,15 @@
-/index.html        /index.html        200
-/login.html        /login.html        200
-/admin.html        /admin.html        200
-/dashboard.html    /dashboard.html    200
-/csp-probe.html    /csp-probe.html    200
-/map-min.html      /map-min.html      200
+/index.html         /index.html         200
+/login.html         /login.html         200
+/admin.html         /admin.html         200
+/dashboard.html     /dashboard.html     200
+/csp-probe.html     /csp-probe.html     200
+/map-min.html       /map-min.html       200
 /csp-probe-orm.html /csp-probe-orm.html 200
-/csp-dump.html     /csp-dump.html     200
+/csp-dump.html      /csp-dump.html      200
 
-# (optional pretty API path)
-/api/orm/*         /.netlify/functions/orm/:splat   200
+# functions proxies
+/api/osm/*          /.netlify/functions/osm/:splat   200
+/api/orm/*          /.netlify/functions/orm/:splat   200
 
-# keep last
-/*                 /login.html         200
+# must be last
+/*                  /login.html          200
