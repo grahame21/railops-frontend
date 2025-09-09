@@ -20,3 +20,6 @@
     child-src  'self' https://identity.netlify.com https://app.netlify.com;
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
+
+/api/*
+  Access-Control-Allow-Origin: *
