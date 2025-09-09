@@ -2,27 +2,10 @@
   Content-Security-Policy: default-src 'self';
     script-src 'self' 'unsafe-inline' https://unpkg.com https://identity.netlify.com;
     style-src  'self' 'unsafe-inline' https://unpkg.com;
-    img-src    'self' data: blob:
-               https://tile.openstreetmap.org
-               https://*.tile.openstreetmap.org
-               https://tile.openrailwaymap.org
-               https://*.tile.openrailwaymap.org
-               https://*.openrailwaymap.org;
-    connect-src 'self' blob:
-               https://tile.openstreetmap.org
-               https://*.tile.openstreetmap.org
-               https://tile.openrailwaymap.org
-               https://*.tile.openrailwaymap.org
-               https://*.openrailwaymap.org
-               https://identity.netlify.com
-               https://api.netlify.com
-               https://*.netlify.com
-               https://*.netlify.app;
+    img-src    'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org;
+    connect-src 'self' blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://overpass-api.de https://*.overpass-api.de https://api.openstreetmap.org https://*.openstreetmap.org https://identity.netlify.com https://api.netlify.com https://*.netlify.com https://*.netlify.app;
     worker-src 'self' blob:;
     frame-src  'self' https://identity.netlify.com https://app.netlify.com;
     child-src  'self' https://identity.netlify.com https://app.netlify.com;
   Referrer-Policy: no-referrer
   X-Content-Type-Options: nosniff
-
-/api/*
-  Access-Control-Allow-Origin: *
