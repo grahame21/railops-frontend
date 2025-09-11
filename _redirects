@@ -1,16 +1,7 @@
-# --- Functions/proxies MUST be first and forced ---
 /api/cdn/*    /.netlify/functions/cdn/:splat    200!
 
-# (keep your ORM proxies if/when you need them)
-# /api/orm/*    https://a.tile.openrailwaymap.org/:splat   200
-# /api/orm-b/*  https://b.tile.openrailwaymap.org/:splat   200
-# /api/orm-c/*  https://c.tile.openrailwaymap.org/:splat   200
-
-# --- Serve real files directly (so they are not hijacked) ---
 /ol-smoke2.html   /ol-smoke2.html   200
 /smoke.js         /smoke.js         200
-/fetch-probe.html /fetch-probe.html 200
-/fetch-probe.js   /fetch-probe.js   200
 /dashboard.html   /dashboard.html   200
 /main.js          /main.js          200
 /assets/*         /assets/:splat    200
