@@ -3,24 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <title>RailOps — Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- OpenLayers served from your own origin via Netlify Function -->
-  <link rel="stylesheet" href="/api/cdn/ol.css" />
-  <script src="/api/cdn/ol.js"></script>
+  <!-- OpenLayers CSS (via your own CDN proxy is NOT required here; we only use OSM + ORM via your own origin) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css" />
 
   <style>
     :root{color-scheme:dark}
-    html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc;
-                 font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
     #map { position:fixed; inset:60px 0 0 0; background:#0b1220; }
-    #top { position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:8px 10px; flex-wrap:wrap;
+    #top { position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
            padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a; }
     .btn, label.chip { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px;
       border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; user-select:none; }
     label.chip i{display:inline-block;width:12px;height:12px;border-radius:2px}
     .telstra{background:#1f6feb}.mvno{background:#7d8590}.optus{background:#ffd33d}.voda{background:#ff7b72}
-    #hud { margin-left:auto; opacity:.85 }
+    #hud { margin-left:auto; opacity:.9 }
     #badge { position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
              border-radius:10px; padding:8px 10px; min-width:280px; white-space:pre-wrap; }
     .ok{color:#7bd88f}.bad{color:#ffb3b3}
@@ -29,13 +27,13 @@
   </style>
 </head>
 <body>
-  <!-- Simple auth guard: require admin or guest -->
+  <!-- Optional guard (remove if you don’t use this) -->
   <script>
     (function(){
       try {
         const r = JSON.parse(localStorage.getItem('railops_session')||'null')?.role;
         if (r!=='admin' && r!=='guest') location.replace('/login.html');
-      } catch { location.replace('/login.html'); }
+      } catch { /* ignore */ }
     })();
   </script>
 
@@ -45,9 +43,9 @@
     <label class="chip"><i class="telstra"></i><input type="checkbox" id="telstraToggle" checked> Telstra</label>
     <label class="chip"><i class="mvno"></i><input type="checkbox" id="mvnoToggle" checked> Telstra MVNO</label>
     <label class="chip"><i class="optus"></i><input type="checkbox" id="optusToggle" checked> Optus</label>
-    <label class="chip"><i class="voda"></i><input type="checkbox" id="vodaToggle" checked> Vodafone/TPG (Optus roaming)</label>
+    <label class="chip"><i class="voda"></i><input type="checkbox" id="vodaToggle" checked> Vodafone/TPG</label>
 
-    <label class="chip"><input type="checkbox" id="railsToggle" checked> Rails (Overpass)</label>
+    <label class="chip"><input type="checkbox" id="railsToggle" checked> Rails (ORM)</label>
     <button class="btn" id="locBtn" title="Center on my location">📍 My location</button>
     <button class="btn" id="recenter">Recenter AU</button>
     <div id="hud">z=<span id="z">–</span> · DPR=<span id="dpr">–</span></div>
@@ -57,167 +55,10 @@
   <div id="badge">Booting…</div>
   <div id="err"></div>
 
-  <script>
-    // Show JS errors on-page
-    window.addEventListener('error', e=>{
-      const box=document.getElementById('err'); box.style.display='block';
-      box.textContent='JavaScript error: '+(e?.error?.stack||e.message||String(e));
-      console.error(e?.error||e);
-    });
+  <!-- OpenLayers JS -->
+  <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
 
-    (function init(){
-      const badge = document.getElementById('badge');
-      const say = (t, cls) => { badge.textContent = t; badge.className=''; if (cls) badge.classList.add(cls); console.log('[badge]', t); };
-
-      document.getElementById('logout').onclick = ()=>{ localStorage.removeItem('railops_session'); location.href='/login.html'; };
-
-      // Verify OpenLayers loaded (from /api/cdn/ol.js)
-      if (!window.ol || !ol.Map) { say('OpenLayers JS not available. Check /api/cdn/ol.js and _redirects.', 'bad'); return; }
-      say('OpenLayers OK ✔︎');
-
-      // Base OSM
-      const base = new ol.layer.Tile({
-        source: new ol.source.XYZ({
-          url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-          maxZoom: 19,
-          crossOrigin: 'anonymous'
-        }),
-        zIndex: 0
-      });
-
-      // Map + view (north-up locked)
-      const view = new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]),
-        zoom: 4.8,
-        constrainRotation: 0
-      });
-      const map  = new ol.Map({ target: 'map', layers: [base], view });
-
-      // HUD
-      const upd=()=>{ document.getElementById('z').textContent=view.getZoom().toFixed(2); document.getElementById('dpr').textContent=window.devicePixelRatio; };
-      view.on('change:resolution', upd); upd();
-      map.once('rendercomplete', ()=> say('Canvas rendered ✔︎','ok'));
-      base.getSource().on('tileloadstart', ()=> say('Base loading…'));
-      base.getSource().on('tileloadend',   ()=> say('Base tiles loaded ✔︎','ok'));
-      base.getSource().on('tileloaderror', ()=> say('Base tile FAILED — check CSP img-src for tile.openstreetmap.org','bad'));
-
-      // --- Rails via Overpass (vector) ---
-      // Blue casing + black core so lines pop on dark base
-      const railCore   = new ol.style.Style({ stroke: new ol.style.Stroke({ color:'#000',    width:2.2 }) });
-      const railCasing = new ol.style.Style({ stroke: new ol.style.Stroke({ color:'#1f6feb', width:4.2 }) });
-
-      const railsSource = new ol.source.Vector();
-      const railsLayer  = new ol.layer.Vector({
-        source: railsSource,
-        style: () => [railCasing, railCore],
-        zIndex: 10,
-        visible: true
-      });
-      map.addLayer(railsLayer);
-
-      // Fetch rails for current extent when zoom >= 8; throttle requests
-      let inFlight = null, lastBBox = null, lastZoom = 0, fetchTimer = 0;
-      const queueFetch = ()=>{ clearTimeout(fetchTimer); fetchTimer = setTimeout(fetchRails, 400); };
-
-      function fetchRails(){
-        const zoom = view.getZoom();
-        if (zoom < 8) { railsSource.clear(); say('Zoom ≥ 8 to load rails'); return; }
-
-        const extent = view.calculateExtent(map.getSize());
-        const e4326 = ol.proj.transformExtent(extent,'EPSG:3857','EPSG:4326').map(v=>+v.toFixed(5));
-        if (lastBBox && e4326.join(',')===lastBBox.join(',') && Math.abs(zoom-lastZoom)<0.1) return;
-
-        lastBBox=e4326; lastZoom=zoom;
-        const [minX,minY,maxX,maxY] = e4326;
-
-        const q = `
-          [out:json][timeout:25];
-          way["railway"~"^(rail|light_rail|subway)$"](${minY},${minX},${maxY},${maxX});
-          (._;>;);
-          out geom;`;
-
-        if (inFlight && typeof inFlight.abort==='function') inFlight.abort();
-        inFlight = new AbortController();
-
-        say('Loading rails (Overpass)…');
-        fetch('https://overpass-api.de/api/interpreter', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8' },
-          body: new URLSearchParams({ data: q }).toString(),
-          signal: inFlight.signal
-        }).then(r=>{
-          if (!r.ok) throw new Error('Overpass HTTP '+r.status);
-          return r.json();
-        }).then(json=>{
-          railsSource.clear();
-          if (json.elements) {
-            for (const e of json.elements) if (e.type==='way' && e.geometry) {
-              const coords = e.geometry.map(g=> ol.proj.fromLonLat([g.lon, g.lat]));
-              railsSource.addFeature(new ol.Feature(new ol.geom.LineString(coords)));
-            }
-          }
-          say(`Rails loaded ✔︎ (features: ${railsSource.getFeatures().length})`, 'ok');
-        }).catch(err=>{
-          if (err.name==='AbortError') return;
-          say('Rails load failed (Overpass): '+(err.message||String(err)), 'bad');
-        }).finally(()=>{ inFlight=null; });
-      }
-
-      view.on('change:center', queueFetch);
-      view.on('change:resolution', queueFetch);
-      queueFetch(); // initial fetch when page opens
-
-      document.getElementById('railsToggle').onchange = e => {
-        railsLayer.setVisible(e.target.checked);
-        if (e.target.checked) queueFetch();
-      };
-
-      // --- Placeholder carrier overlays (swap to real sources later) ---
-      const to3857 = (ext) => ol.proj.transformExtent(ext, 'EPSG:4326', 'EPSG:3857');
-      const poly = (ext)=> new ol.Feature(ol.geom.Polygon.fromExtent(to3857(ext)));
-      const rgba = (hex,a)=>{const c=hex.replace('#','');const r=parseInt(c.slice(0,2),16),g=parseInt(c.slice(2,4),16),b=parseInt(c.slice(4,6),16);return `rgba(${r},${g},${b},${a})`;};
-      const carrier = (boxes, stroke, fillA, z) => new ol.layer.Vector({
-        source: new ol.source.Vector({ features: boxes.map(poly) }),
-        style: new ol.style.Style({ stroke:new ol.style.Stroke({color:stroke,width:1.6}), fill:new ol.style.Fill({color:rgba(stroke,fillA)}) }),
-        zIndex: z
-      });
-
-      const telstraLayer = carrier([[144.5,-38.5,145.5,-37.5],[150.5,-34.2,151.5,-33.5],[138.3,-35.2,138.9,-34.7]], '#3aa0ff', 0.22, 6);
-      const mvnoLayer    = carrier([[144.6,-38.4,145.4,-37.6],[150.6,-34.15,151.45,-33.6]],                                   '#9aa3ad', 0.20, 5);
-      const optusLayer   = carrier([[144.7,-38.45,145.6,-37.55],[150.4,-34.25,151.6,-33.45]],                                   '#ffd33d', 0.22, 7);
-      const vodaLayer    = carrier([[144.8,-38.42,145.55,-37.58],[150.55,-34.2,151.55,-33.55]],                                  '#ff7b72', 0.20, 8);
-      map.addLayer(telstraLayer); map.addLayer(mvnoLayer); map.addLayer(optusLayer); map.addLayer(vodaLayer);
-
-      document.getElementById('telstraToggle').onchange = e => telstraLayer.setVisible(e.target.checked);
-      document.getElementById('mvnoToggle').onchange    = e => mvnoLayer.setVisible(e.target.checked);
-      document.getElementById('optusToggle').onchange   = e => optusLayer.setVisible(e.target.checked);
-      document.getElementById('vodaToggle').onchange    = e => vodaLayer.setVisible(e.target.checked);
-
-      // My location
-      const locLayer = new ol.layer.Vector({ source:new ol.source.Vector(), zIndex:20 }); map.addLayer(locLayer);
-      const pin = new ol.Feature(); pin.setStyle(new ol.style.Style({ image:new ol.style.Circle({ radius:6, fill:new ol.style.Fill({color:'#00e6a8'}), stroke:new ol.style.Stroke({color:'#003b2f', width:2}) }) }));
-      const acc = new ol.Feature(); acc.setStyle(new ol.style.Style({ stroke:new ol.style.Stroke({color:'#00e6a8', width:1}), fill:new ol.style.Fill({color:'rgba(0,230,168,0.12)'}) }));
-      locLayer.getSource().addFeatures([acc,pin]);
-      document.getElementById('locBtn').onclick = ()=>{
-        if (!navigator.geolocation){ say('Geolocation not supported', 'bad'); return; }
-        say('Locating…');
-        navigator.geolocation.watchPosition((pos)=>{
-          const { latitude, longitude, accuracy } = pos.coords;
-          const c = ol.proj.fromLonLat([longitude, latitude]);
-          pin.setGeometry(new ol.geom.Point(c));
-          const circle = ol.geom.Polygon.circular(ol.proj.get('EPSG:3857'), c, Math.max(accuracy,25), 64);
-          acc.setGeometry(circle);
-          view.animate({ center:c, duration:250 });
-          say(`Location: ${latitude.toFixed(5)}, ${longitude.toFixed(5)} (±${Math.round(accuracy)} m)`, 'ok');
-        }, (err)=> say('Location error: '+(err?.message||err), 'bad'), { enableHighAccuracy:true, maximumAge:5000, timeout:15000 });
-      };
-
-      document.getElementById('recenter').onclick = () => view.animate({ center:ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4.8, duration:250 });
-
-      // iOS sometimes needs a nudge to size the map after fonts/controls paint
-      setTimeout(()=> map.updateSize(), 80);
-      setTimeout(()=> map.updateSize(), 600);
-    })();
-  </script>
+  <!-- Your map code -->
+  <script src="/main.js"></script>
 </body>
 </html>
