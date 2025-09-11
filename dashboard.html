@@ -5,44 +5,58 @@
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- OpenLayers CSS from CDN -->
+  <!-- OpenLayers (must load before dashboard.js) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
 
+  <!-- App styles (just enough to size the map and toolbar) -->
   <style>
-    :root{ --bg:#0e1726; --panel:#101b2b; --muted:#8ea0b5; --ok:#26d07c; --warn:#ffb020; }
-    html,body{height:100%;margin:0;background:var(--bg);color:#dfe7f3;font:14px/1.32 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    #topbar{position:fixed;left:0;right:0;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:.5rem;
-            align-items:center;padding:.5rem .75rem;background:linear-gradient(180deg,rgba(7,12,20,.95),rgba(7,12,20,.75));}
-    .btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #243247;background:#0f1a2a;color:#cfe0f5;
-         border-radius:10px;padding:.45rem .65rem;cursor:pointer}
-    .btn input{margin-right:.35rem}
-    #map{position:fixed;top:48px;left:0;right:0;bottom:0}
-    .badge{position:fixed;right:.5rem;bottom:.5rem;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
-           color:#dfe7f3;border:1px solid #33465f;border-radius:8px;padding:.35rem .6rem;z-index:10}
-    .ok{color:var(--ok)} .warn{color:var(--warn)}
-    .ol-zoom{top:64px;left:8px}
+    :root { color-scheme: dark; }
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; background:#0f1a24; color:#e6eef7; }
+    .topbar {
+      position: sticky; top: 0; z-index: 10;
+      display:flex; flex-wrap:wrap; gap:.5rem; align-items:center;
+      padding:.6rem .75rem; background:#0c1620; border-bottom:1px solid #123;
+    }
+    .btn, .chk {
+      display:inline-flex; align-items:center; gap:.4rem;
+      padding:.35rem .6rem; border-radius:.6rem; border:1px solid #234; background:#152233;
+      color:#cfe2fb; font-size:.92rem; line-height:1; cursor:pointer; user-select:none;
+    }
+    .btn:hover, .chk:hover { background:#1a2a3f; }
+    .chk input { accent-color:#4da3ff; transform:translateY(1px); }
+    #map { height: calc(100dvh - 64px); width: 100%; }
+    .badge { position: fixed; right:.75rem; bottom:.75rem; background:#132; border:1px solid #254; padding:.35rem .55rem; border-radius:.6rem; font-size:.85rem; opacity:.9; }
+    .badge.ok { background:#12351a; border-color:#1f6b37; }
+    .badge.warn { background:#3a1a1a; border-color:#7a3b3b; }
+    .pill { font-size:.85rem; opacity:.75; }
   </style>
 </head>
 <body>
-  <div id="topbar">
+
+  <!-- toolbar -->
+  <div class="topbar">
     <button id="logout" class="btn">Logout</button>
-    <label class="btn"><input type="checkbox" id="tog-rails" checked> Rails (OpenRailwayMap)</label>
-    <label class="btn"><input type="checkbox" id="tog-telstra" checked> Telstra</label>
-    <label class="btn"><input type="checkbox" id="tog-telstra-mvno" checked> Telstra MVNO</label>
-    <label class="btn"><input type="checkbox" id="tog-optus" checked> Optus</label>
-    <label class="btn"><input type="checkbox" id="tog-voda" checked> Vodafone/TPG (Optus roaming)</label>
+
+    <label class="chk"><input id="tog-rails" type="checkbox" checked /> Rails (OpenRailwayMap)</label>
+    <label class="chk"><input id="tog-telstra" type="checkbox" checked /> Telstra</label>
+    <label class="chk"><input id="tog-telstra-mvno" type="checkbox" checked /> Telstra MVNO</label>
+    <label class="chk"><input id="tog-optus" type="checkbox" checked /> Optus</label>
+    <label class="chk"><input id="tog-voda" type="checkbox" checked /> Vodafone/TPG (Optus roaming)</label>
+
     <button id="btn-locate" class="btn">📍 My location</button>
     <button id="btn-au" class="btn">Recenter AU</button>
-    <span id="zoomInfo" class="btn" style="pointer-events:none">z=… · DPR=…</span>
+
+    <span class="pill" id="zoomInfo" style="margin-left:auto;">z=… · DPR=…</span>
   </div>
 
-  <div id="map" role="region" aria-label="RailOps map"></div>
+  <!-- map -->
+  <div id="map" role="region" aria-label="Map"></div>
+
+  <!-- status toast -->
   <div id="status" class="badge">Booting…</div>
 
-  <!-- OpenLayers JS from CDN (external, not inline) -->
-  <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
-
-  <!-- Your app JS (external, from same origin) -->
-  <script src="/assets/js/dashboard.js?v=1"></script>
+  <!-- Your dashboard logic -->
+  <script defer src="/assets/js/dashboard.js?v=1"></script>
 </body>
 </html>
