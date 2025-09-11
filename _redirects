@@ -1,13 +1,5 @@
-# Force the CDN proxy function first
-/api/cdn/*    /.netlify/functions/cdn/:splat   200!
-
-# Make sure your smoke test files are served
 /ol-smoke2.html   /ol-smoke2.html   200
 /smoke.js         /smoke.js         200
-
-# (Optional) dashboard and main.js direct
 /dashboard.html   /dashboard.html   200
 /main.js          /main.js          200
-
-# Catch-all LAST (comment out for now if needed)
-# /*    /login.html   200
+/assets/*         /assets/:splat    200
