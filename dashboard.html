@@ -1,53 +1,227 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="utf-8" />
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- OpenLayers CSS from CDN -->
+  <!-- OpenLayers CSS (CDN) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css" />
 
   <style>
-    :root { color-scheme: dark; }
-    html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
-    #map { position:fixed; inset:60px 0 0 0; background:#0b1220; }
-    #top { position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
-           padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a; }
-    .btn, label.chip { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px;
-      border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; user-select:none; }
-    label.chip i{display:inline-block;width:12px;height:12px;border-radius:2px}
-    .telstra{background:#1f6feb}.mvno{background:#7d8590}.optus{background:#ffd33d}.voda{background:#ff7b72}
-    #hud { margin-left:auto; opacity:.9 }
-    #badge { position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
-             border-radius:10px; padding:8px 10px; min-width:280px; white-space:pre-wrap; }
-    .ok{color:#7bd88f}.bad{color:#ffb3b3}
-    #err { position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
-      background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px; padding:10px 12px; white-space:pre-wrap; }
+    :root{
+      --bg:#0e1726; --panel:#101b2b; --muted:#8ea0b5; --accent:#4da3ff; --ok:#26d07c; --warn:#ffb020;
+    }
+    html,body{height:100%;margin:0;background:var(--bg);color:#dfe7f3;font:14px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    #topbar{position:fixed;left:0;right:0;top:0;display:flex;gap:.5rem;align-items:center;
+      padding:.5rem .75rem;background:linear-gradient(180deg,rgba(7,12,20,.95),rgba(7,12,20,.75));z-index:10}
+    #topbar .btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #243247;
+      background:var(--panel);color:#cfe0f5;border-radius:10px;padding:.45rem .65rem;cursor:pointer}
+    #topbar .btn input{margin-right:.35rem}
+    #map{position:absolute;inset:48px 0 0 0}
+    .pill{font-size:12px;color:#a9b8cc}
+    #status{position:fixed;right:.5rem;bottom:.5rem;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
+      color:#dfe7f3;border:1px solid #33465f;border-radius:8px;padding:.35rem .6rem;z-index:10}
+    .ol-zoom{top:64px;left:8px}
+    .hidden{display:none !important}
+    .badge{display:inline-block;padding:.15rem .4rem;border-radius:6px;background:#1c2a3e;border:1px solid #2b3c56;color:#c9d6e5}
+    .ok{color:var(--ok)} .warn{color:var(--warn)}
   </style>
 </head>
 <body>
-  <div id="top">
-    <button class="btn" id="logout">Logout</button>
 
-    <label class="chip"><i class="telstra"></i><input type="checkbox" id="telstraToggle" checked> Telstra</label>
-    <label class="chip"><i class="mvno"></i><input type="checkbox" id="mvnoToggle" checked> Telstra MVNO</label>
-    <label class="chip"><i class="optus"></i><input type="checkbox" id="optusToggle" checked> Optus</label>
-    <label class="chip"><i class="voda"></i><input type="checkbox" id="vodaToggle" checked> Vodafone/TPG</label>
+  <!-- Controls -->
+  <div id="topbar">
+    <button id="logout" class="btn" title="Logout">Logout</button>
 
-    <label class="chip"><input type="checkbox" id="railsToggle" checked> Rails (ORM)</label>
-    <button class="btn" id="locBtn" title="Center on my location">📍 My location</button>
-    <button class="btn" id="recenter">Recenter AU</button>
-    <div id="hud">z=<span id="z">–</span> · DPR=<span id="dpr">–</span></div>
+    <label class="btn"><input type="checkbox" id="tog-rails" checked> Rails (OpenRailwayMap)</label>
+
+    <label class="btn"><input type="checkbox" id="tog-telstra" checked> Telstra</label>
+    <label class="btn"><input type="checkbox" id="tog-telstra-mvno" checked> Telstra MVNO</label>
+    <label class="btn"><input type="checkbox" id="tog-optus" checked> Optus</label>
+    <label class="btn"><input type="checkbox" id="tog-voda" checked> Vodafone/TPG (Optus roaming)</label>
+
+    <button id="btn-locate" class="btn" title="Drop a pin at your current location">📍 My location</button>
+    <button id="btn-au" class="btn" title="Recenter to Australia">Recenter AU</button>
+
+    <span class="pill badge" id="infoZoom">z=… · DPR=…</span>
   </div>
 
-  <div id="map"></div>
-  <div id="badge">Booting…</div>
-  <div id="err"></div>
+  <!-- Map -->
+  <div id="map" role="region" aria-label="RailOps map"></div>
 
-  <!-- OpenLayers JS from CDN (must be before main.js) -->
+  <!-- Status -->
+  <div id="status">Booting…</div>
+
+  <!-- OpenLayers JS (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
-  <!-- Your app code (cache-busted so the new HTML is used) -->
-  <script src="/main.js?v=cdn10"></script>
+
+  <script>
+  (function () {
+    const byId = (id) => document.getElementById(id);
+    const statusEl = byId('status');
+    const say = (msg, tone='') => {
+      statusEl.textContent = msg;
+      statusEl.className = tone ? tone : '';
+      console.log('[dashboard]', msg);
+    };
+
+    // Guard: OL must be available
+    if (!window.ol || !ol.Map) {
+      say('❌ OpenLayers failed to load — check CSP allows cdn.jsdelivr.net', 'warn');
+      return;
+    }
+
+    // Base: OSM tiles
+    const osmLayer = new ol.layer.Tile({
+      source: new ol.source.OSM({ crossOrigin: 'anonymous' })
+    });
+
+    // Rails: OpenRailwayMap tiles (toggleable)
+    const railsLayer = new ol.layer.Tile({
+      visible: true,
+      opacity: 0.9,
+      source: new ol.source.XYZ({
+        url: 'https://{a-c}.tile.openrailwaymap.org/standard/{z}/{x}/{y}.png',
+        crossOrigin: 'anonymous',
+        attributions: '© OpenRailwayMap contributors'
+      })
+    });
+
+    // Carrier overlay factories (GeoJSON, optional)
+    function makeCarrierLayer(url, fillRGBA) {
+      const src = new ol.source.Vector({
+        url, format: new ol.format.GeoJSON()
+      });
+      return new ol.layer.Vector({
+        visible: true,
+        source: src,
+        opacity: 0.35,
+        style: new ol.style.Style({
+          fill: new ol.style.Fill({ color: fillRGBA }),
+          stroke: new ol.style.Stroke({ color: fillRGBA, width: 1 })
+        })
+      });
+    }
+
+    // NOTE: Place these files later (optional). If missing, the layers just stay empty.
+    const telstraLayer       = makeCarrierLayer('/assets/coverage/telstra.geojson',       'rgba( 77,163,255,0.35)');
+    const telstraMVNOLayer   = makeCarrierLayer('/assets/coverage/telstra-mvno.geojson',  'rgba( 77,255,219,0.35)');
+    const optusLayer         = makeCarrierLayer('/assets/coverage/optus.geojson',         'rgba(255,206, 77,0.35)');
+    const vodafoneLayer      = makeCarrierLayer('/assets/coverage/vodafone-tpg.geojson',  'rgba(255,102,102,0.35)');
+
+    // North-up: disable rotation interactions
+    const interactions = ol.interaction.defaults({
+      altShiftDragRotate: false,
+      pinchRotate: false
+    });
+
+    // Map + view
+    const view = new ol.View({
+      center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
+      zoom: 4.8,
+      constrainResolution: false
+    });
+
+    const map = new ol.Map({
+      target: 'map',
+      layers: [
+        osmLayer,
+        telstraLayer,
+        telstraMVNOLayer,
+        optusLayer,
+        vodafoneLayer,
+        railsLayer
+      ],
+      view,
+      interactions
+    });
+
+    // Zoom/DPR indicator
+    const infoZoom = byId('infoZoom');
+    function refreshInfo() {
+      const z = view.getZoom();
+      const dpr = Math.round(window.devicePixelRatio || 1);
+      infoZoom.textContent = `z=${z?.toFixed?.(2) ?? '–'} · DPR=${dpr}`;
+    }
+    view.on('change:resolution', refreshInfo);
+    refreshInfo();
+
+    // UI: toggles
+    byId('tog-rails').addEventListener('change', (e) => railsLayer.setVisible(e.target.checked));
+    byId('tog-telstra').addEventListener('change', (e) => telstraLayer.setVisible(e.target.checked));
+    byId('tog-telstra-mvno').addEventListener('change', (e) => telstraMVNOLayer.setVisible(e.target.checked));
+    byId('tog-optus').addEventListener('change', (e) => optusLayer.setVisible(e.target.checked));
+    byId('tog-voda').addEventListener('change', (e) => vodafoneLayer.setVisible(e.target.checked));
+
+    // Recenter AU
+    byId('btn-au').addEventListener('click', () => {
+      view.animate({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 4.8, duration: 450 });
+    });
+
+    // My location pin
+    const locateLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
+    map.addLayer(locateLayer);
+
+    function dropLocationPin(lon, lat) {
+      locateLayer.getSource().clear();
+      const feat = new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lon, lat])));
+      feat.setStyle(new ol.style.Style({
+        image: new ol.style.Icon({
+          anchor: [0.5, 1],
+          src: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
+            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 48 48">
+              <path fill="#ff4d4d" d="M24 45s-14-14.2-14-24A14 14 0 1 1 38 21c0 9.8-14 24-14 24z"/>
+              <circle cx="24" cy="21" r="5.5" fill="#fff"/>
+            </svg>
+          `)
+        })
+      }));
+      locateLayer.getSource().addFeature(feat);
+      view.animate({ center: ol.proj.fromLonLat([lon, lat]), zoom: Math.max(10, view.getZoom() || 4), duration: 450 });
+    }
+
+    byId('btn-locate').addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        say('Geolocation not supported in this browser', 'warn'); return;
+      }
+      say('Locating…');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { longitude, latitude } = pos.coords || {};
+          if (longitude == null || latitude == null) { say('Could not read coordinates', 'warn'); return; }
+          dropLocationPin(longitude, latitude);
+          say('Location updated', 'ok');
+        },
+        (err) => {
+          say('Location denied/unavailable: ' + (err?.message || err), 'warn');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+
+    // Simple logout (clears our cookie if you use it; otherwise just navigate)
+    byId('logout').addEventListener('click', () => {
+      try {
+        document.cookie = 'railops_session=; Max-Age=0; path=/; SameSite=Lax';
+      } catch {}
+      window.location.href = '/login.html';
+    });
+
+    // Rails zoom hint
+    function railsHint() {
+      const z = view.getZoom() || 0;
+      if (z < 8 && railsLayer.getVisible()) {
+        say('Zoom ≥ 8 to see detailed railway lines', 'warn');
+      } else {
+        say('Ready');
+      }
+    }
+    view.on('change:resolution', railsHint);
+    railsHint();
+
+    say('Ready');
+  })();
+  </script>
 </body>
 </html>
