@@ -1,14 +1,7 @@
-# API and proxies (if you’re using them)
-/api/cdn/*   /.netlify/functions/cdn/:splat   200
-/api/orm/*   https://a.tile.openrailwaymap.org/:splat   200
-/api/orm-b/* https://b.tile.openrailwaymap.org/:splat   200
-/api/orm-c/* https://c.tile.openrailwaymap.org/:splat   200
-
-# Pages (optional convenience)
 /index.html      /index.html      200
 /login.html      /login.html      200
 /admin.html      /admin.html      200
 /dashboard.html  /dashboard.html  200
 
-# Catch-all LAST (no exclamation mark!)
+# catch-all LAST
 /*   /login.html   200
