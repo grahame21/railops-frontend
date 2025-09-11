@@ -1,13 +1,23 @@
 (function () {
   const $ = id => document.getElementById(id);
   const status = $('status');
-  const say = (m,tone) => { status.textContent = m; status.className = 'badge' + (tone?(' '+tone):''); console.log('[dashboard]', m); };
+  const say = (m,tone) => { 
+    status.textContent = m; 
+    status.className = 'badge' + (tone ? (' ' + tone) : ''); 
+    console.log('[dashboard]', m); 
+  };
 
   // Guard & map DIV size sanity
-  if (!window.ol || !ol.Map) { say('❌ OpenLayers failed to load (CSP/CDN).', 'warn'); return; }
+  if (!window.ol || !ol.Map) { 
+    say('❌ OpenLayers failed to load (CSP/CDN).', 'warn'); 
+    return; 
+  }
   const mapDiv = $('map');
   const rect = mapDiv.getBoundingClientRect();
-  if (rect.height < 50) { say('❌ Map container has no height — CSS issue', 'warn'); return; }
+  if (rect.height < 50) { 
+    say('❌ Map container has no height — CSS issue', 'warn'); 
+    return; 
+  }
 
   // Base OSM
   const osm = new ol.layer.Tile({
@@ -31,7 +41,7 @@
     say('⚠️ ORM tile failed — add *.tile.openrailwaymap.org to CSP img-src', 'warn');
   });
 
-  // Carrier overlays (optional local GeoJSONs)
+  // Carrier overlays
   function carrierLayer(url, rgba) {
     return new ol.layer.Vector({
       visible: true,
@@ -59,7 +69,7 @@
     layers: [osm, telstra, telstraMVNO, optus, voda, rails]
   });
 
-  // Toggles (correct names)
+  // Toggles
   $('tog-rails').onchange        = e => rails.setVisible(e.target.checked);
   $('tog-telstra').onchange      = e => telstra.setVisible(e.target.checked);
   $('tog-telstra-mvno').onchange = e => telstraMVNO.setVisible(e.target.checked);
