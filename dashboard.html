@@ -9,218 +9,151 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css" />
 
   <style>
-    :root{
-      --bg:#0e1726; --panel:#101b2b; --muted:#8ea0b5; --accent:#4da3ff; --ok:#26d07c; --warn:#ffb020;
-    }
-    html,body{height:100%;margin:0;background:var(--bg);color:#dfe7f3;font:14px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    #topbar{position:fixed;left:0;right:0;top:0;display:flex;gap:.5rem;align-items:center;
-      padding:.5rem .75rem;background:linear-gradient(180deg,rgba(7,12,20,.95),rgba(7,12,20,.75));z-index:10}
-    #topbar .btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #243247;
-      background:var(--panel);color:#cfe0f5;border-radius:10px;padding:.45rem .65rem;cursor:pointer}
-    #topbar .btn input{margin-right:.35rem}
-    #map{position:absolute;inset:48px 0 0 0}
-    .pill{font-size:12px;color:#a9b8cc}
-    #status{position:fixed;right:.5rem;bottom:.5rem;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
-      color:#dfe7f3;border:1px solid #33465f;border-radius:8px;padding:.35rem .6rem;z-index:10}
-    .ol-zoom{top:64px;left:8px}
-    .hidden{display:none !important}
-    .badge{display:inline-block;padding:.15rem .4rem;border-radius:6px;background:#1c2a3e;border:1px solid #2b3c56;color:#c9d6e5}
+    :root{ --bg:#0e1726; --panel:#101b2b; --muted:#8ea0b5; --ok:#26d07c; --warn:#ffb020; }
+    html,body{height:100%;margin:0;background:var(--bg);color:#dfe7f3;font:14px/1.32 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    /* Top bar + guaranteed map height */
+    #topbar{position:fixed;left:0;right:0;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:.5rem;
+            align-items:center;padding:.5rem .75rem;background:linear-gradient(180deg,rgba(7,12,20,.95),rgba(7,12,20,.75));}
+    .btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #243247;background:#0f1a2a;color:#cfe0f5;
+         border-radius:10px;padding:.45rem .65rem;cursor:pointer}
+    .btn input{margin-right:.35rem}
+    #map{position:fixed;top:48px;left:0;right:0;bottom:0} /* ensures non-zero height */
+    .badge{position:fixed;right:.5rem;bottom:.5rem;background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
+           color:#dfe7f3;border:1px solid #33465f;border-radius:8px;padding:.35rem .6rem;z-index:10}
     .ok{color:var(--ok)} .warn{color:var(--warn)}
+    .ol-zoom{top:64px;left:8px}
   </style>
 </head>
 <body>
-
-  <!-- Controls -->
   <div id="topbar">
-    <button id="logout" class="btn" title="Logout">Logout</button>
-
+    <button id="logout" class="btn">Logout</button>
     <label class="btn"><input type="checkbox" id="tog-rails" checked> Rails (OpenRailwayMap)</label>
-
     <label class="btn"><input type="checkbox" id="tog-telstra" checked> Telstra</label>
     <label class="btn"><input type="checkbox" id="tog-telstra-mvno" checked> Telstra MVNO</label>
     <label class="btn"><input type="checkbox" id="tog-optus" checked> Optus</label>
     <label class="btn"><input type="checkbox" id="tog-voda" checked> Vodafone/TPG (Optus roaming)</label>
-
-    <button id="btn-locate" class="btn" title="Drop a pin at your current location">📍 My location</button>
-    <button id="btn-au" class="btn" title="Recenter to Australia">Recenter AU</button>
-
-    <span class="pill badge" id="infoZoom">z=… · DPR=…</span>
+    <button id="btn-locate" class="btn">📍 My location</button>
+    <button id="btn-au" class="btn">Recenter AU</button>
+    <span id="zoomInfo" class="btn" style="pointer-events:none">z=… · DPR=…</span>
   </div>
 
-  <!-- Map -->
   <div id="map" role="region" aria-label="RailOps map"></div>
-
-  <!-- Status -->
-  <div id="status">Booting…</div>
+  <div id="status" class="badge">Booting…</div>
 
   <!-- OpenLayers JS (CDN) -->
   <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
 
   <script>
   (function () {
-    const byId = (id) => document.getElementById(id);
-    const statusEl = byId('status');
-    const say = (msg, tone='') => {
-      statusEl.textContent = msg;
-      statusEl.className = tone ? tone : '';
-      console.log('[dashboard]', msg);
-    };
+    const $ = id => document.getElementById(id);
+    const status = $('status');
+    const say = (m,tone) => { status.textContent = m; status.className = 'badge' + (tone?(' '+tone):''); console.log('[dashboard]', m); };
 
-    // Guard: OL must be available
-    if (!window.ol || !ol.Map) {
-      say('❌ OpenLayers failed to load — check CSP allows cdn.jsdelivr.net', 'warn');
-      return;
-    }
+    // 0) Guard & map DIV size sanity
+    if (!window.ol || !ol.Map) { say('❌ OpenLayers failed to load (CSP/CDN).', 'warn'); return; }
+    const mapDiv = $('map');
+    const rect = mapDiv.getBoundingClientRect();
+    if (rect.height < 50) { say('❌ Map container has no height — CSS issue', 'warn'); return; }
 
-    // Base: OSM tiles
-    const osmLayer = new ol.layer.Tile({
+    // 1) Base OSM
+    const osm = new ol.layer.Tile({
       source: new ol.source.OSM({ crossOrigin: 'anonymous' })
     });
+    // Tile error probe (CSP or network)
+    osm.getSource().on('tileloaderror', (e) => {
+      say('⚠️ OSM tile failed — check CSP img-src for *.tile.openstreetmap.org', 'warn');
+      console.warn('OSM tile error', e.tile && e.tile.getKey && e.tile.getKey());
+    });
 
-    // Rails: OpenRailwayMap tiles (toggleable)
-    const railsLayer = new ol.layer.Tile({
+    // 2) Rails overlay (ORM)
+    const rails = new ol.layer.Tile({
       visible: true,
       opacity: 0.9,
       source: new ol.source.XYZ({
         url: 'https://{a-c}.tile.openrailwaymap.org/standard/{z}/{x}/{y}.png',
         crossOrigin: 'anonymous',
-        attributions: '© OpenRailwayMap contributors'
+        attributions: '© OpenRailwayMap'
       })
     });
+    rails.getSource().on('tileloaderror', () => {
+      say('⚠️ ORM tile failed — add *.tile.openrailwaymap.org to CSP img-src', 'warn');
+    });
 
-    // Carrier overlay factories (GeoJSON, optional)
-    function makeCarrierLayer(url, fillRGBA) {
-      const src = new ol.source.Vector({
-        url, format: new ol.format.GeoJSON()
-      });
+    // 3) Carrier overlays (optional; safe if files missing)
+    function carrierLayer(url, rgba) {
       return new ol.layer.Vector({
         visible: true,
-        source: src,
-        opacity: 0.35,
+        opacity: .35,
+        source: new ol.source.Vector({ url, format: new ol.format.GeoJSON() }),
         style: new ol.style.Style({
-          fill: new ol.style.Fill({ color: fillRGBA }),
-          stroke: new ol.style.Stroke({ color: fillRGBA, width: 1 })
+          fill: new ol.style.Fill({ color: rgba }),
+          stroke: new ol.style.Stroke({ color: rgba, width: 1 })
         })
       });
     }
+    const telstra      = carrierLayer('/assets/coverage/telstra.geojson',      'rgba( 77,163,255,0.35)');
+    const telstraMVNO  = carrierLayer('/assets/coverage/telstra-mvno.geojson', 'rgba( 77,255,219,0.35)');
+    const optus        = carrierLayer('/assets/coverage/optus.geojson',        'rgba(255,206, 77,0.35)');
+    const voda         = carrierLayer('/assets/coverage/vodafone-tpg.geojson', 'rgba(255,102,102,0.35)');
 
-    // NOTE: Place these files later (optional). If missing, the layers just stay empty.
-    const telstraLayer       = makeCarrierLayer('/assets/coverage/telstra.geojson',       'rgba( 77,163,255,0.35)');
-    const telstraMVNOLayer   = makeCarrierLayer('/assets/coverage/telstra-mvno.geojson',  'rgba( 77,255,219,0.35)');
-    const optusLayer         = makeCarrierLayer('/assets/coverage/optus.geojson',         'rgba(255,206, 77,0.35)');
-    const vodafoneLayer      = makeCarrierLayer('/assets/coverage/vodafone-tpg.geojson',  'rgba(255,102,102,0.35)');
+    telstra.getSource().on('error', () => console.info('telstra.geojson missing (ok)'));
+    telstraMVNO.getSource().on('error', () => console.info('telstra-mvno.geojson missing (ok)'));
+    optus.getSource().on('error', () => console.info('optus.geojson missing (ok)'));
+    voda.getSource().on('error', () => console.info('vodafone-tpg.geojson missing (ok)'));
 
-    // North-up: disable rotation interactions
-    const interactions = ol.interaction.defaults({
-      altShiftDragRotate: false,
-      pinchRotate: false
-    });
+    // 4) North-up (disable rotation)
+    const interactions = ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false });
 
-    // Map + view
-    const view = new ol.View({
-      center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
-      zoom: 4.8,
-      constrainResolution: false
-    });
-
+    // 5) Map
+    const view = new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8 });
     const map = new ol.Map({
       target: 'map',
-      layers: [
-        osmLayer,
-        telstraLayer,
-        telstraMVNOLayer,
-        optusLayer,
-        vodafoneLayer,
-        railsLayer
-      ],
-      view,
-      interactions
+      view, interactions,
+      layers: [osm, telstra, telstraMVNO, optus, voda, rails]
     });
 
-    // Zoom/DPR indicator
-    const infoZoom = byId('infoZoom');
-    function refreshInfo() {
-      const z = view.getZoom();
-      const dpr = Math.round(window.devicePixelRatio || 1);
-      infoZoom.textContent = `z=${z?.toFixed?.(2) ?? '–'} · DPR=${dpr}`;
-    }
-    view.on('change:resolution', refreshInfo);
-    refreshInfo();
+    // 6) Toggles
+    $('tog-rails').onchange        = e => rails.setVisible(e.target.checked);
+    $('tog-telstra').onchange      = e => telstra.setVisible(e.target.checked);
+    $('tog-telstra-mvno').onchange = e => telstraMVNOLayer.setVisible(e.target.checked);
+    $('tog-optus').onchange        = e => optus.setVisible(e.target.checked);
+    $('tog-voda').onchange         = e => voda.setVisible(e.target.checked);
 
-    // UI: toggles
-    byId('tog-rails').addEventListener('change', (e) => railsLayer.setVisible(e.target.checked));
-    byId('tog-telstra').addEventListener('change', (e) => telstraLayer.setVisible(e.target.checked));
-    byId('tog-telstra-mvno').addEventListener('change', (e) => telstraMVNOLayer.setVisible(e.target.checked));
-    byId('tog-optus').addEventListener('change', (e) => optusLayer.setVisible(e.target.checked));
-    byId('tog-voda').addEventListener('change', (e) => vodafoneLayer.setVisible(e.target.checked));
+    // 7) Recenter AU
+    $('btn-au').onclick = () => view.animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, duration: 450 });
 
-    // Recenter AU
-    byId('btn-au').addEventListener('click', () => {
-      view.animate({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 4.8, duration: 450 });
-    });
-
-    // My location pin
-    const locateLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
-    map.addLayer(locateLayer);
-
-    function dropLocationPin(lon, lat) {
-      locateLayer.getSource().clear();
-      const feat = new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lon, lat])));
-      feat.setStyle(new ol.style.Style({
-        image: new ol.style.Icon({
-          anchor: [0.5, 1],
-          src: 'data:image/svg+xml;utf8,' + encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 48 48">
-              <path fill="#ff4d4d" d="M24 45s-14-14.2-14-24A14 14 0 1 1 38 21c0 9.8-14 24-14 24z"/>
-              <circle cx="24" cy="21" r="5.5" fill="#fff"/>
-            </svg>
-          `)
-        })
+    // 8) My location
+    const locLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
+    map.addLayer(locLayer);
+    function dropPin(lon,lat){
+      locLayer.getSource().clear();
+      const f = new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lon,lat])));
+      f.setStyle(new ol.style.Style({
+        image: new ol.style.Icon({ anchor:[0.5,1], src:'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 48 48"><path fill="#ff4d4d" d="M24 45s-14-14.2-14-24A14 14 0 1 1 38 21c0 9.8-14 24-14 24z"/><circle cx="24" cy="21" r="5.5" fill="#fff"/></svg>') })
       }));
-      locateLayer.getSource().addFeature(feat);
-      view.animate({ center: ol.proj.fromLonLat([lon, lat]), zoom: Math.max(10, view.getZoom() || 4), duration: 450 });
+      locLayer.getSource().addFeature(f);
+      view.animate({ center: ol.proj.fromLonLat([lon,lat]), zoom: Math.max(view.getZoom()||4, 10), duration: 450 });
     }
-
-    byId('btn-locate').addEventListener('click', () => {
-      if (!navigator.geolocation) {
-        say('Geolocation not supported in this browser', 'warn'); return;
-      }
+    $('btn-locate').onclick = () => {
+      if (!navigator.geolocation) return say('Geolocation not supported', 'warn');
       say('Locating…');
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const { longitude, latitude } = pos.coords || {};
-          if (longitude == null || latitude == null) { say('Could not read coordinates', 'warn'); return; }
-          dropLocationPin(longitude, latitude);
-          say('Location updated', 'ok');
-        },
-        (err) => {
-          say('Location denied/unavailable: ' + (err?.message || err), 'warn');
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        p => { dropPin(p.coords.longitude, p.coords.latitude); say('Location updated', 'ok'); },
+        e => say('Location denied/unavailable: '+(e?.message||e), 'warn'),
+        { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
       );
-    });
+    };
 
-    // Simple logout (clears our cookie if you use it; otherwise just navigate)
-    byId('logout').addEventListener('click', () => {
-      try {
-        document.cookie = 'railops_session=; Max-Age=0; path=/; SameSite=Lax';
-      } catch {}
-      window.location.href = '/login.html';
-    });
+    // 9) Zoom/DPR indicator
+    const zi = $('zoomInfo');
+    const refresh = () => { const z=view.getZoom(); zi.textContent = `z=${(z??'–').toFixed?.(2) ?? z ?? '–'} · DPR=${Math.round(devicePixelRatio||1)}`; };
+    view.on('change:resolution', refresh); refresh();
 
-    // Rails zoom hint
-    function railsHint() {
-      const z = view.getZoom() || 0;
-      if (z < 8 && railsLayer.getVisible()) {
-        say('Zoom ≥ 8 to see detailed railway lines', 'warn');
-      } else {
-        say('Ready');
-      }
-    }
-    view.on('change:resolution', railsHint);
-    railsHint();
+    // 10) Logout (clear cookie if present)
+    $('logout').onclick = () => { try{ document.cookie='railops_session=; Max-Age=0; path=/; SameSite=Lax'; }catch{} window.location.href='/login.html'; };
 
-    say('Ready');
+    // 11) First paint
+    map.once('rendercomplete', () => say('✅ Canvas rendered'));
   })();
   </script>
 </body>
