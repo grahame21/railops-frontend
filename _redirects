@@ -1,24 +1,14 @@
-# --- API & proxies (put first) ---
-/api/who         /.netlify/functions/who                 200
+# --- Make sure these real files are served as-is ---
+/ol-smoke2.html   /ol-smoke2.html   200
+/smoke.js         /smoke.js         200
+/dashboard.html   /dashboard.html   200
+/main.js          /main.js          200
+/assets/*         /assets/:splat    200
 
-# If you still use the ORM proxy from earlier:
-# (Safe to keep even if your current code calls ORM directly)
-# These let you request /api/orm/standard/{z}/{x}/{y}.png on your own domain.
-/api/orm/*       https://a.tile.openrailwaymap.org/:splat   200
-/api/orm-b/*     https://b.tile.openrailwaymap.org/:splat   200
-/api/orm-c/*     https://c.tile.openrailwaymap.org/:splat   200
+# (keep ORM proxy if you use it)
+# /api/orm/*       https://a.tile.openrailwaymap.org/:splat   200
+# /api/orm-b/*     https://b.tile.openrailwaymap.org/:splat   200
+# /api/orm-c/*     https://c.tile.openrailwaymap.org/:splat   200
 
-# --- Convenience routes for your pages (optional but nice) ---
-/                 /index.html          200
-/index.html       /index.html          200
-/login.html       /login.html          200
-/admin.html       /admin.html          200
-/dashboard.html   /dashboard.html      200
-/ol-smoke.html    /ol-smoke.html       200
-/img-probe.html   /img-probe.html      200
-
-# Ensure static assets always win over the SPA catch-all
-/assets/*         /assets/:splat       200
-
-# --- SPA catch-all (MUST be last, and NO exclamation mark) ---
-/*                /login.html          200
+# --- SPA fallback LAST (no bang) ---
+/*                /login.html       200
