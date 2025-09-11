@@ -4,7 +4,10 @@
   <meta charset="UTF-8" />
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <link rel="stylesheet" href="/assets/ol/ol.css" />
+
+  <!-- OpenLayers CSS from CDN -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css" />
+
   <style>
     :root { color-scheme: dark; }
     html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
@@ -42,9 +45,9 @@
   <div id="badge">Booting…</div>
   <div id="err"></div>
 
-  <!-- Load OpenLayers (local file) -->
-  <script src="/assets/ol/ol.js"></script>
-  <!-- External loader (no inline JS → CSP-friendly) -->
-  <script src="/boot.js"></script>
+  <!-- OpenLayers JS from CDN (must be before main.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
+  <!-- Your app logic -->
+  <script src="/main.js?v=cdn"></script>
 </body>
 </html>
