@@ -1,11 +1,17 @@
-/api/cdn/*   /.netlify/functions/cdn/:splat   200!
-/api/orm/*   https://a.tile.openrailwaymap.org/:splat   200
-/api/orm-b/* https://b.tile.openrailwaymap.org/:splat   200
-/api/orm-c/* https://c.tile.openrailwaymap.org/:splat   200
+# --- FUNCTIONS & PROXIES (these MUST be first and forced) ---
+/api/cdn/*    /.netlify/functions/cdn/:splat    200!
+/api/who      /.netlify/functions/who           200!
+/api/orm/*    https://a.tile.openrailwaymap.org/:splat   200
+/api/orm-b/*  https://b.tile.openrailwaymap.org/:splat   200
+/api/orm-c/*  https://c.tile.openrailwaymap.org/:splat   200
 
-/index.html      /index.html      200
-/login.html      /login.html      200
-/admin.html      /admin.html      200
-/dashboard.html  /dashboard.html  200
+# --- PAGES (optional convenience) ---
+/index.html       /index.html      200
+/login.html       /login.html      200
+/admin.html       /admin.html      200
+/dashboard.html   /dashboard.html  200
+/ol-smoke.html    /ol-smoke.html   200
+/img-probe.html   /img-probe.html  200
 
-/*  /login.html  200
+# --- SPA fallback (MUST be last) ---
+/*   /login.html   200
