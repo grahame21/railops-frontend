@@ -1,14 +1,17 @@
-# --- Make sure these real files are served as-is ---
+# Functions/proxies MUST come first (forced)
+/api/cdn/*    /.netlify/functions/cdn/:splat    200!
+
+# Keep your ORM proxies if you use them
+/api/orm/*    https://a.tile.openrailwaymap.org/:splat    200
+/api/orm-b/*  https://b.tile.openrailwaymap.org/:splat    200
+/api/orm-c/*  https://c.tile.openrailwaymap.org/:splat    200
+
+# Serve real files directly
 /ol-smoke2.html   /ol-smoke2.html   200
 /smoke.js         /smoke.js         200
 /dashboard.html   /dashboard.html   200
 /main.js          /main.js          200
 /assets/*         /assets/:splat    200
 
-# (keep ORM proxy if you use it)
-# /api/orm/*       https://a.tile.openrailwaymap.org/:splat   200
-# /api/orm-b/*     https://b.tile.openrailwaymap.org/:splat   200
-# /api/orm-c/*     https://c.tile.openrailwaymap.org/:splat   200
-
-# --- SPA fallback LAST (no bang) ---
-/*                /login.html       200
+# SPA catch-all LAST (no bang)
+/*               /login.html        200
