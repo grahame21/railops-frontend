@@ -1,24 +1,13 @@
-# ---------- API & FUNCTIONS (MUST BE FIRST, FORCED) ----------
-/api/cdn/*        /.netlify/functions/cdn/:splat     200!
-/api/who          /.netlify/functions/who            200!
+# Force the CDN proxy function first
+/api/cdn/*    /.netlify/functions/cdn/:splat   200!
 
-# (Optional) ORM tile proxies — keep if you use them
-/api/orm/*        https://a.tile.openrailwaymap.org/:splat   200
-/api/orm-b/*      https://b.tile.openrailwaymap.org/:splat   200
-/api/orm-c/*      https://c.tile.openrailwaymap.org/:splat   200
+# Make sure your smoke test files are served
+/ol-smoke2.html   /ol-smoke2.html   200
+/smoke.js         /smoke.js         200
 
-# ---------- REAL FILES SHOULD ALWAYS WIN ----------
-/index.html       /index.html          200
-/login.html       /login.html          200
-/admin.html       /admin.html          200
-/dashboard.html   /dashboard.html      200
-/ol-smoke2.html   /ol-smoke2.html     200
-/smoke.js         /smoke.js           200
-/fetch-probe.html /fetch-probe.html   200
-/fetch-probe.js   /fetch-probe.js     200
-/main.js          /main.js            200
-/assets/*         /assets/:splat       200
-/static/*         /static/:splat       200
+# (Optional) dashboard and main.js direct
+/dashboard.html   /dashboard.html   200
+/main.js          /main.js          200
 
-# ---------- SPA FALLBACK (LAST, NO ! BANG) ----------
-/*                /login.html          200
+# Catch-all LAST (comment out for now if needed)
+# /*    /login.html   200
