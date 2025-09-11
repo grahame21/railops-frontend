@@ -1,18 +1,4 @@
-# --- API proxies (forced so they win over catch-all) ---
-/api/osm/*     /.netlify/functions/osm/:splat     200!
-/api/orm/*     /.netlify/functions/orm/:splat     200!
-/api/orm2      /.netlify/functions/orm2           200!
-/api/cdn/*     /.netlify/functions/cdn/:splat     200!
-/api/ping      /.netlify/functions/ping           200!
-/api/who       /.netlify/functions/who            200!
-
-# --- Pages ---
-/index.html      /index.html      200
-/login.html      /login.html      200
-/admin.html      /admin.html      200
-/dashboard.html  /dashboard.html  200
-/ol-smoke.html   /ol-smoke.html   200
-/img-probe.html  /img-probe.html  200
-
-# --- Catch-all (MUST be last) ---
-/*   /login.html   200
+# Proxy OpenRailwayMap (ORM) tiles through Netlify
+/api/orm/*   https://a.tile.openrailwaymap.org/:splat   200
+/api/orm-b/* https://b.tile.openrailwaymap.org/:splat   200
+/api/orm-c/* https://c.tile.openrailwaymap.org/:splat   200
