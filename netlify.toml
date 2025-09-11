@@ -2,6 +2,18 @@
   publish = "."
   functions = "netlify/functions"
 
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
+# ---- Global Headers (adds CSP + a debug header you can see) ----
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org; connect-src 'self' blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org https://overpass-api.de https://*.overpass-api.de; worker-src 'self' blob:;"
+    Referrer-Policy = "no-referrer"
+    X-Content-Type-Options = "nosniff"
+    X-Debug-From-TOML = "yes"
+
+# ---- (Optional) API to Functions mapping; leave if you use functions ----
+[[redirects]]
+  from = "/api/*"
+  to   = "/.netlify/functions/:splat"
+  status = 200
+  force  = true
