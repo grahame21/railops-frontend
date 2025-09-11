@@ -1,4 +1,4 @@
-# Proxy OpenRailwayMap (ORM) tiles through Netlify
+# Proxy OpenRailwayMap tiles through Netlify
 /api/orm/*   https://a.tile.openrailwaymap.org/:splat   200
 /api/orm-b/* https://b.tile.openrailwaymap.org/:splat   200
 /api/orm-c/* https://c.tile.openrailwaymap.org/:splat   200
