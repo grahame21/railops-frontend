@@ -5,42 +5,25 @@
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Load OpenLayers from local assets (must exist in assets/ol/) -->
+  <!-- OpenLayers CSS (local) -->
   <link rel="stylesheet" href="/assets/ol/ol.css" />
 
   <style>
     :root { color-scheme: dark; }
-    html, body { margin: 0; height: 100%; background: #0b1220; color: #e8eefc;
-      font: 14px system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-
-    #map { position: fixed; inset: 60px 0 0 0; background: #0b1220; }
-
-    #top { position: fixed; inset: 0 0 auto 0; height: 60px; display: flex;
-      align-items: center; gap: 10px; flex-wrap: wrap;
-      padding: 8px 10px; z-index: 1001; background: #121a2b;
-      border-bottom: 1px solid #2a3b5a; }
-
-    .btn, label.chip { display: inline-flex; align-items: center; gap: 8px;
-      padding: 8px 12px; border-radius: 10px; border: 1px solid #2a3b5a;
-      background: #1d2a44; color: #e8eefc; cursor: pointer; user-select: none; }
-
-    label.chip i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
-    .telstra { background: #1f6feb; }
-    .mvno    { background: #7d8590; }
-    .optus   { background: #ffd33d; }
-    .voda    { background: #ff7b72; }
-
-    #hud { margin-left: auto; opacity: .9; }
-
-    #badge { position: fixed; right: 10px; bottom: 10px; z-index: 1002;
-      background: #121a2b; border: 1px solid #3a4a6a; border-radius: 10px;
-      padding: 8px 10px; min-width: 280px; white-space: pre-wrap; }
-    .ok { color: #7bd88f; }
-    .bad { color: #ffb3b3; }
-
-    #err { position: fixed; left: 10px; right: 10px; bottom: 10px; z-index: 2000;
-      display: none; background: #3b0d0d; color: #ffe9e9; border: 2px solid #ff8c8c;
-      border-radius: 10px; padding: 10px 12px; white-space: pre-wrap; }
+    html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
+    #map { position:fixed; inset:60px 0 0 0; background:#0b1220; }
+    #top { position:fixed; inset:0 0 auto 0; height:60px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+           padding:8px 10px; z-index:1001; background:#121a2b; border-bottom:1px solid #2a3b5a; }
+    .btn, label.chip { display:inline-flex; align-items:center; gap:8px; padding:8px 12px; border-radius:10px;
+      border:1px solid #2a3b5a; background:#1d2a44; color:#e8eefc; cursor:pointer; user-select:none; }
+    label.chip i{display:inline-block;width:12px;height:12px;border-radius:2px}
+    .telstra{background:#1f6feb}.mvno{background:#7d8590}.optus{background:#ffd33d}.voda{background:#ff7b72}
+    #hud { margin-left:auto; opacity:.9 }
+    #badge { position:fixed; right:10px; bottom:10px; z-index:1002; background:#121a2b; border:1px solid #3a4a6a;
+             border-radius:10px; padding:8px 10px; min-width:280px; white-space:pre-wrap; }
+    .ok{color:#7bd88f}.bad{color:#ffb3b3}
+    #err { position:fixed; left:10px; right:10px; bottom:10px; z-index:2000; display:none;
+      background:#3b0d0d; color:#ffe9e9; border:2px solid #ff8c8c; border-radius:10px; padding:10px 12px; white-space:pre-wrap; }
   </style>
 </head>
 <body>
@@ -53,10 +36,8 @@
     <label class="chip"><i class="voda"></i><input type="checkbox" id="vodaToggle" checked> Vodafone/TPG</label>
 
     <label class="chip"><input type="checkbox" id="railsToggle" checked> Rails (ORM)</label>
-
     <button class="btn" id="locBtn" title="Center on my location">📍 My location</button>
     <button class="btn" id="recenter">Recenter AU</button>
-
     <div id="hud">z=<span id="z">–</span> · DPR=<span id="dpr">–</span></div>
   </div>
 
@@ -64,9 +45,26 @@
   <div id="badge">Booting…</div>
   <div id="err"></div>
 
-  <!-- Load OpenLayers JS -->
-  <script src="/assets/ol/ol.js"></script>
-  <!-- Then your map/application logic -->
-  <script src="/main.js"></script>
+  <!-- 1) Load OpenLayers JS from your site -->
+  <script src="/assets/ol/ol.js" id="olScript"></script>
+
+  <!-- 2) After OL loads, inject main.js dynamically -->
+  <script>
+    const badge = (t,c)=>{ const b=document.getElementById('badge'); b.textContent=t; b.className=''; if(c)b.classList.add(c); };
+    function loadApp() {
+      if (!window.ol || !window.ol.Map) {
+        badge("OpenLayers still not ready. Check /assets/ol/ol.js path.", "bad");
+        return;
+      }
+      const s = document.createElement('script');
+      // cache-bust so you always get the latest main.js after deploy
+      s.src = '/main.js?v=' + Date.now();
+      s.onerror = () => badge("Couldn't load /main.js (check path & publish dir).", "bad");
+      document.body.appendChild(s);
+    }
+    // Prefer onload; also add a fallback timeout in case onload is missed by some iOS oddities
+    document.getElementById('olScript').addEventListener('load', loadApp);
+    setTimeout(()=>{ if (!window.ol) loadApp(); }, 800);
+  </script>
 </body>
 </html>
