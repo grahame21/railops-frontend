@@ -11,7 +11,6 @@
   <style>
     :root{ --bg:#0e1726; --panel:#101b2b; --muted:#8ea0b5; --ok:#26d07c; --warn:#ffb020; }
     html,body{height:100%;margin:0;background:var(--bg);color:#dfe7f3;font:14px/1.32 system-ui,-apple-system,Segoe UI,Roboto,Arial}
-    /* Top bar + guaranteed map height */
     #topbar{position:fixed;left:0;right:0;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:.5rem;
             align-items:center;padding:.5rem .75rem;background:linear-gradient(180deg,rgba(7,12,20,.95),rgba(7,12,20,.75));}
     .btn{display:inline-flex;align-items:center;gap:.4rem;border:1px solid #243247;background:#0f1a2a;color:#cfe0f5;
@@ -49,23 +48,21 @@
     const status = $('status');
     const say = (m,tone) => { status.textContent = m; status.className = 'badge' + (tone?(' '+tone):''); console.log('[dashboard]', m); };
 
-    // 0) Guard & map DIV size sanity
+    // Guard & map DIV size sanity
     if (!window.ol || !ol.Map) { say('❌ OpenLayers failed to load (CSP/CDN).', 'warn'); return; }
     const mapDiv = $('map');
     const rect = mapDiv.getBoundingClientRect();
     if (rect.height < 50) { say('❌ Map container has no height — CSS issue', 'warn'); return; }
 
-    // 1) Base OSM
+    // Base OSM
     const osm = new ol.layer.Tile({
       source: new ol.source.OSM({ crossOrigin: 'anonymous' })
     });
-    // Tile error probe (CSP or network)
-    osm.getSource().on('tileloaderror', (e) => {
-      say('⚠️ OSM tile failed — check CSP img-src for *.tile.openstreetmap.org', 'warn');
-      console.warn('OSM tile error', e.tile && e.tile.getKey && e.tile.getKey());
+    osm.getSource().on('tileloaderror', () => {
+      say('⚠️ OSM tile failed — add *.tile.openstreetmap.org to CSP img-src', 'warn');
     });
 
-    // 2) Rails overlay (ORM)
+    // Rails (ORM)
     const rails = new ol.layer.Tile({
       visible: true,
       opacity: 0.9,
@@ -79,7 +76,7 @@
       say('⚠️ ORM tile failed — add *.tile.openrailwaymap.org to CSP img-src', 'warn');
     });
 
-    // 3) Carrier overlays (optional; safe if files missing)
+    // Carrier overlays (optional local GeoJSONs)
     function carrierLayer(url, rgba) {
       return new ol.layer.Vector({
         visible: true,
@@ -96,15 +93,10 @@
     const optus        = carrierLayer('/assets/coverage/optus.geojson',        'rgba(255,206, 77,0.35)');
     const voda         = carrierLayer('/assets/coverage/vodafone-tpg.geojson', 'rgba(255,102,102,0.35)');
 
-    telstra.getSource().on('error', () => console.info('telstra.geojson missing (ok)'));
-    telstraMVNO.getSource().on('error', () => console.info('telstra-mvno.geojson missing (ok)'));
-    optus.getSource().on('error', () => console.info('optus.geojson missing (ok)'));
-    voda.getSource().on('error', () => console.info('vodafone-tpg.geojson missing (ok)'));
-
-    // 4) North-up (disable rotation)
+    // North-up (disable rotation)
     const interactions = ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false });
 
-    // 5) Map
+    // Map
     const view = new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8 });
     const map = new ol.Map({
       target: 'map',
@@ -112,17 +104,18 @@
       layers: [osm, telstra, telstraMVNO, optus, voda, rails]
     });
 
-    // 6) Toggles
+    // FIXED: correct layer variable names in toggles
     $('tog-rails').onchange        = e => rails.setVisible(e.target.checked);
     $('tog-telstra').onchange      = e => telstra.setVisible(e.target.checked);
-    $('tog-telstra-mvno').onchange = e => telstraMVNOLayer.setVisible(e.target.checked);
+    $('tog-telstra-mvno').onchange = e => telstraMVNO.setVisible(e.target.checked);  // <- FIX
     $('tog-optus').onchange        = e => optus.setVisible(e.target.checked);
     $('tog-voda').onchange         = e => voda.setVisible(e.target.checked);
 
-    // 7) Recenter AU
-    $('btn-au').onclick = () => view.animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, duration: 450 });
+    // Recenter AU
+    $('btn-au').onclick = () =>
+      view.animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, duration: 450 });
 
-    // 8) My location
+    // My location
     const locLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
     map.addLayer(locLayer);
     function dropPin(lon,lat){
@@ -144,15 +137,15 @@
       );
     };
 
-    // 9) Zoom/DPR indicator
+    // Zoom/DPR indicator
     const zi = $('zoomInfo');
     const refresh = () => { const z=view.getZoom(); zi.textContent = `z=${(z??'–').toFixed?.(2) ?? z ?? '–'} · DPR=${Math.round(devicePixelRatio||1)}`; };
     view.on('change:resolution', refresh); refresh();
 
-    // 10) Logout (clear cookie if present)
+    // Logout
     $('logout').onclick = () => { try{ document.cookie='railops_session=; Max-Age=0; path=/; SameSite=Lax'; }catch{} window.location.href='/login.html'; };
 
-    // 11) First paint
+    // First paint
     map.once('rendercomplete', () => say('✅ Canvas rendered'));
   })();
   </script>
