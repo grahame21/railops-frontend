@@ -4,10 +4,7 @@
   <meta charset="UTF-8" />
   <title>RailOps — Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- OpenLayers CSS (local) -->
   <link rel="stylesheet" href="/assets/ol/ol.css" />
-
   <style>
     :root { color-scheme: dark; }
     html, body { margin:0; height:100%; background:#0b1220; color:#e8eefc; font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; }
@@ -45,26 +42,9 @@
   <div id="badge">Booting…</div>
   <div id="err"></div>
 
-  <!-- 1) Load OpenLayers JS from your site -->
-  <script src="/assets/ol/ol.js" id="olScript"></script>
-
-  <!-- 2) After OL loads, inject main.js dynamically -->
-  <script>
-    const badge = (t,c)=>{ const b=document.getElementById('badge'); b.textContent=t; b.className=''; if(c)b.classList.add(c); };
-    function loadApp() {
-      if (!window.ol || !window.ol.Map) {
-        badge("OpenLayers still not ready. Check /assets/ol/ol.js path.", "bad");
-        return;
-      }
-      const s = document.createElement('script');
-      // cache-bust so you always get the latest main.js after deploy
-      s.src = '/main.js?v=' + Date.now();
-      s.onerror = () => badge("Couldn't load /main.js (check path & publish dir).", "bad");
-      document.body.appendChild(s);
-    }
-    // Prefer onload; also add a fallback timeout in case onload is missed by some iOS oddities
-    document.getElementById('olScript').addEventListener('load', loadApp);
-    setTimeout(()=>{ if (!window.ol) loadApp(); }, 800);
-  </script>
+  <!-- Load OpenLayers (local file) -->
+  <script src="/assets/ol/ol.js"></script>
+  <!-- External loader (no inline JS → CSP-friendly) -->
+  <script src="/boot.js"></script>
 </body>
 </html>
