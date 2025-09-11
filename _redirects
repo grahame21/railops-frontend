@@ -1,0 +1,16 @@
+# Serve static assets directly (prevents login redirect from catching JS/CSS/images)
+# These lines are the key to stop the infinite “Booting…” state.
+/assets/*      /assets/:splat     200
+/*.js          /:splat            200
+/*.css         /:splat            200
+/*.map         /:splat            200
+/*.png         /:splat            200
+/*.svg         /:splat            200
+/*.json        /:splat            200
+
+# If you want to protect pages, you can add these later (commented out for now):
+# /dashboard.html   /login.html     302
+# /admin/*          /login.html     302
+
+# Optional SPA fallback (leave commented unless you need it)
+# /*               /index.html      200
