@@ -1,3 +1,25 @@
+/* 
+  Content-Security-Policy: default-src 'self';
+    script-src 'self' https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: blob:
+      https://tile.openstreetmap.org
+      https://a.tile.openstreetmap.org
+      https://b.tile.openstreetmap.org
+      https://c.tile.openstreetmap.org
+      https://a.tile.openrailwaymap.org
+      https://b.tile.openrailwaymap.org
+      https://c.tile.openrailwaymap.org;
+    connect-src 'self'
+      https://tile.openstreetmap.org
+      https://a.tile.openstreetmap.org
+      https://b.tile.openstreetmap.org
+      https://c.tile.openstreetmap.org
+      https://a.tile.openrailwaymap.org
+      https://b.tile.openrailwaymap.org
+      https://c.tile.openrailwaymap.org;
+    worker-src 'self' blob:;
+
 /tiles/*
   Access-Control-Allow-Origin: *
   Cache-Control: public, max-age=86400
