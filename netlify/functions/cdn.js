@@ -1,40 +1,42 @@
 // netlify/functions/cdn.js
-const MAP = {
-  'ol.js':  'https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js',
-  'ol.css': 'https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css',
-};
+import { CSP } from './_csp.js';
 
-exports.handler = async (event) => {
+export default async (req, context) => {
   try {
-    const m = event.path.match(/\/cdn\/([^\/?]+)$/);
-    const key = m && m[1];
-    const upstream = key && MAP[key];
-    if (!upstream) return text(404, 'Try /api/cdn/ol.js or /api/cdn/ol.css');
+    const url = new URL(req.url);
+    const path = url.pathname.replace(/^\/api\/cdn\//, ''); // strip /api/cdn/
 
-    const r = await fetch(upstream, { redirect: 'follow', headers: { 'Accept': '*/*' }});
-    if (!r.ok) return text(r.status, `Upstream responded ${r.status} for ${key}`);
+    // Example: /api/cdn/ol.js → https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js
+    let target;
+    if (path === 'ol.js') {
+      target = 'https://cdn.jsdelivr.net/npm/ol@latest/dist/ol.js';
+    } else if (path === 'ol.css') {
+      target = 'https://cdn.jsdelivr.net/npm/ol@latest/ol.css';
+    } else {
+      return new Response(`Unknown resource: ${path}`, { status: 404 });
+    }
 
-    const ct = r.headers.get('content-type') || (key.endsWith('.css') ? 'text/css' : 'application/javascript');
-    const buf = Buffer.from(await r.arrayBuffer());
-    return {
-      statusCode: 200,
+    // Fetch the resource from jsDelivr
+    const res = await fetch(target);
+    if (!res.ok) {
+      return new Response(`Failed to fetch ${target}`, { status: res.status });
+    }
+
+    // Copy body and set headers
+    const body = await res.text();
+    const contentType = path.endsWith('.css')
+      ? 'text/css; charset=UTF-8'
+      : 'application/javascript; charset=UTF-8';
+
+    return new Response(body, {
       headers: {
-        'Content-Type': ct,
-        'Cache-Control': 'public, max-age=86400, s-maxage=86400',
-        'Access-Control-Allow-Origin': '*',
+        'content-type': contentType,
+        'content-security-policy': CSP,   // ✅ apply shared CSP
+        'x-content-type-options': 'nosniff',
+        'cache-control': 'public, max-age=86400',
       },
-      body: buf.toString('base64'),
-      isBase64Encoded: true,
-    };
-  } catch (e) {
-    return text(502, 'CDN proxy error: ' + (e?.message || String(e)));
+    });
+  } catch (err) {
+    return new Response(`Error: ${err.message}`, { status: 500 });
   }
 };
-
-function text(status, body) {
-  return {
-    statusCode: status,
-    headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Access-Control-Allow-Origin': '*' },
-    body,
-  };
-}
