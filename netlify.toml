@@ -1,49 +1,13 @@
-# netlify.toml (put this file at the repo root)
+# --- Tile proxies (so CSP is easy and no CORS issues) ---
 
-[build]
-  publish = "."          # your site root; adjust only if your publish dir is different
-  functions = "netlify/functions"
-
-# ---------- Redirects (tile proxies) ----------
-# OSM
 [[redirects]]
-  from = "/tiles/osm/:z/:x/:y.png"
-  to   = "https://tile.openstreetmap.org/:z/:x/:y.png"
+  from = "/tiles/osm/*"
+  to   = "https://a.tile.openstreetmap.org/:splat"
   status = 200
-  force = true
+  force  = true
 
-# OpenRailwayMap
 [[redirects]]
-  from = "/tiles/orm/:z/:x/:y.png"
-  to   = "https://tile.openrailwaymap.org/standard/:z/:x/:y.png"
+  from = "/tiles/orm/*"
+  to   = "https://a.tile.openrailwaymap.org/standard/:splat"
   status = 200
-  force = true
-
-# (optional) prevent SPA 404 from grabbing tiles
-[[redirects]]
-  from = "/tiles/*"
-  to = ":splat"
-  status = 200
-
-# ---------- Security / CSP ----------
-# If you already use _headers, you can skip this block.
-# Leaving it here so it "just works" even if _headers is missing.
-
-[[headers]]
-  for = "/*"
-  [headers.values]
-    Content-Security-Policy = """
-      default-src 'self';
-      script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-      style-src  'self' 'unsafe-inline';
-      img-src    'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org;
-      connect-src 'self' blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org;
-      worker-src 'self' blob:;
-      frame-src  'self';
-    """
-
-# ---------- Caching (optional but nice) ----------
-[[headers]]
-  for = "/tiles/*"
-  [headers.values]
-    Cache-Control = "public, max-age=86400, immutable"
+  force  = true
