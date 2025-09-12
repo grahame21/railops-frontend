@@ -1,32 +1,23 @@
-export default async (req, context) => {
+// netlify/functions/tile-osm.js
+export default async (req) => {
   try {
-    // /tiles/osm/{z}/{x}/{y}.png → capture z/x/y
-    const m = req.path.match(/\/tiles\/osm\/(\d+)\/(\d+)\/(\d+)\.png$/);
-    if (!m) return new Response('Bad request', { status: 400 });
+    // req.path like: /tiles/osm/5/27/19.png
+    const parts = req.path.split('/').slice(-3);
+    const [z, x, file] = parts;
+    const y = file.replace('.png', '');
+    const upstream = `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
-    const [, z, x, y] = m;
-    const url = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    const r = await fetch(upstream, { headers: { 'User-Agent': 'RailOps Netlify tile proxy' }});
+    if (!r.ok) return new Response('Upstream error', { status: r.status });
 
-    const upstream = await fetch(url, {
+    const body = await r.arrayBuffer();
+    return new Response(body, {
       headers: {
-        // identify politely; ORMs/OSM like a UA string
-        'User-Agent': 'RailOps/1.0 (+https://traintracker2-0.netlify.app)',
-        'Accept': 'image/png,image/*;q=0.8'
-      },
-      // Netlify edge fetch automatically supports HTTP/2
+        'Content-Type': 'image/png',
+        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800'
+      }
     });
-
-    if (!upstream.ok) {
-      return new Response(`Upstream OSM error ${upstream.status}`, { status: 502 });
-    }
-
-    // Forward the image body with caching headers
-    const headers = new Headers(upstream.headers);
-    headers.set('Cache-Control', 'public, max-age=86400, s-maxage=86400');
-    headers.set('Content-Type', 'image/png');
-
-    return new Response(upstream.body, { status: 200, headers });
   } catch (e) {
     return new Response('Fetch failed', { status: 502 });
   }
-};
+}
