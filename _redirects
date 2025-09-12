@@ -1,2 +1,2 @@
-/tiles/osm/*   https://a.tile.openstreetmap.org/:splat          200
-/tiles/orm/*   https://a.tile.openrailwaymap.org/standard/:splat   200
+/tiles/osm/*   https://a.tile.openstreetmap.org/:splat               200!
+/tiles/orm/*   https://a.tile.openrailwaymap.org/standard/:splat     200!
