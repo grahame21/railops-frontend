@@ -1,5 +1,5 @@
 # OSM via proxy
 /tiles/osm/*  https://a.tile.openstreetmap.org/:splat       200
 
-# OpenRailwayMap via proxy (standard style)
+# OpenRailwayMap via proxy
 /tiles/orm/*  https://tile.openrailwaymap.org/standard/:splat 200
