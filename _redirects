@@ -1,6 +1,4 @@
-/assets/*  /assets/:splat  200
-/*.js      /:splat         200
-/*.css     /:splat         200
-/*.png     /:splat         200
-/*.svg     /:splat         200
-/*.json    /:splat         200
+# Proxy OpenStreetMap raster tiles via your Netlify site
+/tiles/osm/*   https://tile.openstreetmap.org/:splat             200
+# Proxy OpenRailwayMap rails tiles via your Netlify site
+/tiles/orm/*   https://tile.openrailwaymap.org/standard/:splat   200
