@@ -1,5 +1,9 @@
-# Don’t rewrite map tiles
-/tiles/*   -   200
+# --- allow tiles to bypass auth/SPA -------------------------
+/tiles/osm/*   /.netlify/functions/tile-osm   200
+/tiles/orm/*   /.netlify/functions/tile-orm   200
 
-# Everything else goes to index.html (SPA fallback)
- /*        /index.html   200
+# (optional) allow OpenLayers bundle/static assets
+/assets/*      /assets/:splat                 200
+
+# --- your SPA fallback (keep LAST) --------------------------
+/*             /index.html                    200
