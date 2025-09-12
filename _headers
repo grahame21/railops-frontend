@@ -1,20 +1,23 @@
-/* 
-  Content-Security-Policy: default-src 'self';
+/*
+  Content-Security-Policy:
+    default-src 'self';
     script-src 'self' https://cdn.jsdelivr.net;
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data: blob:
+    style-src  'self' 'unsafe-inline';
+    img-src    'self' data: blob:
       https://tile.openstreetmap.org
       https://a.tile.openstreetmap.org
       https://b.tile.openstreetmap.org
       https://c.tile.openstreetmap.org
+      https://tile.openrailwaymap.org
       https://a.tile.openrailwaymap.org
       https://b.tile.openrailwaymap.org
       https://c.tile.openrailwaymap.org;
-    connect-src 'self'
+    connect-src 'self' blob:
       https://tile.openstreetmap.org
       https://a.tile.openstreetmap.org
       https://b.tile.openstreetmap.org
       https://c.tile.openstreetmap.org
+      https://tile.openrailwaymap.org
       https://a.tile.openrailwaymap.org
       https://b.tile.openrailwaymap.org
       https://c.tile.openrailwaymap.org;
