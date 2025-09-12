@@ -1,9 +1,2 @@
-# Proxy OpenStreetMap raster tiles
-/tiles/osm/:z/:x/:y.png  https://tile.openstreetmap.org/:z/:x/:y.png  200
-
-# Proxy OpenRailwayMap (standard) tiles
-/tiles/orm/:z/:x/:y.png  https://tile.openrailwaymap.org/standard/:z/:x/:y.png  200
-
-# (optional) keep old hashes queryable
-/tiles/osm/:z/:x/:y.png*  https://tile.openstreetmap.org/:z/:x/:y.png  200
-/tiles/orm/:z/:x/:y.png*  https://tile.openrailwaymap.org/standard/:z/:x/:y.png  200
+/tiles/osm/:z/:x/:y.png   https://tile.openstreetmap.org/:z/:x/:y.png   200
+/tiles/orm/:z/:x/:y.png   https://tile.openrailwaymap.org/standard/:z/:x/:y.png   200
