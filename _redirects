@@ -1,11 +1,9 @@
-# --- Reverse-proxy tiles (no functions) --------------------
-/tiles/osm/*  https://tile.openstreetmap.org/:splat                  200
-/tiles/orm/*  https://a.tile.openrailwaymap.org/standard/:splat      200
-# (Netlify will proxy these and keep the URL same-origin)
+# --- TILE PROXIES (force, before SPA) ---
+/tiles/osm/*   https://tile.openstreetmap.org/:splat               200!
+/tiles/orm/*   https://tile.openrailwaymap.org/standard/:splat     200!
 
-# You can optionally add fallback hosts if you like manual switches later:
-# /tiles/orm-b/*  https://b.tile.openrailwaymap.org/standard/:splat  200
-# /tiles/orm-c/*  https://c.tile.openrailwaymap.org/standard/:splat  200
+# (optional) keep this if you have any login/role redirects elsewhere
+/tiles/*       -                                                    200!
 
-# --- Everything else (your SPA) ------------------------------------
-/*            /index.html                                            200
+# --- YOUR APP (SPA catch-all LAST) ---
+/*             /index.html                                          200
