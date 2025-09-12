@@ -1,8 +1,11 @@
 /*
   Content-Security-Policy: default-src 'self';
-    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
-    style-src 'self' 'unsafe-inline';
-    img-src 'self' data: blob:;
-    connect-src 'self' blob:;
-    worker-src 'self' blob:;
+  Content-Security-Policy: script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+  Content-Security-Policy: style-src 'self' 'unsafe-inline';
+  Content-Security-Policy: img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org;
+  Content-Security-Policy: connect-src 'self' https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org;
+  Content-Security-Policy: worker-src 'self' blob:;
+  Content-Security-Policy: frame-src 'self';
   X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Cache-Control: public, max-age=0, must-revalidate
