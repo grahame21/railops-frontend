@@ -1,2 +1,7 @@
-/*
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tile.openrailwaymap.org; connect-src 'self' https://*.tile.openstreetmap.org https://*.tile.openrailwaymap.org; worker-src 'self' blob:;
+/* 
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob:; connect-src 'self'; worker-src 'self' blob:; base-uri 'self'; frame-ancestors 'self';
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: same-origin
+
+/tiles/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
