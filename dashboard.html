@@ -2,18 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RailOps — Dashboard (minimal)</title>
+  <title>RailOps Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- OpenLayers (locked to a stable v9) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@9.1.0/ol.css" />
-  <script src="https://cdn.jsdelivr.net/npm/ol@9.1.0/dist/ol.js"></script>
+  <!-- OpenLayers via your proxy -->
+  <link rel="stylesheet" href="/api/cdn/ol.css" />
+  <script src="/api/cdn/ol.js"></script>
 
   <style>
     :root { color-scheme: dark; }
     html, body { height:100%; margin:0; background:#0d1117; color:#c9d1d9; font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     #bar { display:flex; gap:.5rem; align-items:center; padding:.5rem .75rem; background:#161b22; position:sticky; top:0; z-index:2; }
-    #map { height: calc(100% - 44px); } /* fill below the bar */
+    #map { height: calc(100% - 44px); }
     .badge { padding:.25rem .5rem; border-radius:.5rem; background:#30363d; }
     .ok { background:#238636; color:#fff; }
     .warn { background:#da3633; color:#fff; }
@@ -33,7 +33,7 @@
   </div>
   <div id="map"></div>
 
-  <!-- Minimal app code -->
+  <!-- Your logic -->
   <script src="/assets/js/dashboard.js"></script>
 </body>
 </html>
