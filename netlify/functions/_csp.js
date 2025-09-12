@@ -1,0 +1,8 @@
+// netlify/functions/_csp.js
+export const CSP =
+  "default-src 'self'; " +
+  "script-src 'self' https://cdn.jsdelivr.net; " +
+  "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; " +
+  "img-src 'self' data: blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org; " +
+  "connect-src 'self' blob: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org; " +
+  "worker-src 'self' blob:";
