@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>RailOps – Standalone Dashboard</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+
+  <!-- Inline CSP that allows OL CDN + OSM + ORM directly -->
+  <meta http-equiv="Content-Security-Policy"
+        content="
+          default-src 'self';
+          script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net;
+          style-src  'self' 'unsafe-inline';
+          img-src    'self' data: blob:
+                     https://tile.openstreetmap.org
+                     https://a.tile.openstreetmap.org
+                     https://b.tile.openstreetmap.org
+                     https://c.tile.openstreetmap.org
+                     https://tile.openrailwaymap.org
+                     https://a.tile.openrailwaymap.org
+                     https://b.tile.openrailwaymap.org
+                     https://c.tile.openrailwaymap.org;
+          connect-src 'self' blob:
+                     https://tile.openstreetmap.org
+                     https://a.tile.openstreetmap.org
+                     https://b.tile.openstreetmap.org
+                     https://c.tile.openstreetmap.org
+                     https://tile.openrailwaymap.org
+                     https://a.tile.openrailwaymap.org
+                     https://b.tile.openrailwaymap.org
+                     https://c.tile.openrailwaymap.org;
+          worker-src 'self' blob:;
+        ">
+
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v9.2.4/ol.css" />
+  <style>
+    :root { color-scheme: dark; }
+    html,body { height:100%; margin:0; background:#0f172a; font:15px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:#cbd5e1; }
+    #bar { padding:10px; display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    .chip { background:#1e293b; border:1px solid #334155; padding:6px 10px; border-radius:10px; }
+    #map { height: calc(100% - 56px); }
+    .ok{color:#86efac} .warn{color:#fca5a5}
+  </style>
+</head>
+<body>
+  <div id="bar">
+    <span id="status" class="chip">Booting…</span>
+    <label class="chip"><input id="tog-rails" type="checkbox" checked> Rails (ORM)</label>
+    <button id="btn-au" class="chip">Recenter AU</button>
+    <button id="btn-locate" class="chip">📍 My location</button>
+    <span id="zoomInfo" class="chip">z=… · DPR=…</span>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/ol@v9.2.4/dist/ol.js"></script>
+  <script>
+  (function () {
+    const $ = id => document.getElementById(id);
+    const say = (m,t) => { const s=$('status'); s.textContent=m; s.className='chip '+(t||''); console.log('[standalone]',m); };
+
+    if (!window.ol || !ol.Map) { say('❌ OpenLayers failed to load (CSP/CDN)', 'warn'); return; }
+
+    // Direct tile URLs (no proxy)
+    const OSM_URL = 'https://{a-c}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const ORM_URL = 'https://{a-c}.tile.openrailwaymap.org/standard/{z}/{x}/{y}.png';
+
+    // Base OSM
+    const osm = new ol.layer.Tile({
+      source: new ol.source.XYZ({
+        url: OSM_URL,
+        crossOrigin: 'anonymous',
+        attributions: '© OpenStreetMap'
+      })
+    });
+    osm.getSource().on('tileloaderror', () => say('⚠️ OSM tile error (network/CSP?)','warn'));
+
+    // Rails (ORM)
+    const rails = new ol.layer.Tile({
+      visible: true, opacity: 0.9,
+      source: new ol.source.XYZ({
+        url: ORM_URL,
+        crossOrigin: 'anonymous',
+        attributions: '© OpenRailwayMap'
+      })
+    });
+    rails.getSource().on('tileloaderror', () => say('⚠️ ORM tile error (network/CSP?)','warn'));
+
+    // Map
+    const view = new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8 });
+    const map = new ol.Map({
+      target: 'map',
+      view,
+      interactions: ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false }),
+      layers: [osm, rails]
+    });
+
+    // UI
+    $('tog-rails').onchange = e => rails.setVisible(e.target.checked);
+    $('btn-au').onclick = () => view.animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4.8, duration: 450 });
+
+    // Location pin
+    const locLayer = new ol.layer.Vector({ source: new ol.source.Vector() });
+    map.addLayer(locLayer);
+    function dropPin(lon,lat){
+      locLayer.getSource().clear();
+      const f = new ol.Feature(new ol.geom.Point(ol.proj.fromLonLat([lon,lat])));
+      f.setStyle(new ol.style.Style({
+        image: new ol.style.Icon({ anchor:[0.5,1], src:'data:image/svg+xml;utf8,'+encodeURIComponent('<svg xmlns=\\"http://www.w3.org/2000/svg\\" width=\\"28\\" height=\\"28\\" viewBox=\\"0 0 48 48\\"><path fill=\\"#ff4d4d\\" d=\\"M24 45s-14-14.2-14-24A14 14 0 1 1 38 21c0 9.8-14 24-14 24z\\"/><circle cx=\\"24\\" cy=\\"21\\" r=\\"5.5\\" fill=\\"#fff\\"/></svg>') })
+      }));
+      locLayer.getSource().addFeature(f);
+      view.animate({ center: ol.proj.fromLonLat([lon,lat]), zoom: Math.max(view.getZoom()||4, 10), duration: 450 });
+    }
+    $('btn-locate').onclick = () => {
+      if (!navigator.geolocation) return say('Geolocation not supported','warn');
+      say('Locating…');
+      navigator.geolocation.getCurrentPosition(
+        p => { dropPin(p.coords.longitude, p.coords.latitude); say('Location updated','ok'); },
+        e => say('Location denied/unavailable: '+(e?.message||e),'warn'),
+        { enableHighAccuracy:true, timeout:10000, maximumAge:0 }
+      );
+    };
+
+    const zi = $('zoomInfo');
+    const refresh = () => { const z=view.getZoom(); zi.textContent = `z=${(z??'–').toFixed?.(2) ?? z ?? '–'} · DPR=${Math.round(devicePixelRatio||1)}`; };
+    view.on('change:resolution', refresh); refresh();
+
+    map.once('rendercomplete', () => say('✅ Map rendered','ok'));
+  })();
+  </script>
+</body>
+</html>
