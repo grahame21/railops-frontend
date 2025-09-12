@@ -1,11 +1,6 @@
 /*
-  # Minimal safe CSP once tiles are proxied (all tile requests go to /tiles/* on your own origin)
   Content-Security-Policy: default-src 'self';
-    script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://identity.netlify.com;
-    style-src  'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com;
-    img-src    'self' data: blob:;
-    connect-src 'self' blob: https://identity.netlify.com https://api.netlify.com https://*.netlify.com https://*.netlify.app;
-    frame-src  'self' https://identity.netlify.com https://app.netlify.com;
-    worker-src 'self' blob:;
-  Referrer-Policy: no-referrer
-  X-Content-Type-Options: nosniff
+    script-src 'self' https://cdn.jsdelivr.net;
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data: https://*.tile.openstreetmap.org https://*.tile.openrailwaymap.org;
+    connect-src 'self' https://*.tile.openstreetmap.org https://*.tile.openrailwaymap.org;
