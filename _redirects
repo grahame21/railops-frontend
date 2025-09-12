@@ -1,9 +1,5 @@
-# OSM tiles
-/tiles/osm/*  https://a.tile.openstreetmap.org/:splat  200
-/tiles/osm/*  https://b.tile.openstreetmap.org/:splat  200
-/tiles/osm/*  https://c.tile.openstreetmap.org/:splat  200
+# OSM via proxy
+/tiles/osm/*  https://a.tile.openstreetmap.org/:splat       200
 
-# OpenRailwayMap tiles
-/tiles/orm/*  https://a.tile.openrailwaymap.org/standard/:splat  200
-/tiles/orm/*  https://b.tile.openrailwaymap.org/standard/:splat  200
-/tiles/orm/*  https://c.tile.openrailwaymap.org/standard/:splat  200
+# OpenRailwayMap via proxy (standard style)
+/tiles/orm/*  https://tile.openrailwaymap.org/standard/:splat 200
