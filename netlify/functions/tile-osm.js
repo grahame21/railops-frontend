@@ -1,23 +1,26 @@
-// netlify/functions/tile-osm.js
-export default async (req) => {
+// Hard proxy for OpenStreetMap tiles: /api/tiles/osm/{z}/{x}/{y}.png
+exports.handler = async (event) => {
   try {
-    // req.path like: /tiles/osm/5/27/19.png
-    const parts = req.path.split('/').slice(-3);
-    const [z, x, file] = parts;
-    const y = file.replace('.png', '');
-    const upstream = `https://a.tile.openstreetmap.org/${z}/${x}/${y}.png`;
+    const m = event.path.match(/\/api\/tiles\/osm\/(\d+)\/(\d+)\/(\d+)\.png$/);
+    if (!m) return { statusCode: 400, body: "Bad OSM tile path" };
+    const [, z, x, y] = m;
+    const upstream = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
 
-    const r = await fetch(upstream, { headers: { 'User-Agent': 'RailOps Netlify tile proxy' }});
-    if (!r.ok) return new Response('Upstream error', { status: r.status });
+    const r = await fetch(upstream, { redirect: "follow" });
+    if (!r.ok) return { statusCode: r.status, body: `Upstream OSM ${r.status}` };
+    const buf = Buffer.from(await r.arrayBuffer());
 
-    const body = await r.arrayBuffer();
-    return new Response(body, {
+    return {
+      statusCode: 200,
       headers: {
-        'Content-Type': 'image/png',
-        'Cache-Control': 'public, max-age=86400, stale-while-revalidate=604800'
-      }
-    });
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=86400, stale-while-revalidate=604800",
+        "Access-Control-Allow-Origin": "*"
+      },
+      body: buf.toString("base64"),
+      isBase64Encoded: true
+    };
   } catch (e) {
-    return new Response('Fetch failed', { status: 502 });
+    return { statusCode: 502, body: "OSM fetch failed" };
   }
-}
+};
