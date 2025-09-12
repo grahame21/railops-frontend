@@ -1,13 +1,20 @@
-# --- Tile proxies (so CSP is easy and no CORS issues) ---
+[build]
+  publish = "."
 
 [[redirects]]
   from = "/tiles/osm/*"
-  to   = "https://a.tile.openstreetmap.org/:splat"
+  to = "https://tile.openstreetmap.org/:splat"
   status = 200
-  force  = true
+  force = true
 
 [[redirects]]
   from = "/tiles/orm/*"
-  to   = "https://a.tile.openrailwaymap.org/standard/:splat"
+  to = "https://tile.openrailwaymap.org/standard/:splat"
   status = 200
-  force  = true
+  force = true
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https://tile.openstreetmap.org https://*.tile.openstreetmap.org https://tile.openrailwaymap.org https://*.tile.openrailwaymap.org; connect-src 'self' https://tile.openstreetmap.org https://tile.openrailwaymap.org;"
