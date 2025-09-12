@@ -1,9 +1,17 @@
-# --- TILE PROXIES (force, before SPA) ---
+# ---- BYPASS AUTH & PROXY TILES (must be first) ----
 /tiles/osm/*   https://tile.openstreetmap.org/:splat               200!
 /tiles/orm/*   https://tile.openrailwaymap.org/standard/:splat     200!
 
-# (optional) keep this if you have any login/role redirects elsewhere
-/tiles/*       -                                                    200!
+# Function routes (keep if you have them)
+#/api/*        /.netlify/functions/:splat                           200
 
-# --- YOUR APP (SPA catch-all LAST) ---
-/*             /index.html                                          200
+# Public debug pages (never send these to login)
+#/img-probe.html    /img-probe.html                                 200
+#/csp-probe.html    /csp-probe.html                                 200
+#/ol-smoke2.html    /ol-smoke2.html                                 200
+
+# ---- YOUR EXISTING RULES BELOW THIS LINE ----
+# (whatever sends guests to /login.html, SPA rewrites, etc.)
+
+# Example SPA fallback LAST:
+#/*               /index.html                                       200
