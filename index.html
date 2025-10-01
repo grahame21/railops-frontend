@@ -1,27 +1,24 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>RailOps — AU Live Map</title>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RailOps — AU Live Map</title>
 
-  <!-- Self-hosted OpenLayers -->
-  <link rel="preload" href="/assets/ol/ol.js" as="script">
-  <link rel="stylesheet" href="/assets/ol/ol.css">
+<link rel="preload" href="/assets/ol/ol.js" as="script">
+<link rel="stylesheet" href="/assets/ol/ol.css">
 
-  <style>
-    :root { color-scheme: dark; }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; }
-    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0b0f14; color:#fff; }
-    header {
-      background:#0a56c2; padding:10px 12px; font-weight:600; display:flex; gap:12px; align-items:center;
-    }
-    header select, header button {
-      background:#113b78; color:#fff; border:1px solid #1a4fa7; border-radius:6px; padding:6px 8px;
-    }
-    #map { height: calc(100vh - 48px); width: 100%; }
-  </style>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0b0f14; color:#fff; }
+  header { background:#0a56c2; padding:10px 12px; display:flex; gap:12px; align-items:center; }
+  header select, header button { background:#113b78; color:#fff; border:1px solid #1a4fa7; border-radius:6px; padding:6px 8px; }
+  #map { height: calc(100vh - 48px); width: 100%; }
+  #diag { position:fixed; left:10px; bottom:10px; background:#111; border:1px solid #333; color:#9fe29f; padding:8px 10px; border-radius:8px; font-size:12px; max-width:70vw; }
+  #diag.bad { color:#ffb3b3; }
+</style>
 </head>
 <body>
   <header>
@@ -36,51 +33,72 @@
   </header>
 
   <div id="map"></div>
+  <div id="diag">Booting…</div>
 
-  <script src="/assets/ol/ol.js"></script>
   <script>
-    (function () {
-      // 1) Create the base map (OSM – no API key needed)
-      const map = new ol.Map({
-        target: 'map',
-        layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
-        view: new ol.View({
-          center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia center
-          zoom: 4
-        }),
-        controls: ol.control.defaults({ attribution: true })
-      });
+    const diag = (m, bad=false) => {
+      const el = document.getElementById('diag');
+      el.textContent = m;
+      el.className = bad ? 'bad' : '';
+    };
+    window.addEventListener('error', e => diag('Script error: ' + (e.message || '(unknown)'), true));
+  </script>
 
-      // 2) Zoom helpers
-      const AU = ol.proj.fromLonLat([133.7751, -25.2744]);
-      const view = map.getView();
+  <script src="/assets/ol/ol.js" onload="diag('OpenLayers loaded')" onerror="diag('Failed to load /assets/ol/ol.js', true)"></script>
+  <script>
+  (function () {
+    if (!window.ol) { diag('OpenLayers not present', true); return; }
 
-      function goAustralia() {
-        view.setZoom(4);
-        view.setCenter(AU);
-      }
+    const map = new ol.Map({
+      target: 'map',
+      layers: [],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // AU
+        zoom: 4
+      }),
+      controls: ol.control.defaults({ attribution: true })
+    });
 
-      function goCurrentLocation() {
-        if (!navigator.geolocation) { return; }
-        navigator.geolocation.getCurrentPosition(
-          pos => {
-            const c = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
-            view.animate({ center: c, zoom: 12, duration: 500 });
-          },
-          () => goAustralia(),
-          { enableHighAccuracy: true, timeout: 8000 }
-        );
-      }
+    // Always add a debug grid so the canvas renders even if tiles fail
+    const grid = new ol.layer.Tile({ source: new ol.source.TileDebug() });
+    map.addLayer(grid);
 
-      // 3) UI wiring
-      document.getElementById('resetBtn').addEventListener('click', goAustralia);
-      document.getElementById('zoomTo').addEventListener('change', (e) => {
-        if (e.target.value === 'loc') goCurrentLocation(); else goAustralia();
-      });
+    // Try OSM tiles
+    const osm = new ol.layer.Tile({ source: new ol.source.OSM() });
+    map.addLayer(osm);
 
-      // 4) Initial behavior
-      goCurrentLocation();
-    })();
+    const view = map.getView();
+    const AU = ol.proj.fromLonLat([133.7751, -25.2744]);
+
+    function goAustralia(){ view.setCenter(AU); view.setZoom(4); }
+    function goCurrentLocation(){
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const c = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
+          view.animate({ center:c, zoom:12, duration:500 });
+        },
+        () => {},
+        { enableHighAccuracy:true, timeout:8000 }
+      );
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', goAustralia);
+    document.getElementById('zoomTo').addEventListener('change', e => e.target.value==='loc' ? goCurrentLocation() : goAustralia());
+
+    // Tile diagnostics
+    let tileOk = false, lastErr = '';
+    osm.getSource().on('tileloadstart', () => diag('OpenLayers loaded • Fetching OSM tiles…'));
+    osm.getSource().on('tileloadend', () => { tileOk = true; diag('OpenLayers loaded • OSM tiles OK'); });
+    osm.getSource().on('tileloaderror', () => {
+      lastErr = 'tileloaderror';
+      diag('OpenLayers loaded • OSM blocked (CSP/network). Showing grid fallback.', true);
+    });
+
+    // Kick off
+    goCurrentLocation();
+    setTimeout(() => { if (!tileOk) diag('OpenLayers loaded • Still waiting for tiles… (check CSP)', true); }, 5000);
+  })();
   </script>
 </body>
 </html>
