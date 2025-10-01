@@ -1,0 +1,5 @@
+# Force tiles to use functions
+/api/tiles/osm/*   /.netlify/functions/tile-osm   200
+/api/tiles/orm/*   /.netlify/functions/tile-orm   200
+
+# (your existing redirects go below this)

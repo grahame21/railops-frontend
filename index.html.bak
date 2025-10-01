@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>RailOps — AU Live Map</title>
+<link rel="stylesheet" href="/assets/ol/ol.css" />
+<style>
+  :root{color-scheme:dark}
+  html,body{height:100%;margin:0}
+  header{background:#0a56c2;color:#fff;padding:10px 12px;font:600 16px system-ui, -apple-system, Segoe UI, Roboto, Arial}
+  #map{height:calc(100vh - 48px)}
+  select,button{background:#113b78;color:#fff;border:1px solid #1a4fa7;border-radius:6px;padding:6px 8px}
+  .bar{display:flex;gap:10px;align-items:center}
+  .bar .right{margin-left:auto;display:flex;gap:10px;align-items:center}
+</style>
+</head>
+<body>
+  <header class="bar">
+    <div>RailOps — AU Live Map</div>
+    <div class="right">
+      <label>Zoom to:
+        <select id="zoomTo">
+          <option value="loc">Current location</option>
+          <option value="au" selected>Australia</option>
+        </select>
+      </label>
+      <button id="resetBtn">Reset</button>
+    </div>
+  </header>
+
+  <div id="map"></div>
+
+  <script src="/assets/ol/ol.js"></script>
+  <script>
+    // Basic map that always works with OL v6.15.1 (global `ol`)
+    const view = new ol.View({
+      center: ol.proj.fromLonLat([133.7751, -25.2744]), // Australia
+      zoom: 4,
+      rotation: 0
+    });
+
+    const map = new ol.Map({
+      target: 'map',
+      layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
+      view,
+      interactions: ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false })
+    });
+
+    function goAustralia(){ view.setCenter(ol.proj.fromLonLat([133.7751, -25.2744])); view.setZoom(4); }
+    function goCurrent(){
+      if(!navigator.geolocation){ goAustralia(); return; }
+      navigator.geolocation.getCurrentPosition(
+        p => {
+          const c = ol.proj.fromLonLat([p.coords.longitude, p.coords.latitude]);
+          view.animate({ center:c, zoom:12, duration:500 });
+        },
+        () => goAustralia(),
+        { enableHighAccuracy:true, timeout:8000 }
+      );
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', goAustralia);
+    document.getElementById('zoomTo').addEventListener('change', e => e.target.value==='loc' ? goCurrent() : goAustralia());
+
+    // Default: current location (fallback to AU)
+    goCurrent();
+  </script>
+</body>
+</html>
