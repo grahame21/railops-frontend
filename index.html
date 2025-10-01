@@ -1,7 +1,103 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<meta charset="utf-8">
-<title>RailOps</title>
-<meta http-equiv="refresh" content="0; url=/login.html">
-<p>Loading… <a href="/login.html">continue</a></p>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RailOps — AU Live Map</title>
+
+  <!-- Self-hosted OpenLayers -->
+  <link rel="stylesheet" href="assets/ol/ol.css" />
+  <script defer src="assets/ol/ol.js"></script>
+
+  <style>
+    html, body { height:100%; margin:0; }
+    #appbar {
+      box-sizing:border-box; width:100%; padding:8px 12px; background:#0b4ea2; color:#fff;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+      display:flex; gap:12px; align-items:center;
+    }
+    #map { height: calc(100% - 48px); } /* full screen under the blue bar */
+    select, button { font-size:14px; padding:6px 8px; }
+    .btn { background:#fff; border:0; border-radius:6px; }
+  </style>
+</head>
+<body>
+  <div id="appbar">
+    <strong>RailOps — AU Live Map</strong>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+      <select id="zoomSel" class="btn">
+        <option value="current" selected>Current location</option>
+        <option value="australia">Australia</option>
+        <option value="sa">South Australia</option>
+        <option value="nsw">New South Wales</option>
+        <option value="vic">Victoria</option>
+        <option value="qld">Queensland</option>
+        <option value="wa">Western Australia</option>
+        <option value="nt">Northern Territory</option>
+        <option value="tas">Tasmania</option>
+        <option value="act">ACT</option>
+      </select>
+      <button id="resetBtn" class="btn">Reset</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <!-- App script -->
+  <script>
+    // --- helpers
+    const to3857 = (lon, lat) => ol.proj.fromLonLat([lon, lat]);
+
+    // state extents (simple centers/zooms)
+    const views = {
+      australia: { center: to3857(134.5, -25.0), zoom: 4 },
+      sa:        { center: to3857(135.7, -30.0), zoom: 6 },
+      nsw:       { center: to3857(147.0, -32.5), zoom: 6 },
+      vic:       { center: to3857(144.0, -37.0), zoom: 6 },
+      qld:       { center: to3857(143.0, -21.0), zoom: 5 },
+      wa:        { center: to3857(121.0, -26.0), zoom: 5 },
+      nt:        { center: to3857(133.0, -19.0), zoom: 5 },
+      tas:       { center: to3857(146.7, -42.0), zoom: 7 },
+      act:       { center: to3857(149.13, -35.30), zoom: 10 }
+    };
+
+    // --- map
+    const map = new ol.Map({
+      target: 'map',
+      layers: [
+        new ol.layer.Tile({ source: new ol.source.OSM() }) // simple, keyless basemap
+      ],
+      view: new ol.View(views.australia)
+    });
+
+    // geolocate on load, then fallback to Australia
+    function goCurrentLocation() {
+      if (!navigator.geolocation) { map.getView().setProperties(views.australia); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const { latitude:lat, longitude:lon } = pos.coords;
+          map.getView().setCenter(to3857(lon, lat));
+          map.getView().setZoom(12);
+        },
+        () => map.getView().setProperties(views.australia),
+        { enableHighAccuracy:true, timeout: 8000 }
+      );
+    }
+
+    // controls
+    const sel = document.getElementById('zoomSel');
+    const resetBtn = document.getElementById('resetBtn');
+
+    function applySelection(val) {
+      if (val === 'current') { goCurrentLocation(); return; }
+      map.getView().setProperties(views[val] || views.australia);
+    }
+
+    sel.addEventListener('change', e => applySelection(e.target.value));
+    resetBtn.addEventListener('click', () => applySelection(sel.value));
+
+    // initial go
+    applySelection('current');  // default = current location
+  </script>
+</body>
 </html>
