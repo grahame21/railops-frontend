@@ -2,12 +2,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>OL v6 Smoke</title>
-<link rel="stylesheet" href="/assets/ol/ol.css">
+<link rel="stylesheet" href="assets/ol/ol.css">
 <style>html,body,#map{height:100%;margin:0}</style>
 <div id="map"></div>
-<script src="/assets/ol/ol.js"></script>
+<script src="assets/ol/ol.js"></script>
 <script>
-  // Basic map + a debug grid so you always see *something* even if tiles are blocked
+  // Grid layer ensures you see something even if tiles are blocked
   const map = new ol.Map({
     target: 'map',
     layers: [
@@ -15,7 +15,7 @@
       new ol.layer.Tile({ source: new ol.source.OSM() })
     ],
     view: new ol.View({
-      center: ol.proj.fromLonLat([133.7751,-25.2744]), // Australia
+      center: ol.proj.fromLonLat([133.7751,-25.2744]),
       zoom: 4
     }),
     interactions: ol.interaction.defaults({ altShiftDragRotate:false, pinchRotate:false })
