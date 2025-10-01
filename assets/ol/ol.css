@@ -109,11 +109,10 @@
 
 .ol-viewport canvas {
   all: unset;
-  overflow: hidden;
 }
 
 .ol-viewport {
-  touch-action: pan-x pan-y;
+  touch-action: none;
 }
 
 .ol-selectable {
@@ -347,8 +346,4 @@
 
 .ol-overviewmap .ol-overviewmap-box:hover {
   cursor: move;
-}
-
-.ol-overviewmap .ol-viewport:hover {
-  cursor: pointer;
 }
