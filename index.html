@@ -1,13 +1,47 @@
 <!doctype html>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RailOps — Links</title>
-<body style="font:16px system-ui,-apple-system,Segoe UI,Roboto;">
-  <h1>RailOps — Quick Links</h1>
-  <ul>
-    <li><a href="ol-smoke.html">OpenLayers v6 smoke test</a></li>
-    <li><a href="assets/ol/ol.js">Check: assets/ol/ol.js</a></li>
-    <li><a href="assets/ol/ol.css">Check: assets/ol/ol.css</a></li>
-  </ul>
-  <p>If any link 404s, the deploy didn’t include the file/path yet.</p>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RailOps — AU Live Map</title>
+  <link rel="stylesheet" href="assets/ol/ol.css">
+  <style>
+    html,body {height:100%;margin:0;background:#0b0f14;color:#fff;font-family:-apple-system,system-ui,Segoe UI,Roboto,Inter,sans-serif}
+    header{position:fixed;top:0;left:0;right:0;height:44px;background:#0b3d91;display:flex;align-items:center;padding:0 12px;z-index:2}
+    header b{font-weight:600}
+    #map{position:absolute;inset:44px 0 0 0}
+    .ctrl{position:fixed;top:8px;right:8px;z-index:3}
+    .btn{background:#fff;color:#111;border:0;border-radius:8px;padding:8px 10px;font-size:14px}
+  </style>
+</head>
+<body>
+  <header><b>RailOps — AU Live Map</b></header>
+  <div id="map"></div>
+  <div class="ctrl">
+    <button class="btn" id="locBtn">Current location</button>
+  </div>
+
+  <script src="assets/ol/ol.js"></script>
+  <script>
+    // Basic OSM map, view on Australia
+    const map = new ol.Map({
+      target: 'map',
+      layers: [ new ol.layer.Tile({ source: new ol.source.OSM() }) ],
+      view: new ol.View({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4 })
+    });
+
+    // "Current location" button
+    document.getElementById('locBtn').addEventListener('click', () => {
+      if (!navigator.geolocation) { alert('Geolocation not available'); return; }
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lon = pos.coords.longitude, lat = pos.coords.latitude;
+          map.getView().animate({ center: ol.proj.fromLonLat([lon,lat]), zoom: 14, duration: 700 });
+        },
+        err => alert('Location error: ' + err.message),
+        { enableHighAccuracy:true, maximumAge:10000, timeout:15000 }
+      );
+    });
+  </script>
 </body>
+</html>

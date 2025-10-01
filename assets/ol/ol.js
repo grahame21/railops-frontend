@@ -1,1 +1,1 @@
-Couldn't find the requested file /dist/ol.js in ol.
+Couldn't find the requested file /ol.js in ol.
