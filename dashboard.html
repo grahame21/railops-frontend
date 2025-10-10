@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RailOps — AU Live Map</title>
 
-  <!-- OpenLayers (same CDN/version as your working file) -->
+  <!-- OpenLayers (same versions as your working file) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 
@@ -13,6 +13,7 @@
     :root{--brand:#0b57cf;--panel:rgba(0,0,0,.78);--muted:#cfd8ff}
     html,body{height:100%;margin:0;background:#0b1020;color:#fff;font:500 14px system-ui,-apple-system,Segoe UI,Roboto,Arial}
     #map{height:100%}
+
     .toolbar{
       position:absolute;top:10px;left:10px;z-index:10;
       background:var(--brand);color:#fff;padding:8px 10px;border-radius:8px;
@@ -21,37 +22,23 @@
     .toolbar select,.toolbar button,.toolbar input[type=text]{margin-left:6px;border:0;border-radius:8px;padding:6px 8px;font-weight:600}
     .toolbar button{background:#fff;color:#0b57cf;cursor:pointer}
     .toolbar input[type=text]{min-width:180px}
+
     .panel{
       position:absolute;left:10px;bottom:10px;z-index:10;
       background:var(--panel);color:#fff;border-radius:10px;padding:10px 12px;
-      max-width:92vw;backdrop-filter:saturate(140%) blur(4px)
+      font:600 14px system-ui,-apple-system,Segoe UI,Roboto,Arial; max-width:92vw;
+      backdrop-filter:saturate(140%) blur(4px)
     }
     .row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid rgba(255,255,255,.15)}
     .row:first-child{border-top:0}
     .hint{font-size:12px;color:var(--muted);opacity:.85;margin-top:6px}
+
     .clockbox{
       position:absolute;top:10px;right:10px;z-index:10;
       background:rgba(0,0,0,.82);padding:6px 10px;border-radius:10px;font-weight:700
     }
     .updated{font-size:12px;color:var(--muted);margin-top:2px}
   </style>
-
-  <!-- kill any stale service worker/cache that might serve old HTML -->
-  <meta http-equiv="Cache-Control" content="no-store, must-revalidate">
-  <script>
-  (async()=>{
-    try{
-      if('serviceWorker' in navigator){
-        const regs = await navigator.serviceWorker.getRegistrations();
-        for(const r of regs) try{ await r.unregister(); }catch{}
-      }
-      if('caches' in window){
-        const names = await caches.keys();
-        for(const n of names) try{ await caches.delete(n);}catch{}
-      }
-    }catch(_){}
-  })();
-  </script>
 </head>
 <body>
   <!-- Toolbar -->
@@ -65,12 +52,7 @@
     <button id="resetBtn">Reset</button>
     <button id="layersBtn">Layers ▾</button>
     <input id="searchBox" type="text" placeholder="Search train ID / loco…" />
-  </div>
-
-  <!-- Clock + Last updated -->
-  <div class="clockbox">
-    <div id="clock">--:--:--</div>
-    <div class="updated" id="lastUpdated">Last updated: —</div>
+    <span id="clock" style="font-weight:800;margin-left:6px">--:--:--</span>
   </div>
 
   <!-- Map -->
@@ -86,15 +68,23 @@
     <div class="row"><label><input id="covTPG" type="checkbox"> Vodafone/TPG — outdoor</label></div>
     <div class="row"><label><input id="covAll" type="checkbox"> Combined — all MNOs</label></div>
     <div class="row"><label><input id="locChk" type="checkbox"> My location (blue dot)</label></div>
+    <div class="row"><strong id="lastUpdated" style="font-weight:600;color:#cfe">Last updated: —</strong></div>
     <div class="hint">Tap anywhere on the map to close this box. OSM base already includes highways/roads.</div>
   </div>
 
   <script>
-    // ========= CONFIG =========
-    // Your live trains JSON (from your GitHub Actions backend):
-    const TRAINS_URL = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
+    // -------- Basic route control: guest token & admin redirect --------
+    (function routeInit(){
+      const p = new URLSearchParams(location.search);
+      const token = p.get('token');
+      if (token) localStorage.setItem('guestToken', token);
+      if (p.get('admin') === '1') {
+        // simple admin door; replace with your real auth check later
+        location.replace('/admin.html');
+      }
+    })();
 
-    // ========= MAP: based on your last working setup =========
+    // -------- Map base (same as your working setup) --------
     const view = new ol.View({
       center: ol.proj.fromLonLat([133.7751, -25.2744]),
       zoom: 4,
@@ -103,36 +93,42 @@
     const roadsBase = new ol.layer.Tile({ source: new ol.source.OSM(), visible: true });
     const map = new ol.Map({ target: 'map', layers: [ roadsBase ], view });
 
-    // North-up lock
+    // keep north-up
     map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
-    // OpenRailwayMap overlays (ON by default)
+    // OpenRailwayMap layers (ON by default)
     const railLayer = new ol.layer.Tile({
       source: new ol.source.XYZ({
         url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
         attributions: '© OpenRailwayMap, © OpenStreetMap',
         maxZoom: 19
-      }), visible: true
+      }),
+      visible: true
     });
     const stationsLayer = new ol.layer.Tile({
       source: new ol.source.XYZ({
         url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png',
         attributions: '© OpenRailwayMap, © OpenStreetMap',
         maxZoom: 19
-      }), visible: true
+      }),
+      visible: true
     });
-    map.addLayer(railLayer); map.addLayer(stationsLayer);
+    map.addLayer(railLayer);
+    map.addLayer(stationsLayer);
 
-    // ACCC coverage layers (OFF by default)
+    // ACCC coverage (OFF by default)
     const ACCC_URL='https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
-    const acccLayer = id => new ol.layer.Tile({
-      source:new ol.source.TileArcGISRest({ url:ACCC_URL, params:{ layers:`show:${id}`, dpi:96, transparent:true, format:'png32' } }),
-      opacity:0.45, visible:false
-    });
+    function acccLayer(id){return new ol.layer.Tile({
+      source:new ol.source.TileArcGISRest({
+        url:ACCC_URL,
+        params:{layers:`show:${id}`,dpi:96,transparent:true,format:'png32'}
+      }),
+      opacity:0.45,visible:false
+    });}
     const covTelstra=acccLayer(25), covOptus=acccLayer(15), covTPG=acccLayer(33), covAll=acccLayer(4);
-    [covAll,covTelstra,covOptus,covTPG].forEach(l=>map.addLayer(l));
+    [covTelstra,covOptus,covTPG,covAll].forEach(l=>map.addLayer(l));
 
-    // ========= Current location (blue dot + accuracy) =========
+    // -------- Current location (blue dot + accuracy) --------
     const locSource = new ol.source.Vector();
     const locLayer = new ol.layer.Vector({
       source: locSource,
@@ -151,7 +147,6 @@
       )
     });
     map.addLayer(locLayer);
-
     let geoWatchId = null;
     function startGeolocation(){
       if (!navigator.geolocation || geoWatchId!==null) return;
@@ -171,7 +166,7 @@
       locSource.clear();
     }
 
-    // ========= Trains layer =========
+    // -------- Live trains layer --------
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -186,7 +181,23 @@
     });
     map.addLayer(trainLayer);
 
-    // ========= Helpers (extent, current) =========
+    // -------- UI wiring --------
+    const zoomSelect   = document.getElementById('zoomSelect');
+    const resetBtn     = document.getElementById('resetBtn');
+    const layersBtn    = document.getElementById('layersBtn');
+    const panel        = document.getElementById('layersPanel');
+    const roadsChk     = document.getElementById('roadsChk');
+    const railChk      = document.getElementById('railChk');
+    const stationsChk  = document.getElementById('stationsChk');
+    const telChk       = document.getElementById('covTelstra');
+    const optChk       = document.getElementById('covOptus');
+    const tpgChk       = document.getElementById('covTPG');
+    const allChk       = document.getElementById('covAll');
+    const locChk       = document.getElementById('locChk');
+    const searchBox    = document.getElementById('searchBox');
+    const lastUpdated  = document.getElementById('lastUpdated');
+    const clockEl      = document.getElementById('clock');
+
     function fitAustralia(){
       const e=[112.0,-44.0,154.0,-10.0];
       map.getView().fit(ol.proj.transformExtent(e,'EPSG:4326','EPSG:3857'),{duration:500,padding:[40,40,40,40]});
@@ -203,22 +214,6 @@
       );
     }
 
-    // ========= UI wiring =========
-    const zoomSelect   = document.getElementById('zoomSelect');
-    const resetBtn     = document.getElementById('resetBtn');
-    const layersBtn    = document.getElementById('layersBtn');
-    const panel        = document.getElementById('layersPanel');
-    const roadsChk     = document.getElementById('roadsChk');
-    const railChk      = document.getElementById('railChk');
-    const stationsChk  = document.getElementById('stationsChk');
-    const telChk       = document.getElementById('covTelstra');
-    const optChk       = document.getElementById('covOptus');
-    const tpgChk       = document.getElementById('covTPG');
-    const allChk       = document.getElementById('covAll');
-    const locChk       = document.getElementById('locChk');
-    const searchBox    = document.getElementById('searchBox');
-    const lastUpdated  = document.getElementById('lastUpdated');
-
     zoomSelect.addEventListener('change', ()=> (zoomSelect.value==='current'?goToCurrent():fitAustralia()));
     resetBtn.addEventListener('click', ()=>{
       fitAustralia();
@@ -229,13 +224,12 @@
       stopGeolocation(); locLayer.setVisible(false);
     });
     layersBtn.addEventListener('click', ()=> panel.style.display = (panel.style.display==='none'?'block':'none'));
-    // Close panel by clicking the map (not the UI)
+    // Close panel by clicking the map (outside UI)
     map.getViewport().addEventListener('click',(e)=>{
       const inUI = e.target.closest ? (e.target.closest('#layersPanel')||e.target.closest('.toolbar')) : null;
       if(!inUI) panel.style.display='none';
     });
 
-    // toggles
     roadsChk.addEventListener('change', ()=> roadsBase.setVisible(roadsChk.checked));
     railChk.addEventListener('change',  ()=> railLayer.setVisible(railChk.checked));
     stationsChk.addEventListener('change', ()=> stationsLayer.setVisible(stationsChk.checked));
@@ -249,10 +243,16 @@
       else { stopGeolocation(); }
     });
 
-    // ========= Trains fetch + index + search =========
+    // -------- Fetch trains + index + search --------
+    // Point to your GitHub-updated trains.json (adjust if you keep it elsewhere)
+    const TRAINS_URL = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
+
     async function fetchJSON(url){
       const res = await fetch(url, { cache:'no-store' });
       if(!res.ok) throw new Error('HTTP '+res.status);
+      // If GitHub returns HTML on errors, this will throw
+      const ct = res.headers.get('content-type')||'';
+      if(!ct.includes('application/json')) throw new Error('Non-JSON response');
       return res.json();
     }
     function featureFrom(lon,lat,props={}){
@@ -312,6 +312,7 @@
         console.warn('Failed to load trains.json', e);
       }
     }
+
     function searchAndZoom(q){
       q=(q||'').trim().toLowerCase();
       if(!q || !window.__RAILOPS_INDEX__) return false;
@@ -334,31 +335,30 @@
       }
     });
 
-    // ========= Timers =========
+    // -------- Randomized refresh (30–90s) --------
     function scheduleRefresh(){
-      const ms = 45000 + Math.floor(Math.random()*50000); // 45–95s
+      const ms = 30000 + Math.floor(Math.random()*60000); // 30–90s
       setTimeout(async()=>{ await refreshTrains(); scheduleRefresh(); }, ms);
     }
 
-    // Kick off
-    fitAustralia();
-    refreshTrains();
-    scheduleRefresh();
-
-    // ========= Clock with seconds + time zone + UTC offset =========
-    const clockEl=document.getElementById('clock');
+    // -------- Clock with seconds + timezone --------
     function tzOffsetStr(d){
       const offMin=-d.getTimezoneOffset(), sign=offMin>=0?'+':'-';
-      const abs=Math.abs(offMin), hh=String(Math.floor(abs/60)), mm=String(abs%60).padStart(2,'0');
+      const abs=Math.abs(offMin), hh=String(Math.floor(abs/60)).padStart(2,'0'), mm=String(abs%60).padStart(2,'0');
       return `UTC${sign}${hh}:${mm}`;
     }
-    function tick(){
+    function tickClock(){
       const d=new Date();
       const t=d.toLocaleTimeString(undefined,{hour12:false});
       const short=Intl.DateTimeFormat(undefined,{timeZoneName:'short'}).formatToParts(d).find(p=>p.type==='timeZoneName')?.value||'';
       clockEl.textContent = `${t} ${short} (${tzOffsetStr(d)})`;
     }
-    tick(); setInterval(tick,1000);
+
+    // -------- Kick-off --------
+    fitAustralia();
+    refreshTrains();
+    scheduleRefresh();
+    tickClock(); setInterval(tickClock,1000);
   </script>
 </body>
 </html>
