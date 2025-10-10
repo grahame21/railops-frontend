@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RailOps — AU Live Map</title>
 
-  <!-- OpenLayers (same version as your working page) -->
+  <!-- OpenLayers (same version you’ve been using) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 
@@ -17,9 +17,15 @@
       position:absolute;top:10px;left:10px;z-index:10;
       background:#0b57cf;color:#fff;padding:8px 10px;border-radius:8px;
       font:600 14px system-ui,-apple-system,Segoe UI,Roboto,Arial;
-      display:flex;align-items:center;gap:8px
+      display:flex;align-items:center;gap:8px;flex-wrap:wrap
     }
     .toolbar select,.toolbar button,.toolbar input{margin-left:6px}
+    .toolbar input[type="text"]{
+      border-radius:6px;border:0;padding:6px 8px;min-width:180px
+    }
+    .clock{
+      background:#063da0;border-radius:6px;padding:4px 8px;font-weight:700
+    }
     .panel{
       position:absolute;left:10px;bottom:10px;z-index:10;
       background:rgba(0,0,0,.78);color:#fff;border-radius:10px;padding:10px 12px;
@@ -32,19 +38,20 @@
 </head>
 <body>
   <div class="toolbar" id="toolbar">
-    RailOps — AU Live Map
-    <label>Base:
-      <select id="baseSelect">
-        <option value="osm" selected>OSM</option>
-        <option value="roads">Roads (Carto Voyager)</option>
-      </select>
-    </label>
+    <span>RailOps — AU Live Map</span>
+
     <label>Zoom:
       <select id="zoomSelect">
         <option value="australia">Australia</option>
         <option value="current">Current location</option>
       </select>
     </label>
+
+    <input id="searchBox" type="text" placeholder="Search train ID / loco…" />
+    <button id="searchBtn">Search</button>
+
+    <span id="clock" class="clock">--:--:--</span>
+
     <button id="resetBtn">Reset</button>
     <button id="layersBtn">Layers ▾</button>
   </div>
@@ -65,19 +72,12 @@
   </div>
 
   <script>
-    // --- Base layers (OSM + roads-forward Carto Voyager)
+    // --- Base (OSM only)
     const osmBase = new ol.layer.Tile({ source: new ol.source.OSM(), visible:true });
-    const roadsBase = new ol.layer.Tile({
-      source:new ol.source.XYZ({
-        url:"https://{a-d}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png",
-        attributions:'© OpenStreetMap contributors, © CARTO'
-      }),
-      visible:false
-    });
 
     const map = new ol.Map({
       target: 'map',
-      layers: [ osmBase, roadsBase ],
+      layers: [ osmBase ],
       view: new ol.View({
         center: ol.proj.fromLonLat([133.7751, -25.2744]),
         zoom: 4
@@ -116,7 +116,7 @@
     const covTelstra=acccLayer(25), covOptus=acccLayer(15), covTPG=acccLayer(33), covAll=acccLayer(4);
     [covTelstra,covOptus,covTPG,covAll].forEach(l=>map.addLayer(l));
 
-    // Demo train layers (leave as-is from your working page)
+    // Demo train layers (unchanged)
     const nswSrc = new ol.source.Vector(), vicSrc = new ol.source.Vector();
     const nswLayer = new ol.layer.Vector({ source: nswSrc, visible:false });
     const vicLayer = new ol.layer.Vector({ source: vicSrc, visible:false });
@@ -149,31 +149,24 @@
     map.addLayer(meLayer);
 
     // --- UI wiring
-    const baseSelect=document.getElementById('baseSelect');
     const zoomSelect=document.getElementById('zoomSelect');
     const resetBtn=document.getElementById('resetBtn');
     const layersBtn=document.getElementById('layersBtn');
     const panel=document.getElementById('layersPanel');
     const toolbar=document.getElementById('toolbar');
 
-    // Close panel when clicking on the map (but not when clicking the toolbar/panel)
+    // Close panel when clicking on the map (but not when clicking toolbar/panel)
     map.on('singleclick', () => { panel.style.display = 'none'; });
     panel.addEventListener('click', e => e.stopPropagation());
     toolbar.addEventListener('click', e => e.stopPropagation());
 
-    baseSelect.addEventListener('change',()=>{
-      const useRoads = baseSelect.value==='roads';
-      roadsBase.setVisible(useRoads);
-      osmBase.setVisible(!useRoads);
-    });
-
+    // Zoom helpers + geolocation
     function zoomAustralia(){ map.getView().animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom:4, duration:500 }); }
     function zoomCurrent(){
       if(!navigator.geolocation){ zoomAustralia(); return; }
       navigator.geolocation.getCurrentPosition(pos=>{
         const lon=pos.coords.longitude, lat=pos.coords.latitude;
         const c=ol.proj.fromLonLat([lon, lat]);
-        // drop/update pin
         meSrc.clear();
         meSrc.addFeature(new ol.Feature({geometry:new ol.geom.Point(c)}));
         meLayer.setVisible(true);
@@ -181,6 +174,21 @@
       },()=>zoomAustralia(),{enableHighAccuracy:true,timeout:10000});
     }
 
+    zoomSelect.addEventListener('change',()=>(
+      zoomSelect.value==='current'?zoomCurrent():zoomAustralia()
+    ));
+    resetBtn.addEventListener('click',()=>{
+      zoomAustralia();
+      [covTelstra,covOptus,covTPG,covAll,nswLayer,vicLayer].forEach(l=>l.setVisible(false));
+      document.querySelectorAll('#layersPanel input[type=checkbox]').forEach(c=>c.checked=false);
+      railLayer.setVisible(true); stationsLayer.setVisible(true);
+      document.getElementById('railChk').checked=true;
+      document.getElementById('stationsChk').checked=true;
+      meSrc.clear(); meLayer.setVisible(false);
+    });
+    layersBtn.addEventListener('click',()=>{ panel.style.display = panel.style.display==='none' ? 'block' : 'none'; });
+
+    // Layer toggles
     document.getElementById('railChk').addEventListener('change',e=>railLayer.setVisible(e.target.checked));
     document.getElementById('stationsChk').addEventListener('change',e=>stationsLayer.setVisible(e.target.checked));
     document.getElementById('covTelstra').addEventListener('change',e=>covTelstra.setVisible(e.target.checked));
@@ -199,30 +207,67 @@
       if(vicChk.checked)addDemoTrains(vicSrc,[{lon:144.96,lat:-37.81,bearing:175},{lon:145.06,lat:-37.82,bearing:5}],'#ff5000');
     });
 
-    zoomSelect.addEventListener('change',()=>(
-      zoomSelect.value==='current'?zoomCurrent():zoomAustralia()
-    ));
-    resetBtn.addEventListener('click',()=>{
-      zoomAustralia();
-      [covTelstra,covOptus,covTPG,covAll,nswLayer,vicLayer].forEach(l=>l.setVisible(false));
-      document.querySelectorAll('#layersPanel input[type=checkbox]').forEach(c=>c.checked=false);
-      railLayer.setVisible(true); stationsLayer.setVisible(true);
-      document.getElementById('railChk').checked=true;
-      document.getElementById('stationsChk').checked=true;
-      meSrc.clear(); meLayer.setVisible(false);
-      baseSelect.value='osm'; roadsBase.setVisible(false); osmBase.setVisible(true);
-    });
+    // --- Clock (Australia/Adelaide) with seconds + date + TZ code
+    const clockEl = document.getElementById('clock');
+    function tzAbbrev(){
+      try{
+        const s = new Intl.DateTimeFormat('en-AU', {
+          timeZone:'Australia/Adelaide', timeZoneName:'short'
+        }).formatToParts(new Date()).find(p=>p.type==='timeZoneName')?.value || '';
+        // Prefer ACST/ACDT if present; otherwise fallback to short offset like GMT+10:30
+        return s.replace('GMT','UTC');
+      }catch{ return 'Australia/Adelaide'; }
+    }
+    function pad(n){return n<10?'0'+n:n;}
+    function tickClock(){
+      const d = new Date();
+      const parts = new Intl.DateTimeFormat('en-GB',{
+        timeZone:'Australia/Adelaide',
+        year:'numeric',month:'2-digit',day:'2-digit',
+        hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false
+      }).formatToParts(d).reduce((o,p)=> (o[p.type]=p.value,o),{});
+      const tzz = tzAbbrev();
+      clockEl.textContent = `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second} (${tzz})`;
+    }
+    tickClock(); setInterval(tickClock,1000);
 
-    layersBtn.addEventListener('click',()=>{ panel.style.display = panel.style.display==='none' ? 'block' : 'none'; });
+    // --- Search (by ID / label / loco substring)
+    const searchBox = document.getElementById('searchBox');
+    const searchBtn = document.getElementById('searchBtn');
+
+    function getTrainVectorLayer(){
+      // TrainLayer uses zIndex:20 in the file I gave you; find that vector layer.
+      return map.getLayers().getArray().find(l =>
+        l instanceof ol.layer.Vector && (l.getZIndex?.()===20)
+      );
+    }
+    function searchTrain(q){
+      if(!q) return;
+      const layer = getTrainVectorLayer(); if(!layer) return alert('Train layer not ready yet.');
+      const src = layer.getSource(); const qq = q.toLowerCase();
+      const feats = src.getFeatures();
+      const match = feats.find(f=>{
+        const p = f.getProperties();
+        const id = (p.id||'')+''; const label=(p.label||'')+'';
+        return id.toLowerCase().includes(qq) || label.toLowerCase().includes(qq);
+      });
+      if(!match) return alert('No match');
+      const c = match.getGeometry().getCoordinates();
+      map.getView().animate({center:c, zoom:13, duration:600});
+      // nudge the popup in trains.js if it’s there: simulate a click
+      map.dispatchEvent({type:'singleclick', coordinate:c, pixel:map.getPixelFromCoordinate(c)});
+    }
+    searchBtn.addEventListener('click', ()=> searchTrain(searchBox.value.trim()));
+    searchBox.addEventListener('keydown', e=>{ if(e.key==='Enter') searchTrain(searchBox.value.trim()); });
 
     // Start centered on AU
-    zoomAustralia();
+    function start(){ zoomAustralia(); }
+    start();
   </script>
 
-  <!-- If you keep trains.js at the repo root, this path is correct -->
+  <!-- Your live trains layer (leave file beside this HTML) -->
   <script src="trains.js"></script>
   <script>
-    // start the live trains layer after map is created
     if (window.TrainLayer && typeof TrainLayer.init === 'function') {
       TrainLayer.init(map);
     }
