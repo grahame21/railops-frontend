@@ -5,360 +5,296 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RailOps — AU Live Map</title>
 
-  <!-- OpenLayers (same versions as your working file) -->
+  <!-- OpenLayers -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 
   <style>
-    :root{--brand:#0b57cf;--panel:rgba(0,0,0,.78);--muted:#cfd8ff}
-    html,body{height:100%;margin:0;background:#0b1020;color:#fff;font:500 14px system-ui,-apple-system,Segoe UI,Roboto,Arial}
+    html,body{height:100%;margin:0;background:#0b1220}
     #map{height:100%}
 
+    /* Toolbar */
     .toolbar{
       position:absolute;top:10px;left:10px;z-index:10;
-      background:var(--brand);color:#fff;padding:8px 10px;border-radius:8px;
-      display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.35)
+      background:#0b57cf;color:#fff;padding:8px 10px;border-radius:10px;
+      box-shadow:0 6px 18px rgba(0,0,0,.25);
+      display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+      font:600 14px system-ui,-apple-system,Segoe UI,Roboto,Arial
     }
-    .toolbar select,.toolbar button,.toolbar input[type=text]{margin-left:6px;border:0;border-radius:8px;padding:6px 8px;font-weight:600}
-    .toolbar button{background:#fff;color:#0b57cf;cursor:pointer}
-    .toolbar input[type=text]{min-width:180px}
+    .toolbar label{opacity:.85}
+    .toolbar select,.toolbar button,.toolbar input{
+      border:0;border-radius:8px;padding:6px 10px;font:600 14px inherit
+    }
+    .toolbar input[type="search"]{min-width:220px}
 
+    /* Layers panel */
     .panel{
       position:absolute;left:10px;bottom:10px;z-index:10;
-      background:var(--panel);color:#fff;border-radius:10px;padding:10px 12px;
+      background:rgba(0,0,0,.85);color:#fff;border-radius:12px;padding:10px 12px;
       font:600 14px system-ui,-apple-system,Segoe UI,Roboto,Arial; max-width:92vw;
-      backdrop-filter:saturate(140%) blur(4px)
+      box-shadow:0 10px 30px rgba(0,0,0,.4);
     }
-    .row{display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid rgba(255,255,255,.15)}
+    .row{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid rgba(255,255,255,.15)}
     .row:first-child{border-top:0}
-    .hint{font-size:12px;color:var(--muted);opacity:.85;margin-top:6px}
+    .hint{font-size:12px;color:#cfd8ff;opacity:.85;margin-top:6px}
 
-    .clockbox{
-      position:absolute;top:10px;right:10px;z-index:10;
-      background:rgba(0,0,0,.82);padding:6px 10px;border-radius:10px;font-weight:700
+    /* Top-right buttons */
+    .topright{
+      position:absolute;right:10px;top:10px;z-index:11;display:flex;gap:8px
     }
-    .updated{font-size:12px;color:var(--muted);margin-top:2px}
+    .fab{
+      background:#0b57cf;color:#fff;border:0;border-radius:10px;padding:8px 10px;
+      font:600 14px system-ui,-apple-system,Segoe UI,Roboto,Arial;cursor:pointer;
+      box-shadow:0 6px 18px rgba(0,0,0,.25)
+    }
   </style>
 </head>
 <body>
-  <!-- Toolbar -->
   <div class="toolbar" id="toolbar">
-    RailOps — AU Live Map
-    <label for="zoomSelect">Zoom:</label>
+    <div>RailOps — AU Live Map</div>
+    <label>Zoom:</label>
     <select id="zoomSelect">
-      <option value="australia" selected>Australia</option>
+      <option value="australia">Australia</option>
       <option value="current">Current location</option>
     </select>
     <button id="resetBtn">Reset</button>
     <button id="layersBtn">Layers ▾</button>
-    <input id="searchBox" type="text" placeholder="Search train ID / loco…" />
-    <span id="clock" style="font-weight:800;margin-left:6px">--:--:--</span>
+    <input id="searchBox" type="search" placeholder="Search train ID / loco…" />
+    <div id="clock" style="margin-left:6px;opacity:.9;">--:--:--</div>
   </div>
 
-  <!-- Map -->
-  <div id="map" role="main"></div>
+  <div class="topright">
+    <button id="locBtn" class="fab" title="Show current location">📍</button>
+  </div>
+
+  <div id="map"></div>
 
   <!-- Layers panel -->
   <div id="layersPanel" class="panel" style="display:none">
-    <div class="row"><label><input id="roadsChk" type="checkbox" checked> Roads (OSM base)</label></div>
     <div class="row"><label><input id="railChk" type="checkbox" checked> Rail lines (OpenRailwayMap)</label></div>
     <div class="row"><label><input id="stationsChk" type="checkbox" checked> Stations (OpenRailwayMap)</label></div>
-    <div class="row"><label><input id="covTelstra" type="checkbox"> Telstra — outdoor</label></div>
-    <div class="row"><label><input id="covOptus" type="checkbox"> Optus — outdoor</label></div>
-    <div class="row"><label><input id="covTPG" type="checkbox"> Vodafone/TPG — outdoor</label></div>
-    <div class="row"><label><input id="covAll" type="checkbox"> Combined — all MNOs</label></div>
-    <div class="row"><label><input id="locChk" type="checkbox"> My location (blue dot)</label></div>
-    <div class="row"><strong id="lastUpdated" style="font-weight:600;color:#cfe">Last updated: —</strong></div>
-    <div class="hint">Tap anywhere on the map to close this box. OSM base already includes highways/roads.</div>
+    <div class="row"><label><input id="roadsChk" type="checkbox"> Highways / roads overlay (OSM HOT)</label></div>
+    <div class="row"><label><input id="covTelstra" type="checkbox"> Telstra — outdoor (ACCC)</label></div>
+    <div class="row"><label><input id="covOptus" type="checkbox"> Optus — outdoor (ACCC)</label></div>
+    <div class="row"><label><input id="covTPG" type="checkbox"> Vodafone/TPG — outdoor (ACCC)</label></div>
+    <div class="row"><label><input id="covAll" type="checkbox"> Combined — all MNOs (ACCC)</label></div>
+    <div class="row"><label><input id="nswChk" type="checkbox"> NSW Trains (demo)</label></div>
+    <div class="row"><label><input id="vicChk" type="checkbox"> VIC Trains (demo)</label></div>
+    <div class="hint">Click anywhere on the map to close this panel. Coverage maps are predictive and may differ from on-ground experience.</div>
   </div>
 
   <script>
-    // -------- Basic route control: guest token & admin redirect --------
-    (function routeInit(){
-      const p = new URLSearchParams(location.search);
-      const token = p.get('token');
-      if (token) localStorage.setItem('guestToken', token);
-      if (p.get('admin') === '1') {
-        // simple admin door; replace with your real auth check later
-        location.replace('/admin.html');
-      }
-    })();
-
-    // -------- Map base (same as your working setup) --------
-    const view = new ol.View({
-      center: ol.proj.fromLonLat([133.7751, -25.2744]),
-      zoom: 4,
-      constrainRotation: 0
-    });
-    const roadsBase = new ol.layer.Tile({ source: new ol.source.OSM(), visible: true });
-    const map = new ol.Map({ target: 'map', layers: [ roadsBase ], view });
-
-    // keep north-up
-    map.getView().on('change:rotation', () => map.getView().setRotation(0));
-
-    // OpenRailwayMap layers (ON by default)
-    const railLayer = new ol.layer.Tile({
-      source: new ol.source.XYZ({
-        url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
-        attributions: '© OpenRailwayMap, © OpenStreetMap',
-        maxZoom: 19
-      }),
-      visible: true
-    });
-    const stationsLayer = new ol.layer.Tile({
-      source: new ol.source.XYZ({
-        url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png',
-        attributions: '© OpenRailwayMap, © OpenStreetMap',
-        maxZoom: 19
-      }),
-      visible: true
-    });
-    map.addLayer(railLayer);
-    map.addLayer(stationsLayer);
-
-    // ACCC coverage (OFF by default)
-    const ACCC_URL='https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
-    function acccLayer(id){return new ol.layer.Tile({
-      source:new ol.source.TileArcGISRest({
-        url:ACCC_URL,
-        params:{layers:`show:${id}`,dpi:96,transparent:true,format:'png32'}
-      }),
-      opacity:0.45,visible:false
-    });}
-    const covTelstra=acccLayer(25), covOptus=acccLayer(15), covTPG=acccLayer(33), covAll=acccLayer(4);
-    [covTelstra,covOptus,covTPG,covAll].forEach(l=>map.addLayer(l));
-
-    // -------- Current location (blue dot + accuracy) --------
-    const locSource = new ol.source.Vector();
-    const locLayer = new ol.layer.Vector({
-      source: locSource,
-      visible: false,
-      style: f => (f.get('type')==='accuracy'
-        ? new ol.style.Style({
-            stroke:new ol.style.Stroke({ color:'rgba(80,150,255,0.7)', width:2 }),
-            fill:new ol.style.Fill({ color:'rgba(80,150,255,0.15)' })
-          })
-        : new ol.style.Style({
-            image:new ol.style.Circle({
-              radius:7, fill:new ol.style.Fill({ color:'#4dabff' }),
-              stroke:new ol.style.Stroke({ color:'#0b3fa8', width:2 })
-            })
-          })
-      )
-    });
-    map.addLayer(locLayer);
-    let geoWatchId = null;
-    function startGeolocation(){
-      if (!navigator.geolocation || geoWatchId!==null) return;
-      geoWatchId = navigator.geolocation.watchPosition(pos=>{
-        const { latitude, longitude, accuracy } = pos.coords;
-        const coord = ol.proj.fromLonLat([longitude, latitude]);
-        locSource.clear();
-        if (accuracy && isFinite(accuracy)) {
-          const circ = ol.geom.Polygon.circular(ol.proj.get('EPSG:3857'), coord, accuracy);
-          locSource.addFeature(new ol.Feature({ geometry:circ, type:'accuracy' }));
-        }
-        locSource.addFeature(new ol.Feature({ geometry:new ol.geom.Point(coord), type:'point' }));
-      }, console.warn, { enableHighAccuracy:true, maximumAge:15000, timeout:10000 });
-    }
-    function stopGeolocation(){
-      if (geoWatchId!==null) { navigator.geolocation.clearWatch(geoWatchId); geoWatchId=null; }
-      locSource.clear();
-    }
-
-    // -------- Live trains layer --------
-    const trainSource = new ol.source.Vector();
-    const trainLayer = new ol.layer.Vector({
-      source: trainSource,
-      style: f => new ol.style.Style({
-        image:new ol.style.RegularShape({
-          points:3, radius:10,
-          rotation: ((f.get('heading')||0) * Math.PI) / 180,
-          fill:new ol.style.Fill({ color:'#ffeb3b' }),
-          stroke:new ol.style.Stroke({ color:'#1b1b1b', width:1.4 })
-        })
-      })
-    });
-    map.addLayer(trainLayer);
-
-    // -------- UI wiring --------
-    const zoomSelect   = document.getElementById('zoomSelect');
-    const resetBtn     = document.getElementById('resetBtn');
-    const layersBtn    = document.getElementById('layersBtn');
-    const panel        = document.getElementById('layersPanel');
-    const roadsChk     = document.getElementById('roadsChk');
-    const railChk      = document.getElementById('railChk');
-    const stationsChk  = document.getElementById('stationsChk');
-    const telChk       = document.getElementById('covTelstra');
-    const optChk       = document.getElementById('covOptus');
-    const tpgChk       = document.getElementById('covTPG');
-    const allChk       = document.getElementById('covAll');
-    const locChk       = document.getElementById('locChk');
-    const searchBox    = document.getElementById('searchBox');
-    const lastUpdated  = document.getElementById('lastUpdated');
-    const clockEl      = document.getElementById('clock');
-
-    function fitAustralia(){
-      const e=[112.0,-44.0,154.0,-10.0];
-      map.getView().fit(ol.proj.transformExtent(e,'EPSG:4326','EPSG:3857'),{duration:500,padding:[40,40,40,40]});
-    }
-    function goToCurrent(){
-      if(!navigator.geolocation){ fitAustralia(); return; }
-      navigator.geolocation.getCurrentPosition(
-        pos=>{
-          const c=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
-          view.animate({ center:c, zoom: Math.max(view.getZoom(),12), duration:600 });
-        },
-        ()=>fitAustralia(),
-        { enableHighAccuracy:true, timeout:10000 }
-      );
-    }
-
-    zoomSelect.addEventListener('change', ()=> (zoomSelect.value==='current'?goToCurrent():fitAustralia()));
-    resetBtn.addEventListener('click', ()=>{
-      fitAustralia();
-      [covTelstra,covOptus,covTPG,covAll].forEach(l=>l.setVisible(false));
-      [telChk,optChk,tpgChk,allChk,locChk].forEach(c=>c.checked=false);
-      railChk.checked = stationsChk.checked = roadsChk.checked = true;
-      railLayer.setVisible(true); stationsLayer.setVisible(true); roadsBase.setVisible(true);
-      stopGeolocation(); locLayer.setVisible(false);
-    });
-    layersBtn.addEventListener('click', ()=> panel.style.display = (panel.style.display==='none'?'block':'none'));
-    // Close panel by clicking the map (outside UI)
-    map.getViewport().addEventListener('click',(e)=>{
-      const inUI = e.target.closest ? (e.target.closest('#layersPanel')||e.target.closest('.toolbar')) : null;
-      if(!inUI) panel.style.display='none';
-    });
-
-    roadsChk.addEventListener('change', ()=> roadsBase.setVisible(roadsChk.checked));
-    railChk.addEventListener('change',  ()=> railLayer.setVisible(railChk.checked));
-    stationsChk.addEventListener('change', ()=> stationsLayer.setVisible(stationsChk.checked));
-    telChk.addEventListener('change',   ()=> covTelstra.setVisible(telChk.checked));
-    optChk.addEventListener('change',   ()=> covOptus.setVisible(optChk.checked));
-    tpgChk.addEventListener('change',   ()=> covTPG.setVisible(tpgChk.checked));
-    allChk.addEventListener('change',   ()=> covAll.setVisible(allChk.checked));
-    locChk.addEventListener('change',   ()=>{
-      locLayer.setVisible(locChk.checked);
-      if (locChk.checked) { startGeolocation(); zoomSelect.value='current'; goToCurrent(); }
-      else { stopGeolocation(); }
-    });
-
-    // -------- Fetch trains + index + search --------
-    // Point to your GitHub-updated trains.json (adjust if you keep it elsewhere)
-    const TRAINS_URL = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
-
-    async function fetchJSON(url){
-      const res = await fetch(url, { cache:'no-store' });
-      if(!res.ok) throw new Error('HTTP '+res.status);
-      // If GitHub returns HTML on errors, this will throw
-      const ct = res.headers.get('content-type')||'';
-      if(!ct.includes('application/json')) throw new Error('Non-JSON response');
-      return res.json();
-    }
-    function featureFrom(lon,lat,props={}){
-      const f=new ol.Feature({ geometry:new ol.geom.Point(ol.proj.fromLonLat([lon,lat])) });
-      Object.entries(props).forEach(([k,v])=>f.set(k,v));
-      return f;
-    }
-    function extractFeatures(data){
-      const feats=[], push=(lon,lat,props)=>{
-        if(typeof lon!=='number'||typeof lat!=='number')return;
-        if(lat<-90||lat>90||lon<-180||lon>180)return;
-        feats.push(featureFrom(lon,lat,props));
-      };
-      if (Array.isArray(data?.trains)) {
-        data.trains.forEach(t=>push(t.lon??t.lng??t.longitude, t.lat??t.latitude, {
-          id:t.id||t.label, label:t.label||t.name, heading:t.heading||t.bearing, loco:t.loco||t.locoNumber
-        }));
-      } else if (data?.atcsObj && typeof data.atcsObj==='object') {
-        Object.values(data.atcsObj).forEach(o=>push(o.Lon??o.lon??o.lng, o.Lat??o.lat, {
-          id:o.id||o.Name, label:o.Name, heading:o.H??o.heading, loco:o.Loco||o.loco
-        }));
-      } else if (Array.isArray(data)) {
-        data.forEach(t=>push(t.lon??t.lng??t.longitude, t.lat??t.latitude, {
-          id:t.id||t.label, label:t.label||t.name, heading:t.heading, loco:t.loco||t.locoNumber
-        }));
-      }
-      return feats;
-    }
-    function buildIndex(features){
-      const idx=new Map();
-      features.forEach(f=>{
-        const fields=[f.get('id'),f.get('label'),f.get('loco')].filter(Boolean).join(' ').toLowerCase();
-        idx.set(f,fields);
+    // Run only when everything is ready (prevents blank maps on Netlify)
+    window.addEventListener('load', () => {
+      // ---- Map base
+      const view = new ol.View({
+        center: ol.proj.fromLonLat([133.7751, -25.2744]), // AU
+        zoom: 4,
+        rotation: 0
       });
-      return idx;
-    }
-    function formatStamp(d){
-      try{
-        const date = d instanceof Date ? d : new Date(d);
-        const t = date.toLocaleTimeString(undefined,{hour12:false});
-        const short = Intl.DateTimeFormat(undefined,{timeZoneName:'short'}).formatToParts(date).find(p=>p.type==='timeZoneName')?.value||'';
-        return `${t} ${short}`;
-      }catch(_){ return new Date().toLocaleTimeString(); }
-    }
-    async function refreshTrains(){
-      try{
-        const json = await fetchJSON(TRAINS_URL);
-        const feats = extractFeatures(json);
-        trainSource.clear(true);
-        trainSource.addFeatures(feats);
-        window.__RAILOPS_INDEX__ = buildIndex(feats);
-        const stamp = json.last_updated || json.generated_at || Date.now();
-        lastUpdated.textContent = 'Last updated: ' + formatStamp(stamp);
-        console.log('Trains loaded:', feats.length);
-      }catch(e){
-        lastUpdated.textContent = 'Last updated: failed to load';
-        console.warn('Failed to load trains.json', e);
-      }
-    }
 
-    function searchAndZoom(q){
-      q=(q||'').trim().toLowerCase();
-      if(!q || !window.__RAILOPS_INDEX__) return false;
-      for(const [f,text] of window.__RAILOPS_INDEX__.entries()){
-        if(text.includes(q)){
-          const coord=f.getGeometry().getCoordinates();
-          view.animate({ center:coord, zoom:Math.max(view.getZoom(),12), duration:500 });
-          return true;
+      // lock north
+      view.on('change:rotation', () => view.setRotation(0));
+
+      const baseOSM = new ol.layer.Tile({ source: new ol.source.OSM() });
+
+      const map = new ol.Map({
+        target: 'map',
+        layers: [ baseOSM ],
+        view
+      });
+
+      // ---- OpenRailwayMap overlays
+      const railLayer = new ol.layer.Tile({
+        source: new ol.source.XYZ({
+          url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
+          attributions: '© OpenRailwayMap, © OpenStreetMap',
+          maxZoom: 19
+        }),
+        visible: true
+      });
+      const stationsLayer = new ol.layer.Tile({
+        source: new ol.source.XYZ({
+          url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png',
+          attributions: '© OpenRailwayMap, © OpenStreetMap',
+          maxZoom: 19
+        }),
+        visible: true
+      });
+      map.addLayer(railLayer);
+      map.addLayer(stationsLayer);
+
+      // ---- Highways / roads overlay (OSM HOT style)
+      const roadsOverlay = new ol.layer.Tile({
+        source: new ol.source.XYZ({
+          url: 'https://{a-c}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+          attributions: '© OpenStreetMap contributors'
+        }),
+        opacity: 0.7,
+        visible: false
+      });
+      map.addLayer(roadsOverlay);
+
+      // ---- ACCC coverage via ArcGIS MapServer
+      const ACCC_URL='https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
+      function acccLayer(id){ return new ol.layer.Tile({
+        source:new ol.source.TileArcGISRest({
+          url:ACCC_URL,
+          params:{ layers:`show:${id}`, dpi:96, transparent:true, format:'png32' }
+        }),
+        opacity:.45, visible:false
+      });}
+      const covTelstra=acccLayer(25), covOptus=acccLayer(15), covTPG=acccLayer(33), covAll=acccLayer(4);
+      [covTelstra,covOptus,covTPG,covAll].forEach(l=>map.addLayer(l));
+
+      // ---- Demo trains
+      const nswSrc = new ol.source.Vector(), vicSrc = new ol.source.Vector();
+      const nswLayer = new ol.layer.Vector({ source: nswSrc, visible:false });
+      const vicLayer = new ol.layer.Vector({ source: vicSrc, visible:false });
+      map.addLayer(nswLayer); map.addLayer(vicLayer);
+
+      function arrow(color,bearing){return new ol.style.Style({image:new ol.style.RegularShape({
+        points:3,radius:10,rotation:(bearing||0)*Math.PI/180,fill:new ol.style.Fill({color:color||'#ff5000'})
+      })});}
+      function addDemoTrains(src,list,color){
+        src.clear();
+        list.forEach(t=>{
+          const f=new ol.Feature({ id: t.id || '', loco: t.loco || '', geometry:new ol.geom.Point(ol.proj.fromLonLat([t.lon,t.lat]))});
+          f.setStyle(arrow(color,t.bearing)); src.addFeature(f);
+        });
+      }
+
+      // ---- UI bits
+      const $ = id => document.getElementById(id);
+      const zoomSelect=$('zoomSelect'), resetBtn=$('resetBtn'), layersBtn=$('layersBtn');
+      const panel=$('layersPanel'), searchBox=$('searchBox');
+
+      const railChk=$('railChk'), stationsChk=$('stationsChk'), roadsChk=$('roadsChk');
+      const telChk=$('covTelstra'), optChk=$('covOptus'), tpgChk=$('covTPG'), allChk=$('covAll');
+      const nswChk=$('nswChk'), vicChk=$('vicChk');
+
+      function zoomAustralia(){ view.animate({ center: ol.proj.fromLonLat([133.7751,-25.2744]), zoom: 4, duration: 500 }); }
+      function zoomCurrent(){
+        if (!navigator.geolocation) { zoomAustralia(); return; }
+        navigator.geolocation.getCurrentPosition(
+          pos=>{
+            const c=ol.proj.fromLonLat([pos.coords.longitude,pos.coords.latitude]);
+            view.animate({ center:c, zoom: 12, duration: 600 });
+          },
+          ()=>zoomAustralia(),
+          { enableHighAccuracy:true, timeout:10000 }
+        );
+      }
+
+      zoomSelect.addEventListener('change', () => (zoomSelect.value==='current'?zoomCurrent():zoomAustralia()));
+      resetBtn.addEventListener('click', () => {
+        zoomAustralia();
+        [covTelstra,covOptus,covTPG,covAll,roadsOverlay,nswLayer,vicLayer].forEach(l=>l.setVisible(false));
+        document.querySelectorAll('#layersPanel input[type=checkbox]').forEach(c=>c.checked=false);
+        railLayer.setVisible(true); stationsLayer.setVisible(true);
+        railChk.checked=true; stationsChk.checked=true;
+      });
+      layersBtn.addEventListener('click', () => { panel.style.display = panel.style.display==='none' ? 'block' : 'none'; });
+
+      railChk.addEventListener('change', () => railLayer.setVisible(railChk.checked));
+      stationsChk.addEventListener('change', () => stationsLayer.setVisible(stationsChk.checked));
+      roadsChk.addEventListener('change', () => roadsOverlay.setVisible(roadsChk.checked));
+      telChk.addEventListener('change', () => covTelstra.setVisible(telChk.checked));
+      optChk.addEventListener('change', () => covOptus.setVisible(optChk.checked));
+      tpgChk.addEventListener('change', () => covTPG.setVisible(tpgChk.checked));
+      allChk.addEventListener('change', () => covAll.setVisible(allChk.checked));
+
+      nswChk.addEventListener('change',()=>{
+        nswLayer.setVisible(nswChk.checked);
+        if(nswChk.checked) addDemoTrains(nswSrc,[
+          {id:'NSW-1',loco:'A1',lon:151.2,lat:-33.87,bearing:90},
+          {id:'NSW-2',loco:'B7',lon:150.9,lat:-33.7,bearing:250}
+        ],'#00a0ff');
+      });
+      vicChk.addEventListener('change',()=>{
+        vicLayer.setVisible(vicChk.checked);
+        if(vicChk.checked) addDemoTrains(vicSrc,[
+          {id:'VIC-1',loco:'N467',lon:144.96,lat:-37.81,bearing:175},
+          {id:'VIC-2',loco:'X31',lon:145.06,lat:-37.82,bearing:5}
+        ],'#ff5000');
+      });
+
+      // Close panel when clicking anywhere on the map
+      map.on('singleclick', () => { if (panel.style.display==='block') panel.style.display='none'; });
+
+      // ---- Current location pin (toggle)
+      const locBtn = $('locBtn');
+      let locFeature=null, locLayer=null, locWatch=null;
+      function ensureLocLayer(){
+        if (locLayer) return;
+        const src=new ol.source.Vector();
+        locLayer=new ol.layer.Vector({ source:src });
+        map.addLayer(locLayer);
+      }
+      function drawLoc(lon,lat){
+        ensureLocLayer();
+        const p=ol.proj.fromLonLat([lon,lat]);
+        if(!locFeature){
+          locFeature=new ol.Feature({ geometry:new ol.geom.Point(p) });
+          locFeature.setStyle(new ol.style.Style({image:new ol.style.Circle({
+            radius:6, fill:new ol.style.Fill({color:'#00e0ff'}), stroke:new ol.style.Stroke({color:'#003bff',width:2})
+          })}));
+          locLayer.getSource().addFeature(locFeature);
+        }else{
+          locFeature.getGeometry().setCoordinates(p);
         }
       }
-      return false;
-    }
-    document.getElementById('searchBox').addEventListener('keydown', e=>{
-      if(e.key==='Enter'){
-        const ok=searchAndZoom(e.target.value);
-        if(!ok){
-          const old=e.target.placeholder; e.target.value=''; e.target.placeholder='Train not found';
-          setTimeout(()=>e.target.placeholder=old,1200);
+      let locOn=false;
+      locBtn.addEventListener('click', ()=>{
+        if(locOn){
+          if (locWatch) navigator.geolocation.clearWatch(locWatch);
+          locWatch=null; locOn=false; locBtn.textContent='📍';
+          if(locLayer){ locLayer.getSource().clear(); }
+        }else{
+          if(!navigator.geolocation){ alert('Geolocation not supported'); return; }
+          locOn=true; locBtn.textContent='📍•';
+          locWatch = navigator.geolocation.watchPosition(
+            pos=>{ drawLoc(pos.coords.longitude,pos.coords.latitude); },
+            ()=>{},
+            { enableHighAccuracy:true, maximumAge:10000, timeout:15000 }
+          );
         }
+      });
+
+      // ---- Clock with timezone
+      const clock=$('clock');
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'local';
+      function tick(){
+        const d=new Date();
+        const hh=String(d.getHours()).padStart(2,'0');
+        const mm=String(d.getMinutes()).padStart(2,'0');
+        const ss=String(d.getSeconds()).padStart(2,'0');
+        clock.textContent = `${hh}:${mm}:${ss} (${tz})`;
       }
+      tick(); setInterval(tick,1000);
+
+      // ---- Search (filters visible demo trains by id/loco)
+      function matches(q,feature){
+        const id = (feature.get('id')||'').toString().toLowerCase();
+        const loco = (feature.get('loco')||'').toString().toLowerCase();
+        q=q.trim().toLowerCase();
+        return q && (id.includes(q) || loco.includes(q));
+      }
+      searchBox.addEventListener('input', ()=>{
+        const q=searchBox.value;
+        [nswSrc,vicSrc].forEach(src=>{
+          src.getFeatures().forEach(f=>{
+            const baseStyle = f.getStyle(); // keep arrow
+            if(!q){ f.setStyle(baseStyle); return; }
+            const on = matches(q,f);
+            f.setStyle(on ? baseStyle : null);
+          });
+        });
+      });
+
+      // Start centered on Australia
+      zoomAustralia();
     });
-
-    // -------- Randomized refresh (30–90s) --------
-    function scheduleRefresh(){
-      const ms = 30000 + Math.floor(Math.random()*60000); // 30–90s
-      setTimeout(async()=>{ await refreshTrains(); scheduleRefresh(); }, ms);
-    }
-
-    // -------- Clock with seconds + timezone --------
-    function tzOffsetStr(d){
-      const offMin=-d.getTimezoneOffset(), sign=offMin>=0?'+':'-';
-      const abs=Math.abs(offMin), hh=String(Math.floor(abs/60)).padStart(2,'0'), mm=String(abs%60).padStart(2,'0');
-      return `UTC${sign}${hh}:${mm}`;
-    }
-    function tickClock(){
-      const d=new Date();
-      const t=d.toLocaleTimeString(undefined,{hour12:false});
-      const short=Intl.DateTimeFormat(undefined,{timeZoneName:'short'}).formatToParts(d).find(p=>p.type==='timeZoneName')?.value||'';
-      clockEl.textContent = `${t} ${short} (${tzOffsetStr(d)})`;
-    }
-
-    // -------- Kick-off --------
-    fitAustralia();
-    refreshTrains();
-    scheduleRefresh();
-    tickClock(); setInterval(tickClock,1000);
   </script>
 </body>
 </html>
