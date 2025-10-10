@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RailOps — AU Live Map</title>
 
-  <!-- OpenLayers (same CDN/version as your last working file) -->
+  <!-- OpenLayers (same CDN/version as your working file) -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 
@@ -15,7 +15,7 @@
     #map{height:100%}
     .toolbar{
       position:absolute;top:10px;left:10px;z-index:10;
-      background:var(--brand);color:#fff;padding:8px 10px;border-radius:10px;
+      background:var(--brand);color:#fff;padding:8px 10px;border-radius:8px;
       display:flex;align-items:center;gap:8px;box-shadow:0 6px 20px rgba(0,0,0,.35)
     }
     .toolbar select,.toolbar button,.toolbar input[type=text]{margin-left:6px;border:0;border-radius:8px;padding:6px 8px;font-weight:600}
@@ -35,6 +35,23 @@
     }
     .updated{font-size:12px;color:var(--muted);margin-top:2px}
   </style>
+
+  <!-- kill any stale service worker/cache that might serve old HTML -->
+  <meta http-equiv="Cache-Control" content="no-store, must-revalidate">
+  <script>
+  (async()=>{
+    try{
+      if('serviceWorker' in navigator){
+        const regs = await navigator.serviceWorker.getRegistrations();
+        for(const r of regs) try{ await r.unregister(); }catch{}
+      }
+      if('caches' in window){
+        const names = await caches.keys();
+        for(const n of names) try{ await caches.delete(n);}catch{}
+      }
+    }catch(_){}
+  })();
+  </script>
 </head>
 <body>
   <!-- Toolbar -->
@@ -74,11 +91,15 @@
 
   <script>
     // ========= CONFIG =========
-    // Live trains JSON (your GitHub backend workflow writes here):
+    // Your live trains JSON (from your GitHub Actions backend):
     const TRAINS_URL = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
 
-    // ========= MAP (unchanged base setup) =========
-    const view = new ol.View({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 4, constrainRotation: 0 });
+    // ========= MAP: based on your last working setup =========
+    const view = new ol.View({
+      center: ol.proj.fromLonLat([133.7751, -25.2744]),
+      zoom: 4,
+      constrainRotation: 0
+    });
     const roadsBase = new ol.layer.Tile({ source: new ol.source.OSM(), visible: true });
     const map = new ol.Map({ target: 'map', layers: [ roadsBase ], view });
 
@@ -150,7 +171,7 @@
       locSource.clear();
     }
 
-    // ========= Trains layer + styles =========
+    // ========= Trains layer =========
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -165,7 +186,7 @@
     });
     map.addLayer(trainLayer);
 
-    // ========= Helpers (fit AU, current, UI, search) =========
+    // ========= Helpers (extent, current) =========
     function fitAustralia(){
       const e=[112.0,-44.0,154.0,-10.0];
       map.getView().fit(ol.proj.transformExtent(e,'EPSG:4326','EPSG:3857'),{duration:500,padding:[40,40,40,40]});
@@ -182,6 +203,7 @@
       );
     }
 
+    // ========= UI wiring =========
     const zoomSelect   = document.getElementById('zoomSelect');
     const resetBtn     = document.getElementById('resetBtn');
     const layersBtn    = document.getElementById('layersBtn');
@@ -207,6 +229,7 @@
       stopGeolocation(); locLayer.setVisible(false);
     });
     layersBtn.addEventListener('click', ()=> panel.style.display = (panel.style.display==='none'?'block':'none'));
+    // Close panel by clicking the map (not the UI)
     map.getViewport().addEventListener('click',(e)=>{
       const inUI = e.target.closest ? (e.target.closest('#layersPanel')||e.target.closest('.toolbar')) : null;
       if(!inUI) panel.style.display='none';
