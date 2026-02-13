@@ -55,16 +55,11 @@
     
     .tt-popup {
       background: white; padding: 15px 20px; border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3); min-width: 280px; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3); min-width: 260px; 
       font-size: 14px; border-left: 5px solid #0b57cf;
     }
     .tt-popup .train-id { font-size: 18px; font-weight: 700; margin-bottom: 8px; color: #0b57cf; }
     .tt-popup .divider { height: 1px; background: #eee; margin: 10px 0; }
-    .tt-popup .debug-data { 
-      background: #f5f5f5; padding: 8px; border-radius: 4px; 
-      font-family: monospace; font-size: 11px; margin-top: 8px;
-      max-height: 100px; overflow: auto; color: #333;
-    }
   </style>
 </head>
 <body>
@@ -76,7 +71,7 @@
       <option value="australia">Australia</option>
       <option value="current">My location</option>
     </select>
-    <input id="searchBox" type="search" placeholder="Search train ID...">
+    <input id="searchBox" type="search" placeholder="Search train ID or number...">
     <button id="searchBtn">🔍 Search</button>
     <button id="resetBtn">🔄 Reset</button>
     <button id="layersBtn">📊 Layers</button>
@@ -157,16 +152,36 @@
       });
       map.addLayer(trainLayer);
 
-      // Simple style - just triangles pointing north for now
-      trainLayer.setStyle(new ol.style.Style({
-        image: new ol.style.RegularShape({
-          points: 3,
-          radius: 12,
-          rotation: 0,
-          fill: new ol.style.Fill({ color: [11, 87, 207, 0.9] }),
-          stroke: new ol.style.Stroke({ color: [255,255,255,0.8], width: 2 })
-        })
-      }));
+      // Style function for trains
+      trainLayer.setStyle(function(feature) {
+        const props = feature.getProperties();
+        const heading = Number(props.heading) || 0;
+        const speed = Number(props.speed) || 0;
+        
+        // Color based on speed
+        let color;
+        if (speed > 80) color = [220, 20, 60, 0.9];      // Fast - Crimson
+        else if (speed > 40) color = [255, 140, 0, 0.9]; // Medium - Orange
+        else if (speed > 0) color = [255, 215, 0, 0.9];  // Slow - Gold
+        else color = [46, 204, 113, 0.9];                // Stationary - Emerald
+        
+        return new ol.style.Style({
+          image: new ol.style.RegularShape({
+            points: 3,
+            radius: 14,
+            rotation: (heading * Math.PI) / 180,
+            fill: new ol.style.Fill({ color }),
+            stroke: new ol.style.Stroke({ color: [0,0,0,0.8], width: 2 })
+          }),
+          text: new ol.style.Text({
+            text: String(props.train_number || props.id || '').substring(0, 5),
+            offsetY: -22,
+            font: 'bold 11px Arial',
+            fill: new ol.style.Fill({ color: '#000' }),
+            stroke: new ol.style.Stroke({ color: '#fff', width: 3 })
+          })
+        });
+      });
 
       // ========== POPUP ==========
       const popupEl = document.createElement('div');
@@ -181,27 +196,33 @@
       map.on('singleclick', (evt) => {
         const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
         if (feature) {
-          const props = feature.getProperties();
+          const p = feature.getProperties();
           
-          // Log all properties to console for debugging
-          console.log('Train properties:', props);
-          
-          // Show ALL available data in popup
+          // Build popup HTML with only available data
           let html = '<div class="train-id">🚂 Train Details</div>';
           
-          // List all properties except geometry
-          Object.keys(props).forEach(key => {
-            if (key !== 'geometry') {
-              const value = props[key];
-              if (value !== undefined && value !== null && value !== '') {
-                html += `<div><strong>${key}:</strong> ${value}</div>`;
-              }
-            }
-          });
+          // Show train number if available (this is the most useful ID)
+          if (p.train_number) {
+            html += `<div><strong>Train Number:</strong> ${p.train_number}</div>`;
+          }
           
-          // Add coordinates
+          // Show ID (usually reg_0, arrow_16, etc.)
+          if (p.id && p.id !== p.train_number) {
+            html += `<div><strong>ID:</strong> ${p.id}</div>`;
+          }
+          
+          // Speed and heading (always available)
+          html += `<div style="display: flex; gap: 20px; margin: 8px 0;">
+            <div><strong>Speed:</strong> ${p.speed || 0} km/h</div>
+            <div><strong>Heading:</strong> ${p.heading || 0}°</div>
+          </div>`;
+          
+          // Status indicator
+          const status = (p.speed && p.speed > 0) ? '🟢 Moving' : '⚫ Stationary';
+          html += `<div><strong>Status:</strong> ${status}</div>`;
+          
           html += `<div class="divider"></div>`;
-          html += `<div><strong>lat/lon:</strong> ${props.lat?.toFixed(5) || '?'}, ${props.lon?.toFixed(5) || '?'}</div>`;
+          html += `<div style="color: #666; font-size: 12px;">📍 ${p.lat?.toFixed(5)}, ${p.lon?.toFixed(5)}</div>`;
           
           popupEl.innerHTML = html;
           popup.setPosition(evt.coordinate);
@@ -219,11 +240,6 @@
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           
           const data = await res.json();
-          
-          // Log first train to console to see structure
-          if (data.trains && data.trains.length > 0) {
-            console.log('First train data:', data.trains[0]);
-          }
           
           // Clear existing features
           trainSource.clear();
@@ -327,17 +343,16 @@
         let found = false;
         trainSource.forEachFeature(f => {
           const props = f.getProperties();
-          // Search in all string properties
-          Object.keys(props).forEach(key => {
-            const val = String(props[key] || '').toLowerCase();
-            if (val.includes(query)) {
-              map.getView().animate({
-                center: f.getGeometry().getCoordinates(),
-                zoom: 14
-              });
-              found = true;
-            }
-          });
+          const trainNumber = String(props.train_number || '').toLowerCase();
+          const id = String(props.id || '').toLowerCase();
+          
+          if (trainNumber.includes(query) || id.includes(query)) {
+            map.getView().animate({
+              center: f.getGeometry().getCoordinates(),
+              zoom: 14
+            });
+            found = true;
+          }
         });
         
         if (!found) alert('Train not found');
