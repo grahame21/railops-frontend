@@ -4,115 +4,77 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>RailOps — AU Live Map</title>
-
-  <!-- OpenLayers -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
-
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: system-ui, sans-serif; }
-    #map { height: 100%; width: 100%; position: absolute; top: 0; left: 0; }
-    
-    .toolbar {
-      position: absolute; top: 10px; left: 10px; z-index: 1000;
-      background: #0b57cf; color: white; padding: 8px 12px; border-radius: 12px;
-      display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    html, body { height: 100%; margin: 0; padding: 0; }
+    #map { height: 100%; width: 100%; }
+    #debug {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      background: black; color: lime; padding: 10px; z-index: 1000;
+      font-family: monospace; max-width: 80%; max-height: 200px; overflow: auto;
     }
-    .toolbar button, .toolbar select, .toolbar input {
-      border: 0; border-radius: 8px; padding: 6px 10px; font-size: 13px;
-    }
-    .toolbar button { background: white; color: #0b57cf; cursor: pointer; font-weight: 600; }
-    .toolbar input { min-width: 200px; }
-    
-    .clockbox {
-      position: absolute; top: 10px; right: 10px; z-index: 1000;
-      background: rgba(0,0,0,0.8); color: #00ff9c; padding: 8px 14px;
-      border-radius: 12px; font-family: monospace; font-weight: 600;
-    }
-    
     .train-popup {
-      background: white;
-      border-radius: 8px;
-      padding: 12px 20px;
-      min-width: 150px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
-      font-family: 'Courier New', monospace;
-      font-size: 18px;
-      font-weight: bold;
-      text-align: center;
-      border: 2px solid #0b57cf;
+      background: white; padding: 15px; border-radius: 8px;
+      font-family: 'Courier New', monospace; font-weight: bold;
+      font-size: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      border: 2px solid #0b57cf; text-align: center;
     }
   </style>
 </head>
 <body>
+  <div id="debug">Initializing...</div>
   <div id="map"></div>
 
-  <div class="toolbar">
-    <span>🚂 RailOps — Australia</span>
-    <select id="zoomSelect">
-      <option value="australia">Australia</option>
-      <option value="current">My location</option>
-    </select>
-    <input id="searchBox" type="search" placeholder="Search train...">
-    <button id="searchBtn">🔍 Search</button>
-    <button id="resetBtn">🔄 Reset</button>
-    <button id="layersBtn">📊 Layers</button>
-  </div>
-
-  <div class="clockbox">
-    <div id="clock"></div>
-    <div id="lastUpdated">Loading trains...</div>
-  </div>
-
-  <div id="layersPanel" style="display:none; position:absolute; left:10px; bottom:10px; z-index:1000; background:rgba(0,0,0,0.85); color:white; padding:12px; border-radius:12px;">
-    <div><label><input id="railChk" type="checkbox" checked> Rail lines</label></div>
-    <div><label><input id="stationsChk" type="checkbox" checked> Stations</label></div>
-  </div>
-
-  <div style="position:absolute; right:10px; bottom:10px; z-index:1000; display:flex; flex-direction:column; gap:10px;">
-    <button id="zoomInBtn" style="width:48px; height:48px; border-radius:50%; border:0; background:white; cursor:pointer;">➕</button>
-    <button id="zoomOutBtn" style="width:48px; height:48px; border-radius:50%; border:0; background:white; cursor:pointer;">➖</button>
-  </div>
-
   <script>
-    // Initialize map
+    const debug = document.getElementById('debug');
+    
+    function log(msg) {
+      console.log(msg);
+      debug.innerHTML = msg + '<br>' + debug.innerHTML;
+    }
+
+    log('🚂 Starting...');
+
+    // Create map
     const map = new ol.Map({
       target: 'map',
       layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
       view: new ol.View({
         center: ol.proj.fromLonLat([133.7751, -25.2744]),
-        zoom: 5
+        zoom: 4
       })
     });
 
-    // Add railway layer
-    const railLayer = new ol.layer.Tile({
-      source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
-      visible: true
-    });
-    map.addLayer(railLayer);
-
     // Train layer
     const trainSource = new ol.source.Vector();
-    const trainLayer = new ol.layer.Vector({ source: trainSource });
+    const trainLayer = new ol.layer.Vector({ 
+      source: trainSource,
+      style: new ol.style.Style({
+        image: new ol.style.Circle({
+          radius: 8,
+          fill: new ol.style.Fill({ color: 'red' }),
+          stroke: new ol.style.Stroke({ color: 'white', width: 2 })
+        })
+      })
+    });
     map.addLayer(trainLayer);
 
     // Popup
     const popupEl = document.createElement('div');
     popupEl.className = 'train-popup';
-    const popup = new ol.Overlay({ element: popupEl, positioning: 'bottom-center', offset: [0, -10] });
+    const popup = new ol.Overlay({ element: popupEl, positioning: 'bottom-center' });
     map.addOverlay(popup);
 
     // Click handler
-    map.on('singleclick', function(evt) {
-      const feature = map.forEachFeatureAtPixel(evt.pixel, function(f) { return f; });
+    map.on('click', function(evt) {
+      const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
       if (feature) {
         const props = feature.getProperties();
-        console.log('Clicked train:', props); // Debug: see in console
+        log('Clicked! Properties: ' + JSON.stringify(props));
         
-        // Show the train number or ID
-        const trainNumber = props.train_number || props.id || 'TRAIN';
+        // Try to get train number from various possible field names
+        const trainNumber = props.train_number || props.trainNumber || props.id || props.name || 'Unknown';
         popupEl.innerHTML = trainNumber;
         popup.setPosition(evt.coordinate);
       } else {
@@ -124,21 +86,30 @@
     async function loadTrains() {
       try {
         const url = 'https://grahame21.github.io/railops-backend/trains.json?t=' + Date.now();
+        log('Fetching: ' + url);
+        
         const res = await fetch(url);
         const data = await res.json();
+        
+        log('Got data. trains length: ' + (data.trains ? data.trains.length : 0));
         
         trainSource.clear();
         
         if (data.trains && data.trains.length > 0) {
-          data.trains.forEach(t => {
+          // Log the first train to see its structure
+          log('First train: ' + JSON.stringify(data.trains[0]));
+          
+          data.trains.forEach((t, i) => {
             if (t && t.lat && t.lon) {
               const feature = new ol.Feature({
                 geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
               });
               
-              // Store ALL train data in the feature
+              // Store ALL properties
               feature.set('id', t.id);
               feature.set('train_number', t.train_number);
+              feature.set('trainNumber', t.trainNumber);
+              feature.set('name', t.name);
               feature.set('speed', t.speed);
               feature.set('heading', t.heading);
               
@@ -146,32 +117,15 @@
             }
           });
           
-          document.getElementById('lastUpdated').innerHTML = 
-            `${trainSource.getFeatures().length} trains • ${new Date().toLocaleTimeString()}`;
+          log('Added ' + trainSource.getFeatures().length + ' trains to map');
         }
       } catch (e) {
-        console.error(e);
-        document.getElementById('lastUpdated').innerHTML = '❌ Error';
+        log('ERROR: ' + e.message);
       }
     }
 
     loadTrains();
     setInterval(loadTrains, 30000);
-
-    // Basic controls
-    document.getElementById('zoomInBtn').addEventListener('click', () => {
-      map.getView().animate({ zoom: map.getView().getZoom() + 1 });
-    });
-    document.getElementById('zoomOutBtn').addEventListener('click', () => {
-      map.getView().animate({ zoom: map.getView().getZoom() - 1 });
-    });
-
-    // Clock
-    function updateClock() {
-      document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-    }
-    updateClock();
-    setInterval(updateClock, 1000);
   </script>
 </body>
 </html>
