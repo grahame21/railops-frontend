@@ -10,7 +10,7 @@
   <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 
   <style>
-    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif; }
+    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: system-ui, sans-serif; }
     #map { height: 100%; width: 100%; position: absolute; top: 0; left: 0; }
     
     .toolbar {
@@ -23,79 +23,25 @@
       border: 0; border-radius: 8px; padding: 6px 10px; font-size: 13px;
     }
     .toolbar button { background: white; color: #0b57cf; cursor: pointer; font-weight: 600; }
-    .toolbar button:hover { background: #f0f0f0; }
     .toolbar input { min-width: 200px; }
     
     .clockbox {
       position: absolute; top: 10px; right: 10px; z-index: 1000;
       background: rgba(0,0,0,0.8); color: #00ff9c; padding: 8px 14px;
       border-radius: 12px; font-family: monospace; font-weight: 600;
-      backdrop-filter: blur(5px);
     }
     
-    .panel {
-      position: absolute; left: 10px; bottom: 10px; z-index: 1000;
-      background: rgba(0,0,0,0.85); color: white; border-radius: 12px;
-      padding: 12px 16px; min-width: 260px; backdrop-filter: blur(5px);
-    }
-    .row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.15); }
-    .row:first-child { border-top: 0; }
-    
-    .floating {
-      position: absolute; right: 10px; bottom: 10px; z-index: 1000;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    .floating button {
-      width: 48px; height: 48px; border-radius: 50%; border: 0;
-      background: white; color: #0b57cf; font-size: 18px; cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-      transition: transform 0.2s;
-    }
-    .floating button:hover { transform: scale(1.1); }
-    
-    /* Train popup style - matching your image */
     .train-popup {
       background: white;
       border-radius: 8px;
-      padding: 12px 16px;
-      min-width: 180px;
-      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+      padding: 12px 20px;
+      min-width: 150px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
       font-family: 'Courier New', monospace;
-      font-size: 14px;
+      font-size: 18px;
       font-weight: bold;
       text-align: center;
-      border: 1px solid #ccc;
-    }
-    
-    .train-popup .train-number {
-      font-size: 20px;
-      font-weight: 800;
-      color: #000;
-      line-height: 1.2;
-    }
-    
-    .train-popup .train-code {
-      font-size: 16px;
-      color: #333;
-      margin-top: 2px;
-    }
-    
-    /* For trains with two lines like in your image */
-    .train-popup .double-line {
-      display: flex;
-      flex-direction: column;
-    }
-    
-    /* Pointer arrow */
-    .ol-popup:after {
-      content: "";
-      position: absolute;
-      bottom: -10px;
-      left: 50%;
-      margin-left: -10px;
-      border-width: 10px 10px 0;
-      border-style: solid;
-      border-color: white transparent;
+      border: 2px solid #0b57cf;
     }
   </style>
 </head>
@@ -119,263 +65,113 @@
     <div id="lastUpdated">Loading trains...</div>
   </div>
 
-  <div id="layersPanel" class="panel" style="display:none;">
-    <div class="row"><label><input id="railChk" type="checkbox" checked> Rail lines</label></div>
-    <div class="row"><label><input id="stationsChk" type="checkbox" checked> Stations</label></div>
-    <div class="row"><label><input id="covTelstra" type="checkbox"> Telstra</label></div>
-    <div class="row"><label><input id="covOptus" type="checkbox"> Optus</label></div>
-    <div class="row"><label><input id="covTPG" type="checkbox"> Vodafone/TPG</label></div>
-    <div class="row"><label><input id="covAll" type="checkbox"> Combined</label></div>
+  <div id="layersPanel" style="display:none; position:absolute; left:10px; bottom:10px; z-index:1000; background:rgba(0,0,0,0.85); color:white; padding:12px; border-radius:12px;">
+    <div><label><input id="railChk" type="checkbox" checked> Rail lines</label></div>
+    <div><label><input id="stationsChk" type="checkbox" checked> Stations</label></div>
   </div>
 
-  <div class="floating">
-    <button id="zoomInBtn">➕</button>
-    <button id="zoomOutBtn">➖</button>
-    <button id="locBtn">📍</button>
+  <div style="position:absolute; right:10px; bottom:10px; z-index:1000; display:flex; flex-direction:column; gap:10px;">
+    <button id="zoomInBtn" style="width:48px; height:48px; border-radius:50%; border:0; background:white; cursor:pointer;">➕</button>
+    <button id="zoomOutBtn" style="width:48px; height:48px; border-radius:50%; border:0; background:white; cursor:pointer;">➖</button>
   </div>
 
   <script>
-    (function() {
-      console.log('🚂 RailOps starting...');
+    // Initialize map
+    const map = new ol.Map({
+      target: 'map',
+      layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([133.7751, -25.2744]),
+        zoom: 5
+      })
+    });
 
-      // ========== CREATE MAP ==========
-      const map = new ol.Map({
-        target: 'map',
-        layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
-        view: new ol.View({
-          center: ol.proj.fromLonLat([133.7751, -25.2744]),
-          zoom: 5
-        })
-      });
+    // Add railway layer
+    const railLayer = new ol.layer.Tile({
+      source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
+      visible: true
+    });
+    map.addLayer(railLayer);
 
-      // ========== BASE LAYERS ==========
-      const railLayer = new ol.layer.Tile({
-        source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
-        visible: true
-      });
-      const stationsLayer = new ol.layer.Tile({
-        source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png' }),
-        visible: true
-      });
-      map.addLayer(railLayer);
-      map.addLayer(stationsLayer);
+    // Train layer
+    const trainSource = new ol.source.Vector();
+    const trainLayer = new ol.layer.Vector({ source: trainSource });
+    map.addLayer(trainLayer);
 
-      // Coverage layers
-      const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
-      function covLayer(id) {
-        return new ol.layer.Tile({
-          source: new ol.source.TileArcGISRest({ 
-            url: ACCC_URL, 
-            params: { layers: `show:${id}`, transparent: true, format: 'png32' } 
-          }),
-          opacity: 0.45,
-          visible: false
-        });
+    // Popup
+    const popupEl = document.createElement('div');
+    popupEl.className = 'train-popup';
+    const popup = new ol.Overlay({ element: popupEl, positioning: 'bottom-center', offset: [0, -10] });
+    map.addOverlay(popup);
+
+    // Click handler
+    map.on('singleclick', function(evt) {
+      const feature = map.forEachFeatureAtPixel(evt.pixel, function(f) { return f; });
+      if (feature) {
+        const props = feature.getProperties();
+        console.log('Clicked train:', props); // Debug: see in console
+        
+        // Show the train number or ID
+        const trainNumber = props.train_number || props.id || 'TRAIN';
+        popupEl.innerHTML = trainNumber;
+        popup.setPosition(evt.coordinate);
+      } else {
+        popup.setPosition(undefined);
       }
-      const covTelstra = covLayer(25);
-      const covOptus = covLayer(15);
-      const covTPG = covLayer(33);
-      const covAll = covLayer(4);
-      map.addLayer(covTelstra);
-      map.addLayer(covOptus);
-      map.addLayer(covTPG);
-      map.addLayer(covAll);
+    });
 
-      // ========== TRAIN LAYER ==========
-      const trainSource = new ol.source.Vector();
-      const trainLayer = new ol.layer.Vector({ 
-        source: trainSource, 
-        zIndex: 20
-      });
-      map.addLayer(trainLayer);
-
-      // Simple style for trains (small dots, no labels)
-      trainLayer.setStyle(new ol.style.Style({
-        image: new ol.style.Circle({
-          radius: 5,
-          fill: new ol.style.Fill({ color: [11, 87, 207, 0.9] }),
-          stroke: new ol.style.Stroke({ color: [255, 255, 255, 0.8], width: 1 })
-        })
-      }));
-
-      // ========== POPUP ==========
-      const popupEl = document.createElement('div');
-      popupEl.className = 'train-popup';
-      const popup = new ol.Overlay({ 
-        element: popupEl, 
-        positioning: 'bottom-center', 
-        offset: [0, -10] 
-      });
-      map.addOverlay(popup);
-
-      map.on('singleclick', (evt) => {
-        const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
-        if (feature) {
-          const p = feature.getProperties();
-          
-          // Format the train display like in your image
-          let displayText = '';
-          
-          // Use train_number if available, otherwise use id
-          const mainId = p.train_number || p.id || 'TRAIN';
-          
-          // Clean up the ID (remove prefixes if needed)
-          const cleanId = mainId.replace(/^(reg_|arrow_)/, '').toUpperCase();
-          
-          // Create display like in your image
-          // Some trains have two lines (like "ACN4148" over "P2505")
-          // We'll try to split if there's a space or make a best guess
-          if (cleanId.includes(' ') || cleanId.includes('\n')) {
-            // Already has formatting
-            displayText = cleanId.replace(/\n/g, '<br>');
-          } else if (cleanId.match(/[A-Z]+\d+/)) {
-            // Format like "ACN4148" - show as is
-            displayText = cleanId;
-          } else {
-            // Default
-            displayText = cleanId;
-          }
-          
-          popupEl.innerHTML = `<div class="train-number">${displayText}</div>`;
-          popup.setPosition(evt.coordinate);
-        } else {
-          popup.setPosition(undefined);
-        }
-      });
-
-      // ========== LOAD TRAINS ==========
-      async function loadTrains() {
-        try {
-          const url = 'https://grahame21.github.io/railops-backend/trains.json?t=' + Date.now();
-          const res = await fetch(url);
-          
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          
-          const data = await res.json();
-          
-          // Clear existing features
-          trainSource.clear();
-          
-          if (!data.trains || data.trains.length === 0) {
-            document.getElementById('lastUpdated').innerHTML = '⚠️ No trains';
-            return;
-          }
-          
-          // Add all trains
+    // Load trains
+    async function loadTrains() {
+      try {
+        const url = 'https://grahame21.github.io/railops-backend/trains.json?t=' + Date.now();
+        const res = await fetch(url);
+        const data = await res.json();
+        
+        trainSource.clear();
+        
+        if (data.trains && data.trains.length > 0) {
           data.trains.forEach(t => {
-            if (t && typeof t.lat === 'number' && typeof t.lon === 'number') {
+            if (t && t.lat && t.lon) {
               const feature = new ol.Feature({
                 geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
               });
               
-              // Add properties
+              // Store ALL train data in the feature
               feature.set('id', t.id);
               feature.set('train_number', t.train_number);
+              feature.set('speed', t.speed);
+              feature.set('heading', t.heading);
               
               trainSource.addFeature(feature);
             }
           });
           
-          // Update counter
-          const count = trainSource.getFeatures().length;
           document.getElementById('lastUpdated').innerHTML = 
-            `${count} trains • ${new Date().toLocaleTimeString()}`;
-          
-        } catch (e) {
-          console.error('Error loading trains:', e);
-          document.getElementById('lastUpdated').innerHTML = '❌ Failed to load';
+            `${trainSource.getFeatures().length} trains • ${new Date().toLocaleTimeString()}`;
         }
+      } catch (e) {
+        console.error(e);
+        document.getElementById('lastUpdated').innerHTML = '❌ Error';
       }
+    }
 
-      // Load trains immediately and every 30 seconds
-      loadTrains();
-      setInterval(loadTrains, 30000);
+    loadTrains();
+    setInterval(loadTrains, 30000);
 
-      // ========== CONTROLS ==========
-      document.getElementById('zoomSelect').addEventListener('change', (e) => {
-        if (e.target.value === 'current') {
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(pos => {
-              map.getView().animate({
-                center: ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]),
-                zoom: 12
-              });
-            });
-          }
-        } else {
-          map.getView().animate({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 5 });
-        }
-      });
+    // Basic controls
+    document.getElementById('zoomInBtn').addEventListener('click', () => {
+      map.getView().animate({ zoom: map.getView().getZoom() + 1 });
+    });
+    document.getElementById('zoomOutBtn').addEventListener('click', () => {
+      map.getView().animate({ zoom: map.getView().getZoom() - 1 });
+    });
 
-      document.getElementById('resetBtn').addEventListener('click', () => {
-        map.getView().animate({ center: ol.proj.fromLonLat([133.7751, -25.2744]), zoom: 5 });
-        
-        [covTelstra, covOptus, covTPG, covAll].forEach(l => l.setVisible(false));
-        document.querySelectorAll('#layersPanel input[type="checkbox"]').forEach(c => c.checked = false);
-        railLayer.setVisible(true);
-        stationsLayer.setVisible(true);
-        document.getElementById('railChk').checked = true;
-        document.getElementById('stationsChk').checked = true;
-      });
-
-      document.getElementById('layersBtn').addEventListener('click', () => {
-        const p = document.getElementById('layersPanel');
-        p.style.display = p.style.display === 'none' ? 'block' : 'none';
-      });
-
-      document.getElementById('covTelstra').addEventListener('change', e => covTelstra.setVisible(e.target.checked));
-      document.getElementById('covOptus').addEventListener('change', e => covOptus.setVisible(e.target.checked));
-      document.getElementById('covTPG').addEventListener('change', e => covTPG.setVisible(e.target.checked));
-      document.getElementById('covAll').addEventListener('change', e => covAll.setVisible(e.target.checked));
-      document.getElementById('railChk').addEventListener('change', e => railLayer.setVisible(e.target.checked));
-      document.getElementById('stationsChk').addEventListener('change', e => stationsLayer.setVisible(e.target.checked));
-
-      document.getElementById('zoomInBtn').addEventListener('click', () => {
-        map.getView().animate({ zoom: map.getView().getZoom() + 1 });
-      });
-      document.getElementById('zoomOutBtn').addEventListener('click', () => {
-        map.getView().animate({ zoom: map.getView().getZoom() - 1 });
-      });
-      document.getElementById('locBtn').addEventListener('click', () => {
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition(pos => {
-            map.getView().animate({
-              center: ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]),
-              zoom: 12
-            });
-          });
-        }
-      });
-
-      document.getElementById('searchBtn').addEventListener('click', () => {
-        const query = document.getElementById('searchBox').value.trim().toLowerCase();
-        if (!query) return;
-        
-        let found = false;
-        trainSource.forEachFeature(f => {
-          const props = f.getProperties();
-          const id = String(props.train_number || props.id || '').toLowerCase();
-          
-          if (id.includes(query)) {
-            map.getView().animate({
-              center: f.getGeometry().getCoordinates(),
-              zoom: 14
-            });
-            found = true;
-          }
-        });
-        
-        if (!found) alert('Train not found');
-      });
-
-      function updateClock() {
-        document.getElementById('clock').textContent = new Date().toLocaleTimeString();
-      }
-      updateClock();
-      setInterval(updateClock, 1000);
-
-      console.log('✅ RailOps ready');
-    })();
+    // Clock
+    function updateClock() {
+      document.getElementById('clock').textContent = new Date().toLocaleTimeString();
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
   </script>
 </body>
 </html>
