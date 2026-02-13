@@ -119,8 +119,8 @@
         const feature = map.forEachFeatureAtPixel(evt.pixel, f => f);
         if (feature) {
           const props = feature.getProperties();
-          console.log('Clicked train:', props); // DEBUG
           
+          // Show train_number if it exists
           if (props.train_number) {
             popupEl.innerHTML = props.train_number;
             popup.setPosition(evt.coordinate);
@@ -136,36 +136,34 @@
       async function loadTrains() {
         try {
           const url = 'https://grahame21.github.io/railops-backend/trains.json?t=' + Date.now();
-          console.log('Fetching:', url); // DEBUG
-          
           const res = await fetch(url);
-          console.log('Response status:', res.status); // DEBUG
           
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           
           const data = await res.json();
-          console.log('Data received:', data); // DEBUG
-          console.log('Number of trains:', data.trains?.length); // DEBUG
           
           trainSource.clear();
           
           if (data.trains && data.trains.length > 0) {
-            console.log('First train:', data.trains[0]); // DEBUG
-            
-            data.trains.forEach((t, index) => {
+            data.trains.forEach(t => {
               if (t.lat && t.lon) {
-                console.log(`Adding train ${index}:`, t); // DEBUG
-                
                 const feature = new ol.Feature({
                   geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
                 });
                 
+                // Store properties
                 feature.set('id', t.id);
                 feature.set('train_number', t.train_number);
                 feature.set('speed', t.speed || 0);
-                feature.set('heading', t.heading || 0);
                 
-                const heading = t.heading || 0;
+                // Handle headings array - take first value or default to 0
+                let heading = 0;
+                if (t.headings && Array.isArray(t.headings) && t.headings.length > 0) {
+                  heading = t.headings[0] || 0;
+                }
+                feature.set('heading', heading);
+                
+                // Style
                 const speed = t.speed || 0;
                 const color = speed > 0 ? [46, 204, 113, 0.9] : [0, 120, 255, 0.9];
                 
@@ -180,18 +178,13 @@
                 }));
                 
                 trainSource.addFeature(feature);
-              } else {
-                console.log('Skipping train with no lat/lon:', t); // DEBUG
               }
             });
             
-            console.log('Total features added:', trainSource.getFeatures().length); // DEBUG
             document.getElementById('lastUpdated').innerHTML = `${trainSource.getFeatures().length} trains • ${new Date().toLocaleTimeString()}`;
-          } else {
-            console.log('No trains in data'); // DEBUG
           }
         } catch (e) {
-          console.error('Error:', e); // DEBUG
+          console.error(e);
           document.getElementById('lastUpdated').innerHTML = '❌ Failed to load';
         }
       }
@@ -206,8 +199,7 @@
         
         trainSource.forEachFeature(f => {
           const props = f.getProperties();
-          if ((props.train_number && props.train_number.toLowerCase().includes(query)) ||
-              (props.id && props.id.toLowerCase().includes(query))) {
+          if (props.train_number && props.train_number.toLowerCase().includes(query)) {
             map.getView().animate({
               center: f.getGeometry().getCoordinates(),
               zoom: 14
