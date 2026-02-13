@@ -1,92 +1,4 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>RailOps — AU Live Map</title>
-
-  <!-- OpenLayers -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
-
-  <style>
-    html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: system-ui, sans-serif; }
-    #map { height: 100%; width: 100%; position: absolute; top: 0; left: 0; }
-    .toolbar {
-      position: absolute; top: 10px; left: 10px; z-index: 1000;
-      background: #0b57cf; color: white; padding: 8px 12px; border-radius: 12px;
-      display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14px;
-    }
-    .toolbar button, .toolbar select, .toolbar input {
-      border: 0; border-radius: 8px; padding: 6px 10px; font-size: 13px;
-    }
-    .toolbar button { background: white; color: #0b57cf; cursor: pointer; }
-    .toolbar input { min-width: 200px; }
-    .clockbox {
-      position: absolute; top: 10px; right: 10px; z-index: 1000;
-      background: rgba(0,0,0,0.8); color: #00ff9c; padding: 8px 14px;
-      border-radius: 12px; font-family: monospace; font-weight: 600;
-    }
-    .panel {
-      position: absolute; left: 10px; bottom: 10px; z-index: 1000;
-      background: rgba(0,0,0,0.85); color: white; border-radius: 12px;
-      padding: 12px 16px; min-width: 260px;
-    }
-    .row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px solid rgba(255,255,255,0.15); }
-    .row:first-child { border-top: 0; }
-    .floating {
-      position: absolute; right: 10px; bottom: 10px; z-index: 1000;
-      display: flex; flex-direction: column; gap: 10px;
-    }
-    .floating button {
-      width: 48px; height: 48px; border-radius: 50%; border: 0;
-      background: white; color: #0b57cf; font-size: 18px; cursor: pointer;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.25);
-    }
-    .tt-popup {
-      background: white; padding: 12px 20px; border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.2); min-width: 120px;
-      font-size: 18px; font-weight: bold; text-align: center;
-      font-family: 'Courier New', monospace; border-left: 5px solid #0b57cf;
-    }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-
-  <div class="toolbar">
-    <span>🚂 RailOps — AU</span>
-    <select id="zoomSelect">
-      <option value="australia">Australia</option>
-      <option value="current">My location</option>
-    </select>
-    <input id="searchBox" type="search" placeholder="Search train ID...">
-    <button id="searchBtn">🔍 Search</button>
-    <button id="resetBtn">🔄 Reset</button>
-    <button id="layersBtn">📊 Layers</button>
-  </div>
-
-  <div class="clockbox">
-    <div id="clock"></div>
-    <div id="lastUpdated">Loading...</div>
-  </div>
-
-  <div id="layersPanel" class="panel" style="display:none;">
-    <div class="row"><label><input id="railChk" type="checkbox" checked> Rail lines</label></div>
-    <div class="row"><label><input id="stationsChk" type="checkbox" checked> Stations</label></div>
-    <div class="row"><label><input id="covTelstra" type="checkbox"> Telstra</label></div>
-    <div class="row"><label><input id="covOptus" type="checkbox"> Optus</label></div>
-    <div class="row"><label><input id="covTPG" type="checkbox"> Vodafone/TPG</label></div>
-    <div class="row"><label><input id="covAll" type="checkbox"> Combined</label></div>
-  </div>
-
-  <div class="floating">
-    <button id="zoomInBtn">➕</button>
-    <button id="zoomOutBtn">➖</button>
-    <button id="locBtn">📍</button>
-  </div>
-
-  <script>
+<script>
     (function() {
       console.log('🚂 RailOps starting...');
 
@@ -197,7 +109,7 @@
       const trainLayer = new ol.layer.Vector({ source: trainSource, zIndex: 20 });
       map.addLayer(trainLayer);
 
-      // Popup - shows train numbers/loco numbers
+      // Popup
       const popupEl = document.createElement('div');
       popupEl.className = 'tt-popup';
       const popup = new ol.Overlay({ element: popupEl, positioning: 'bottom-center', offset: [0, -15] });
@@ -208,8 +120,7 @@
         if (feature) {
           const props = feature.getProperties();
           
-          // Show train_number if it exists (this is the loco number)
-          // Don't show generic IDs like reg_0 or arrow_16
+          // Show train_number if it exists
           if (props.train_number) {
             popupEl.innerHTML = props.train_number;
             popup.setPosition(evt.coordinate);
@@ -235,32 +146,38 @@
           
           if (data.trains && data.trains.length > 0) {
             data.trains.forEach(t => {
-              const feature = new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
-              });
-              
-              // Store all properties
-              feature.setProperties(t);
-              
-              // Style - green moving, blue stationary
-              const heading = t.heading || 0;
-              const speed = t.speed || 0;
-              const color = speed > 0 ? [46, 204, 113, 0.9] : [0, 120, 255, 0.9];
-              
-              feature.setStyle(new ol.style.Style({
-                image: new ol.style.RegularShape({
-                  points: 3,
-                  radius: 12,
-                  rotation: (heading * Math.PI) / 180,
-                  fill: new ol.style.Fill({ color }),
-                  stroke: new ol.style.Stroke({ color: [0,0,0,0.8], width: 1.5 })
-                })
-              }));
-              
-              trainSource.addFeature(feature);
+              // Make sure we have valid coordinates
+              if (t.lat && t.lon) {
+                const feature = new ol.Feature({
+                  geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
+                });
+                
+                // Store all properties
+                feature.set('id', t.id);
+                feature.set('train_number', t.train_number);
+                feature.set('speed', t.speed || 0);
+                feature.set('heading', t.heading || 0);
+                
+                // Style - green moving, blue stationary
+                const heading = t.heading || 0;
+                const speed = t.speed || 0;
+                const color = speed > 0 ? [46, 204, 113, 0.9] : [0, 120, 255, 0.9];
+                
+                feature.setStyle(new ol.style.Style({
+                  image: new ol.style.RegularShape({
+                    points: 3,
+                    radius: 12,
+                    rotation: (heading * Math.PI) / 180,
+                    fill: new ol.style.Fill({ color }),
+                    stroke: new ol.style.Stroke({ color: [0,0,0,0.8], width: 1.5 })
+                  })
+                }));
+                
+                trainSource.addFeature(feature);
+              }
             });
             
-            document.getElementById('lastUpdated').innerHTML = `${data.trains.length} trains • ${new Date().toLocaleTimeString()}`;
+            document.getElementById('lastUpdated').innerHTML = `${trainSource.getFeatures().length} trains • ${new Date().toLocaleTimeString()}`;
           }
         } catch (e) {
           console.error(e);
@@ -291,5 +208,3 @@
       console.log('✅ RailOps ready');
     })();
   </script>
-</body>
-</html>
