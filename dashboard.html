@@ -1,15 +1,28 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Simple Map Test</title>
+  <title>RailOps - Live Train Map</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
   <style>
     #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+    .stats {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      padding: 10px;
+      border-radius: 5px;
+      z-index: 1000;
+      font-family: monospace;
+    }
   </style>
 </head>
 <body>
   <div id="map"></div>
+  <div class="stats" id="stats">Loading trains...</div>
+
   <script>
     // Create map
     const map = new ol.Map({
@@ -25,29 +38,67 @@
       })
     });
 
-    // Add a simple red dot
-    const marker = new ol.Feature({
-      geometry: new ol.geom.Point(ol.proj.fromLonLat([151.2093, -33.8688]))
+    // Create train layer
+    const trainSource = new ol.source.Vector();
+    const trainLayer = new ol.layer.Vector({
+      source: trainSource,
+      style: function(feature) {
+        const heading = feature.get('heading') || 0;
+        return new ol.style.Style({
+          image: new ol.style.RegularShape({
+            points: 3,
+            radius: 8,
+            rotation: (heading * Math.PI) / 180,
+            fill: new ol.style.Fill({ color: '#FFD700' }),
+            stroke: new ol.style.Stroke({ color: '#000000', width: 1 })
+          })
+        });
+      }
     });
+    map.addLayer(trainLayer);
 
-    marker.setStyle(new ol.style.Style({
-      image: new ol.style.Circle({
-        radius: 10,
-        fill: new ol.style.Fill({ color: 'red' })
-      })
-    }));
+    // Load trains from your backend
+    async function loadTrains() {
+      try {
+        // Use the actual path to your trains.json
+        const response = await fetch('trains.json?t=' + Date.now());
+        const data = await response.json();
+        
+        // Clear existing trains
+        trainSource.clear();
+        
+        // Add all trains to map
+        let count = 0;
+        data.trains.forEach(train => {
+          if (train.lat && train.lon) {
+            const feature = new ol.Feature({
+              geometry: new ol.geom.Point(
+                ol.proj.fromLonLat([train.lon, train.lat])
+              ),
+              heading: train.heading || 0,
+              id: train.id,
+              train_number: train.train_number
+            });
+            trainSource.addFeature(feature);
+            count++;
+          }
+        });
+        
+        document.getElementById('stats').innerHTML = 
+          `🚂 ${count} trains loaded<br>${new Date().toLocaleTimeString()}`;
+        
+        console.log(`Loaded ${count} trains`);
+        
+      } catch (error) {
+        console.error('Failed to load trains:', error);
+        document.getElementById('stats').innerHTML = '❌ Failed to load trains';
+      }
+    }
 
-    const source = new ol.source.Vector({
-      features: [marker]
-    });
+    // Load immediately and every 30 seconds
+    loadTrains();
+    setInterval(loadTrains, 30000);
 
-    const layer = new ol.layer.Vector({
-      source: source
-    });
-
-    map.addLayer(layer);
-
-    console.log('Map created with red dot at Sydney');
   </script>
 </body>
 </html>
