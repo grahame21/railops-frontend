@@ -103,6 +103,7 @@
       color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0;
     }
     
+    /* TrainFinder-style popup */
     .train-popup {
       position: absolute;
       background: rgba(10, 26, 42, 0.98);
@@ -114,8 +115,9 @@
       box-shadow: 0 8px 30px rgba(0,0,0,0.9);
       pointer-events: none;
       transform: translate(-50%, -100%);
-      min-width: 280px;
+      min-width: 340px;
       z-index: 10000;
+      font-family: 'Segoe UI', sans-serif;
     }
     .train-popup::after {
       content: '';
@@ -128,20 +130,25 @@
       border-color: #2a4a7a transparent transparent transparent;
     }
     .popup-header {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: 700;
       color: #9ab0d0;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
+    }
+    .popup-subheader {
+      font-size: 14px;
+      color: #ffaa00;
+      margin-bottom: 12px;
       border-bottom: 1px solid #2a4a7a;
       padding-bottom: 4px;
     }
     .popup-row {
       display: flex;
-      margin: 6px 0;
+      margin: 8px 0;
       font-size: 13px;
     }
     .popup-label {
-      width: 80px;
+      width: 90px;
       color: #9ab0d0;
       font-weight: 600;
     }
@@ -150,15 +157,30 @@
       color: white;
       font-weight: 500;
     }
+    .popup-badge {
+      background: #1e3a5f;
+      padding: 4px 12px;
+      border-radius: 30px;
+      font-size: 12px;
+      display: inline-block;
+      margin-right: 6px;
+      margin-top: 4px;
+      color: #9ab0d0;
+    }
     .popup-speed {
-      font-size: 18px;
+      font-size: 20px;
       font-weight: 700;
       color: #ffaa00;
       text-align: center;
-      margin: 8px 0;
-      padding: 4px;
+      margin: 12px 0 8px;
+      padding: 6px;
       background: rgba(0,0,0,0.3);
       border-radius: 30px;
+    }
+    .popup-divider {
+      height: 1px;
+      background: #2a4a7a;
+      margin: 8px 0;
     }
   </style>
 </head>
@@ -181,7 +203,7 @@
 
   <div class="search-container">
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search train ID...">
+      <input type="text" id="searchInput" placeholder="Search train ID or loco...">
       <button id="searchBtn">🔍 Search</button>
     </div>
     <div id="autocompleteList" class="autocomplete-items" style="display: none;"></div>
@@ -290,10 +312,14 @@
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
-        const trains = data.trains || [];
+        let trains = data.trains || [];
         
-        console.log(`✅ Loaded ${trains.length} trains`);
-        console.log('First train:', trains[0]);
+        // Filter out generic markerSource trains
+        trains = trains.filter(train => {
+          return !train.id.startsWith('markerSource_') || train.loco || train.train_id;
+        });
+        
+        console.log(`✅ Loaded ${trains.length} trains after filtering`);
         
         allTrains = trains;
         
@@ -310,14 +336,20 @@
                 geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
               });
               
-              // Store data directly as feature properties (NOT in train_data)
-              feature.set('display_id', train.display_id || train.id);
+              // Store ALL train data as properties
               feature.set('id', train.id);
+              feature.set('loco', train.loco || '');
+              feature.set('train_id', train.train_id || train.train_number || '');
+              feature.set('operator', train.operator || '');
+              feature.set('origin', train.origin || '');
+              feature.set('destination', train.destination || '');
               feature.set('speed', train.speed || 0);
               feature.set('heading', train.heading || 0);
-              
-              // Also store full data if needed elsewhere
-              feature.set('train_data', train);
+              feature.set('eta', train.eta || '');
+              feature.set('status', train.status || '');
+              feature.set('type', train.type || '');
+              feature.set('cars', train.cars || 0);
+              feature.set('line', train.line || '');
               
               trainSource.addFeature(feature);
             } catch (e) {
@@ -334,7 +366,7 @@
       }
     }
 
-    // Hover popup - FIXED to use direct feature properties
+    // Hover popup - TrainFinder style with loco and train ID
     let popupElement = null;
     
     map.on('pointermove', function(evt) {
@@ -350,20 +382,53 @@
       if (feature) {
         const coords = feature.getGeometry().getCoordinates();
         
-        // Get data directly from feature properties (NOT from train_data)
-        const trainId = feature.get('display_id') || feature.get('id') || 'Unknown';
+        // Get ALL train data
+        const loco = feature.get('loco') || feature.get('id') || '';
+        const trainId = feature.get('train_id') || '';
+        const operator = feature.get('operator') || 'Australian Rail';
+        const origin = feature.get('origin') || 'Unknown';
+        const destination = feature.get('destination') || 'Unknown';
         const speed = feature.get('speed') || 0;
         const heading = feature.get('heading') || 0;
+        const eta = feature.get('eta') || '--:--';
+        const type = feature.get('type') || '';
+        const cars = feature.get('cars') || '';
+        const line = feature.get('line') || '';
         const lonLat = ol.proj.toLonLat(coords);
+        
+        // Format exactly like TrainFinder: "GWU014 [1AK1] - 76km/h"
+        const displayLoco = loco;
+        const displayTrainId = trainId ? ` [${trainId}]` : '';
+        const speedDisplay = speed === 0 ? 'Stopped' : `${speed}km/h`;
         
         const popupDiv = document.createElement('div');
         popupDiv.className = 'train-popup';
+        
         popupDiv.innerHTML = `
-          <div class="popup-header">${trainId}</div>
-          <div class="popup-row"><span class="popup-label">Speed:</span><span class="popup-value">${speed} km/h</span></div>
-          <div class="popup-row"><span class="popup-label">Heading:</span><span class="popup-value">${heading}°</span></div>
-          <div class="popup-row"><span class="popup-label">Location:</span><span class="popup-value">${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°</span></div>
-          <div class="popup-speed">⚡ ${speed} km/h</div>
+          <div class="popup-header">
+            ${displayLoco}${displayTrainId} - ${speedDisplay}
+          </div>
+          <div class="popup-subheader">${operator} ${type}</div>
+          <div class="popup-row">
+            <span class="popup-label">Origin:</span>
+            <span class="popup-value">${origin}</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Destination:</span>
+            <span class="popup-value">${destination}</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">ETA:</span>
+            <span class="popup-value">${eta} ${cars ? `- ${cars} cars` : ''}</span>
+          </div>
+          <div class="popup-speed">
+            ⚡ ${speed} km/h
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; justify-content: center;">
+            ${trainId ? `<span class="popup-badge">${trainId}</span>` : ''}
+            <span class="popup-badge">${loco}</span>
+            <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°</span>
+          </div>
         `;
         
         popupElement = new ol.Overlay({
@@ -377,7 +442,7 @@
       }
     });
 
-    // Autocomplete
+    // Autocomplete - search both loco and train ID
     const searchInput = document.getElementById('searchInput');
     const autocompleteList = document.getElementById('autocompleteList');
     
@@ -392,11 +457,14 @@
       const seen = new Set();
       
       allTrains.forEach(train => {
-        const trainId = (train.display_id || train.id || '').toLowerCase();
-        if (trainId.includes(query) && !seen.has(train.id)) {
+        const locoMatch = (train.loco || '').toLowerCase().includes(query);
+        const trainIdMatch = (train.train_id || train.train_number || '').toLowerCase().includes(query);
+        const idMatch = (train.id || '').toLowerCase().includes(query);
+        
+        if ((locoMatch || trainIdMatch || idMatch) && !seen.has(train.id)) {
           seen.add(train.id);
           matches.push({
-            id: train.display_id || train.id,
+            id: train.loco || train.train_id || train.id,
             lat: train.lat,
             lon: train.lon
           });
@@ -442,7 +510,7 @@
       });
       
       trainSource.getFeatures().forEach(f => {
-        const id = f.get('display_id') || f.get('id');
+        const id = f.get('loco') || f.get('train_id') || f.get('id');
         if (id === trainId) {
           f.setStyle(new ol.style.Style({
             image: new ol.style.Circle({ radius: 12, color: '#ffff00' })
@@ -457,9 +525,11 @@
       if (!query) return;
       
       for (const train of allTrains) {
-        const trainId = (train.display_id || train.id || '').toLowerCase();
-        if (trainId.includes(query)) {
-          flyToTrain(train.lat, train.lon, train.display_id || train.id);
+        const locoMatch = (train.loco || '').toLowerCase().includes(query);
+        const trainIdMatch = (train.train_id || train.train_number || '').toLowerCase().includes(query);
+        
+        if (locoMatch || trainIdMatch) {
+          flyToTrain(train.lat, train.lon, train.loco || train.train_id || train.id);
           autocompleteList.style.display = 'none';
           return;
         }
