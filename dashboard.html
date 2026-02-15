@@ -170,15 +170,76 @@
     }
 
     // LOAD REAL TRAINS FROM JSON - TRY MULTIPLE PATHS
-    async function loadRealTrains() {
-      // Try multiple possible paths where trains.json might be
-      const possiblePaths = [
-        'trains.json',                          // Same directory
-        './trains.json',                         // Current directory
-        '/trains.json',                          // Root of domain
-        '../trains.json',                         // Parent directory
-        'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json'  // Direct from GitHub
-      ];
+async function loadRealTrains() {
+  // Try multiple possible paths where trains.json might be
+  const possiblePaths = [
+    'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json',  // Direct from GitHub (try first)
+    'trains.json',                          // Same directory
+    './trains.json',                         // Current directory
+    '/trains.json',                          // Root of domain
+    '../trains.json'                          // Parent directory
+  ];
+  
+  for (const path of possiblePaths) {
+    try {
+      console.log(`Trying to load from: ${path}`);
+      const response = await fetch(path, { 
+        cache: 'no-cache',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      
+      if (!response.ok) {
+        console.log(`Failed with status ${response.status}`);
+        continue; // Try next path
+      }
+      
+      const data = await response.json();
+      const trains = data.trains || [];
+      
+      if (trains.length > 0) {
+        console.log(`✅ Success! Loaded ${trains.length} trains from ${path}`);
+        
+        // Update status
+        document.getElementById('trainCount').textContent = trains.length;
+        const updateTime = new Date(data.lastUpdated);
+        document.getElementById('lastUpdateTime').textContent = 
+          updateTime.toLocaleTimeString('en-AU', {timeZone:'Australia/Sydney'});
+        
+        document.getElementById('statusBar').innerHTML = 
+          `🚆 ${trains.length} trains · ${updateTime.toLocaleTimeString()}`;
+        
+        // Clear existing features
+        trainSource.clear();
+        
+        // Add all trains to map
+        trains.forEach(train => {
+          const feature = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat])),
+            heading: train.heading || 0,
+            speed: train.speed || 0,
+            id: train.id,
+            train_number: train.train_number
+          });
+          
+          // Store train data for popups
+          feature.set('train_data', train);
+          
+          trainSource.addFeature(feature);
+        });
+        
+        return; // Success! Stop trying
+      }
+    } catch (error) {
+      console.log(`Failed to load from ${path}:`, error.message);
+      // Continue to next path
+    }
+  }
+  
+  // If we get here, all paths failed
+  console.error('❌ All paths failed to load trains.json');
+  document.getElementById('statusBar').innerHTML = `⚠️ Failed to load trains - check console`;
+  document.getElementById('trainCount').textContent = '?';
+}
       
       for (const path of possiblePaths) {
         try {
