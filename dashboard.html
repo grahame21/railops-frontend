@@ -36,10 +36,8 @@
       position:absolute;top:10px;right:10px;z-index:10;
       background:rgba(0,0,0,.7);color:#fff;padding:6px 12px;border-radius:20px;
       font-size:12px;backdrop-filter:blur(4px);
+      z-index:100;
     }
-    .train-count{background:#1e3a8a;padding:2px 8px;border-radius:12px;font-size:12px}
-    .warning{color:#ffaa00;font-weight:bold}
-    .error{color:#ff4444;font-weight:bold}
   </style>
 </head>
 <body>
@@ -61,7 +59,7 @@
 
   <div id="layersPanel" class="panel" style="display:none">
     <div class="row"><label><input id="trainChk" type="checkbox" checked> 🚆 Live Trains (<span id="trainCount">0</span>)</label></div>
-    <div class="row"><label><input id="railChk" type="checkbox" checked> 🛤️ Rail lines (OpenRailwayMap) <span style="color:#888">(blue filter)</span></label></div>
+    <div class="row"><label><input id="railChk" type="checkbox" checked> 🛤️ Rail lines (OpenRailwayMap)</label></div>
     <div class="row"><label><input id="stationsChk" type="checkbox" checked> 🏢 Stations (OpenRailwayMap)</label></div>
     <div class="row" style="border-top:2px solid #444;margin-top:6px;padding-top:10px"><span style="opacity:.7">📱 Mobile coverage (ACCC)</span></div>
     <div class="row"><label><input id="covTelstra" type="checkbox"> 📶 Telstra — outdoor</label></div>
@@ -72,8 +70,6 @@
     <div class="row"><label><input id="nswChk" type="checkbox"> NSW Trains (demo)</label></div>
     <div class="row"><label><input id="vicChk" type="checkbox"> VIC Trains (demo)</label></div>
     <div class="hint">Last update: <span id="lastUpdateTime">-</span></div>
-    <div id="staleWarning" class="hint warning" style="display:none">⚠️ Data is stale! Last update was over 30 minutes ago.</div>
-    <div id="errorMsg" class="hint error" style="display:none"></div>
   </div>
 
   <script>
@@ -91,7 +87,7 @@
     // Keep map north-facing
     map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
-    // Rail layers with blue filter
+    // Rail layers
     const railLayer = new ol.layer.Tile({
       source: new ol.source.XYZ({ 
         url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
@@ -106,16 +102,6 @@
         attributions: '© OpenRailwayMap'
       }),
       visible: true
-    });
-    
-    // Apply blue filter to railway lines
-    railLayer.on('prerender', function(event) {
-      const ctx = event.context;
-      ctx.filter = 'hue-rotate(200deg) brightness(0.9)';
-    });
-    railLayer.on('postrender', function(event) {
-      const ctx = event.context;
-      ctx.filter = 'none';
     });
     
     map.addLayer(railLayer);
@@ -139,7 +125,9 @@
     const covAll = acccLayer(4);
     [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-    // LIVE TRAINS LAYER
+    // ============================================
+    // LIVE TRAINS LAYER - FIXED VERSION
+    // ============================================
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -147,7 +135,7 @@
       style: function(feature) {
         const heading = feature.get('heading') || 0;
         const speed = feature.get('speed') || 0;
-        const trainNumber = feature.get('train_number') || '';
+        const trainNumber = feature.get('train_number') || '???';
         
         // Color based on speed
         let color = '#ffaa00'; // Orange for stopped
@@ -177,7 +165,7 @@
     });
     map.addLayer(trainLayer);
 
-    // Demo layers
+    // Demo layers (keep these for testing)
     const nswSrc = new ol.source.Vector();
     const vicSrc = new ol.source.Vector();
     const nswLayer = new ol.layer.Vector({ source: nswSrc, visible: false });
@@ -185,7 +173,9 @@
     map.addLayer(nswLayer);
     map.addLayer(vicLayer);
 
-    // LOAD REAL TRAINS - IMPROVED ERROR HANDLING
+    // ============================================
+    // LOAD REAL TRAINS - SIMPLIFIED AND FIXED
+    // ============================================
     async function loadRealTrains() {
       const trainUrl = 'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json';
       
@@ -199,84 +189,55 @@
         });
         
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(`HTTP ${response.status}`);
         }
         
         const data = await response.json();
         const trains = data.trains || [];
         
-        console.log(`✅ Success! Loaded ${trains.length} trains`);
-        console.log('Sample train:', trains[0]);
-        
-        // Hide any previous error messages
-        document.getElementById('errorMsg').style.display = 'none';
+        console.log(`✅ Loaded ${trains.length} trains from API`);
+        console.log('First train sample:', trains[0]);
         
         // Update UI
         document.getElementById('trainCount').textContent = trains.length;
         
         const updateTime = new Date(data.lastUpdated);
-        const now = new Date();
-        const minutesAgo = Math.round((now - updateTime) / 60000);
-        
         document.getElementById('lastUpdateTime').textContent = 
-          updateTime.toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney' }) + 
-          ` (${minutesAgo} min ago)`;
+          updateTime.toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney' });
         
-        // Show stale warning if needed
-        if (minutesAgo > 30) {
-          document.getElementById('staleWarning').style.display = 'block';
-          document.getElementById('statusBar').innerHTML = `⚠️ Stale data · ${minutesAgo} min ago`;
-        } else {
-          document.getElementById('staleWarning').style.display = 'none';
-          document.getElementById('statusBar').innerHTML = 
-            `🚆 ${trains.length} trains · ${updateTime.toLocaleTimeString()}`;
-        }
+        document.getElementById('statusBar').innerHTML = 
+          `🚆 ${trains.length} trains · ${updateTime.toLocaleTimeString()}`;
         
         // Clear old features
         trainSource.clear();
         
         if (trains.length === 0) {
-          console.warn('⚠️ No trains in data - might be Sunday or off-peak');
-          document.getElementById('statusBar').innerHTML = '🚆 0 trains (Sunday)';
+          console.warn('No trains in data');
           return;
         }
         
         // Add each train to map
         let added = 0;
-        trains.forEach((train, index) => {
+        trains.forEach((train) => {
           // Validate coordinates
           if (!train.lat || !train.lon || isNaN(train.lat) || isNaN(train.lon)) {
-            console.warn('Invalid train coordinates:', train);
+            console.warn('Invalid train:', train);
             return;
           }
           
           try {
-            // Extract a readable train number
-            let trainNumber = train.train_number || train.id || '';
-            
-            // Clean up source prefixes
-            trainNumber = trainNumber
-              .replace(/regTrainsSource_/g, '')
-              .replace(/unregTrainsSource_/g, '')
-              .replace(/markerSource_/g, '')
-              .replace(/arrowMarkersSource_/g, '')
-              .substring(0, 10);
-            
-            // If trainNumber is empty or too long, use last part of ID
-            if (trainNumber.length === 0 || trainNumber.length > 15) {
-              const parts = train.id.split('_');
-              trainNumber = parts[parts.length - 1].substring(0, 8);
-            }
-            
+            // Create feature with ALL train data
             const feature = new ol.Feature({
               geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat])),
               heading: train.heading || 0,
               speed: train.speed || 0,
-              id: train.id || `train_${index}`,
-              train_number: trainNumber
+              id: train.id,
+              train_number: train.train_number || train.id
             });
             
+            // Store all train data for popups
             feature.set('train_data', train);
+            
             trainSource.addFeature(feature);
             added++;
           } catch (e) {
@@ -289,10 +250,11 @@
         // Force map to update
         trainSource.changed();
         
+        // Zoom to Australia to see all trains
+        zoomAustralia();
+        
       } catch (error) {
         console.error('❌ Failed to load trains:', error);
-        document.getElementById('errorMsg').style.display = 'block';
-        document.getElementById('errorMsg').textContent = `Error: ${error.message}`;
         document.getElementById('statusBar').innerHTML = '⚠️ Failed to load trains';
         document.getElementById('trainCount').textContent = '?';
       }
@@ -306,13 +268,12 @@
       
       if (feature && feature.get('train_data')) {
         const train = feature.get('train_data');
-        const trainNumber = feature.get('train_number') || train.id;
         alert(
-          `🚆 Train Details\n` +
-          `Number: ${trainNumber}\n` +
+          `🚆 Train: ${train.train_number}\n` +
           `📍 ${train.lat.toFixed(4)}, ${train.lon.toFixed(4)}\n` +
           `📊 Speed: ${train.speed} km/h\n` +
-          `🧭 Heading: ${train.heading}°`
+          `🧭 Heading: ${train.heading}°\n` +
+          `🆔 ID: ${train.id}`
         );
       }
     });
@@ -418,7 +379,7 @@
     document.getElementById('railChk').addEventListener('change', e => railLayer.setVisible(e.target.checked));
     document.getElementById('stationsChk').addEventListener('change', e => stationsLayer.setVisible(e.target.checked));
 
-    // Start
+    // Initial zoom
     zoomAustralia();
   </script>
 </body>
