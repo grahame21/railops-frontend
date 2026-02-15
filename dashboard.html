@@ -309,12 +309,7 @@
         const data = await response.json();
         let trains = data.trains || [];
         
-        // Filter out generic markerSource trains
-        trains = trains.filter(train => {
-          return !train.id.startsWith('markerSource_') || train.loco || train.train_id;
-        });
-        
-        console.log(`✅ Loaded ${trains.length} trains after filtering`);
+        console.log(`✅ Loaded ${trains.length} trains`);
         
         allTrains = trains;
         
@@ -361,7 +356,7 @@
       }
     }
 
-    // Hover popup - TrainFinder style with loco and train ID
+    // Hover popup - TrainFinder style
     let popupElement = null;
     
     map.on('pointermove', function(evt) {
@@ -378,59 +373,74 @@
         const coords = feature.getGeometry().getCoordinates();
         
         // Get train data
-        const loco = feature.get('loco') || '';
         const trainId = feature.get('train_id') || feature.get('id') || 'Unknown';
-        const operator = feature.get('operator') || 'Australian Rail';
-        const origin = feature.get('origin') || 'Unknown';
-        const destination = feature.get('destination') || 'Unknown';
+        const loco = feature.get('loco') || '';
+        const operator = feature.get('operator') || '';
+        const origin = feature.get('origin') || '';
+        const destination = feature.get('destination') || '';
         const speed = feature.get('speed') || 0;
         const heading = feature.get('heading') || 0;
-        const eta = feature.get('eta') || '--:--';
+        const eta = feature.get('eta') || '';
         const type = feature.get('type') || '';
         const cars = feature.get('cars') || '';
         const lonLat = ol.proj.toLonLat(coords);
         
-        const speedDisplay = speed === 0 ? 'Stopped' : `${speed}km/h`;
-        
         const popupDiv = document.createElement('div');
         popupDiv.className = 'train-popup';
         
-        // Format header based on what data we have
+        // Format header - show both if we have both
         let headerHtml = '';
         if (loco && trainId && loco !== trainId) {
-          headerHtml = `${loco} [${trainId}] - ${speedDisplay}`;
-        } else if (loco) {
-          headerHtml = `${loco} - ${speedDisplay}`;
+          headerHtml = `${loco} [${trainId}] - ${speed}km/h`;
         } else {
-          headerHtml = `${trainId} - ${speedDisplay}`;
+          headerHtml = `${trainId} - ${speed}km/h`;
         }
         
-        popupDiv.innerHTML = `
+        // Build popup content
+        let popupContent = `
           <div class="popup-header">
             ${headerHtml}
           </div>
-          <div class="popup-subheader">${operator} ${type}</div>
-          <div class="popup-row">
-            <span class="popup-label">Origin:</span>
-            <span class="popup-value">${origin}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Destination:</span>
-            <span class="popup-value">${destination}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">ETA:</span>
-            <span class="popup-value">${eta} ${cars ? `- ${cars} cars` : ''}</span>
-          </div>
+        `;
+        
+        if (operator || type) {
+          popupContent += `<div class="popup-subheader">${operator} ${type}</div>`;
+        }
+        
+        if (origin || destination) {
+          popupContent += `
+            <div class="popup-row">
+              <span class="popup-label">Origin:</span>
+              <span class="popup-value">${origin || 'Unknown'}</span>
+            </div>
+            <div class="popup-row">
+              <span class="popup-label">Destination:</span>
+              <span class="popup-value">${destination || 'Unknown'}</span>
+            </div>
+          `;
+        }
+        
+        if (eta || cars) {
+          popupContent += `
+            <div class="popup-row">
+              <span class="popup-label">ETA:</span>
+              <span class="popup-value">${eta || '--:--'} ${cars ? `- ${cars} cars` : ''}</span>
+            </div>
+          `;
+        }
+        
+        popupContent += `
           <div class="popup-speed">
             ⚡ ${speed} km/h
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; justify-content: center;">
-            ${trainId ? `<span class="popup-badge">${trainId}</span>` : ''}
+            <span class="popup-badge">${trainId}</span>
             ${loco && loco !== trainId ? `<span class="popup-badge">${loco}</span>` : ''}
             <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°</span>
           </div>
         `;
+        
+        popupDiv.innerHTML = popupContent;
         
         popupElement = new ol.Overlay({
           element: popupDiv,
@@ -458,10 +468,10 @@
       const seen = new Set();
       
       allTrains.forEach(train => {
-        const locoMatch = (train.loco || '').toLowerCase().includes(query);
         const trainIdMatch = (train.train_id || train.id || '').toLowerCase().includes(query);
+        const locoMatch = (train.loco || '').toLowerCase().includes(query);
         
-        if ((locoMatch || trainIdMatch) && !seen.has(train.id)) {
+        if ((trainIdMatch || locoMatch) && !seen.has(train.id)) {
           seen.add(train.id);
           matches.push({
             id: train.loco || train.train_id || train.id,
@@ -525,10 +535,10 @@
       if (!query) return;
       
       for (const train of allTrains) {
-        const locoMatch = (train.loco || '').toLowerCase().includes(query);
         const trainIdMatch = (train.train_id || train.id || '').toLowerCase().includes(query);
+        const locoMatch = (train.loco || '').toLowerCase().includes(query);
         
-        if (locoMatch || trainIdMatch) {
+        if (trainIdMatch || locoMatch) {
           flyToTrain(train.lat, train.lon, train.loco || train.train_id || train.id);
           autocompleteList.style.display = 'none';
           return;
