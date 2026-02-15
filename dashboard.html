@@ -344,16 +344,16 @@
       const url = 'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json';
       
       try {
+        console.log('🔄 Fetching trains from:', url);
+        document.getElementById('lastUpdate').innerHTML = 'Loading...';
+        
         const response = await fetch(url, { cache: 'no-cache' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
         const data = await response.json();
         let trains = data.trains || [];
         
-        // FILTER OUT arrow markers and generic sources
-        trains = trains.filter(t => {
-          const id = (t.id || t.train_number || '').toLowerCase();
-          // Remove any train that has arrow, marker, source in its ID
-          return !id.includes('arrow') && !id.includes('marker') && !id.includes('source');
-        });
+        console.log(`✅ Loaded ${trains.length} trains`);
         
         allTrains = trains; // Store for search
         
@@ -365,31 +365,30 @@
         // Clear and repopulate
         trainSource.clear();
         
+        let added = 0;
         trains.forEach(t => {
           if (t.lat && t.lon) {
-            const feature = new ol.Feature({
-              geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])),
-              heading: t.heading || 0,
-              speed: t.speed || 0,
-              id: t.id,
-              train_number: t.train_number || t.id,
-              operator: t.operator || '',
-              origin: t.origin || '',
-              destination: t.destination || '',
-              eta: t.eta || '',
-              distance: t.distance || '',
-              service: t.service || ''
-            });
-            feature.set('train_data', t);
-            trainSource.addFeature(feature);
+            try {
+              const feature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
+              });
+              feature.set('train_data', t);
+              feature.set('id', t.id);
+              feature.set('train_number', t.train_number || t.id);
+              feature.set('speed', t.speed || 0);
+              feature.set('heading', t.heading || 0);
+              trainSource.addFeature(feature);
+              added++;
+            } catch (e) {
+              console.error('Error adding feature:', e);
+            }
           }
         });
         
-        console.log(`✅ Loaded ${trains.length} real trains`);
-        console.log('Sample train:', trains[0]);
+        console.log(`✅ Added ${added} trains to map`);
         
       } catch (error) {
-        console.error('Failed to load trains:', error);
+        console.error('❌ Failed to load trains:', error);
         document.getElementById('lastUpdate').innerHTML = '⚠️ Update failed';
       }
     }
@@ -415,49 +414,34 @@
       if (feature) {
         const coords = feature.getGeometry().getCoordinates();
         const train = feature.get('train_data') || {};
-        const trainId = train.train_number || train.id || 'Unknown';
+        const trainId = train.id || 'Unknown';
         const speed = train.speed || 0;
         const heading = train.heading || 0;
-        const operator = train.operator || 'Australian Rail';
-        const origin = train.origin || 'Unknown';
-        const destination = train.destination || 'Unknown';
-        const eta = train.eta || '--:--';
-        const distance = train.distance || '?';
-        const service = train.service || trainId.split(' ')[0] || '1XX7';
         const lonLat = ol.proj.toLonLat(coords);
         
         const status = speed === 0 ? 'Stopped' : 'Moving';
         
-        // Create popup with TrainFinder-style layout
+        // Create popup with available data
         const popupDiv = document.createElement('div');
         popupDiv.className = 'train-popup';
         
         popupDiv.innerHTML = `
           <div class="popup-header">
-            ${trainId} [${service}] - ${status}
+            ${trainId} - ${status}
           </div>
           <div class="popup-row">
-            <span class="popup-label">Operator:</span>
-            <span class="popup-value">${operator}</span>
+            <span class="popup-label">Speed:</span>
+            <span class="popup-value">${speed} km/h</span>
           </div>
           <div class="popup-row">
-            <span class="popup-label">Origin:</span>
-            <span class="popup-value">${origin}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Destination:</span>
-            <span class="popup-value">${destination}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">ETA:</span>
-            <span class="popup-value">${eta} - ${distance}km</span>
+            <span class="popup-label">Heading:</span>
+            <span class="popup-value">${heading}°</span>
           </div>
           <div class="popup-speed">
             ⚡ ${speed} km/h
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; justify-content: center;">
-            <span class="popup-badge">${service}</span>
-            <span class="popup-badge">${trainId}</span>
+            <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}, ${lonLat[0].toFixed(4)}</span>
             <span class="popup-badge">🧭 ${heading}°</span>
           </div>
         `;
@@ -489,8 +473,8 @@
       const seen = new Set();
       
       allTrains.forEach(train => {
-        const trainId = (train.train_number || train.id || '').toUpperCase();
-        if (trainId.includes(query) && !seen.has(trainId) && !trainId.includes('ARROW')) {
+        const trainId = (train.id || '').toUpperCase();
+        if (trainId.includes(query) && !seen.has(trainId)) {
           seen.add(trainId);
           matches.push({
             id: trainId,
@@ -547,13 +531,12 @@
       
       // Flash the train
       trainSource.getFeatures().forEach(f => {
-        const id = f.get('train_number') || f.get('id');
+        const id = f.get('id');
         if (id === trainId) {
-          const originalStyle = f.getStyle();
           f.setStyle(new ol.style.Style({
             image: new ol.style.Circle({ radius: 12, color: '#ffff00' })
           }));
-          setTimeout(() => f.setStyle(originalStyle), 2000);
+          setTimeout(() => f.setStyle(null), 2000);
         }
       });
     }
@@ -564,7 +547,7 @@
       
       // Find first matching train
       for (const train of allTrains) {
-        const trainId = (train.train_number || train.id || '').toUpperCase();
+        const trainId = (train.id || '').toUpperCase();
         if (trainId.includes(query)) {
           flyToTrain(train.lat, train.lon, trainId);
           autocompleteList.style.display = 'none';
