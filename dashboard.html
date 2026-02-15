@@ -82,10 +82,10 @@
       })
     });
 
-    // ✅ Keep map north-facing
+    // Keep map north-facing
     map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
-    // ✅ Rail + stations layers ON by default
+    // Rail + stations layers ON by default
     const railLayer = new ol.layer.Tile({
       source: new ol.source.XYZ({
         url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
@@ -105,7 +105,7 @@
     map.addLayer(railLayer);
     map.addLayer(stationsLayer);
 
-    // ✅ ACCC layers
+    // ACCC layers
     const ACCC_URL='https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
     function acccLayer(id){return new ol.layer.Tile({
       source:new ol.source.TileArcGISRest({
@@ -117,7 +117,7 @@
     const covTelstra=acccLayer(25), covOptus=acccLayer(15), covTPG=acccLayer(33), covAll=acccLayer(4);
     [covTelstra,covOptus,covTPG,covAll].forEach(l=>map.addLayer(l));
 
-    // ✅ LIVE TRAINS LAYER - THIS IS WHAT WAS MISSING!
+    // LIVE TRAINS LAYER
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -137,19 +137,13 @@
             rotation: heading * Math.PI / 180,
             fill: new ol.style.Fill({ color: color }),
             stroke: new ol.style.Stroke({ color: '#ffffff', width: 1.5 })
-          }),
-          text: new ol.style.Text({
-            text: speed > 0 ? '▶' : '●',
-            font: 'bold 14px monospace',
-            fill: new ol.style.Fill({ color: '#ffffff' }),
-            offsetY: -15
           })
         });
       }
     });
     map.addLayer(trainLayer);
 
-    // ✅ NSW/VIC demo trains
+    // NSW/VIC demo trains
     const nswSrc = new ol.source.Vector(), vicSrc = new ol.source.Vector();
     const nswLayer = new ol.layer.Vector({ source: nswSrc, visible:false });
     const vicLayer = new ol.layer.Vector({ source: vicSrc, visible:false });
@@ -175,48 +169,76 @@
       });
     }
 
-    // ✅ LOAD REAL TRAINS FROM JSON
+    // LOAD REAL TRAINS FROM JSON - TRY MULTIPLE PATHS
     async function loadRealTrains() {
-      try {
-        const response = await fetch('trains.json');
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        
-        const data = await response.json();
-        const trains = data.trains || [];
-        
-        // Update status
-        document.getElementById('trainCount').textContent = trains.length;
-        document.getElementById('lastUpdateTime').textContent = 
-          new Date(data.lastUpdated).toLocaleTimeString('en-AU', {timeZone:'Australia/Sydney'});
-        
-        document.getElementById('statusBar').innerHTML = 
-          `🚆 ${trains.length} trains · ${new Date(data.lastUpdated).toLocaleTimeString()}`;
-        
-        // Clear existing features
-        trainSource.clear();
-        
-        // Add all trains to map
-        trains.forEach(train => {
-          const feature = new ol.Feature({
-            geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat])),
-            heading: train.heading || 0,
-            speed: train.speed || 0,
-            id: train.id,
-            train_number: train.train_number
+      // Try multiple possible paths where trains.json might be
+      const possiblePaths = [
+        'trains.json',                          // Same directory
+        './trains.json',                         // Current directory
+        '/trains.json',                          // Root of domain
+        '../trains.json',                         // Parent directory
+        'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json'  // Direct from GitHub
+      ];
+      
+      for (const path of possiblePaths) {
+        try {
+          console.log(`Trying to load from: ${path}`);
+          const response = await fetch(path, { 
+            cache: 'no-cache',
+            headers: { 'Cache-Control': 'no-cache' }
           });
           
-          // Store train data for popups
-          feature.set('train_data', train);
+          if (!response.ok) {
+            console.log(`Failed with status ${response.status}`);
+            continue; // Try next path
+          }
           
-          trainSource.addFeature(feature);
-        });
-        
-        console.log(`✅ Loaded ${trains.length} trains`);
-        
-      } catch (error) {
-        console.error('❌ Failed to load trains:', error);
-        document.getElementById('statusBar').innerHTML = `⚠️ Failed to load trains`;
+          const data = await response.json();
+          const trains = data.trains || [];
+          
+          if (trains.length > 0) {
+            console.log(`✅ Success! Loaded ${trains.length} trains from ${path}`);
+            
+            // Update status
+            document.getElementById('trainCount').textContent = trains.length;
+            const updateTime = new Date(data.lastUpdated);
+            document.getElementById('lastUpdateTime').textContent = 
+              updateTime.toLocaleTimeString('en-AU', {timeZone:'Australia/Sydney'});
+            
+            document.getElementById('statusBar').innerHTML = 
+              `🚆 ${trains.length} trains · ${updateTime.toLocaleTimeString()}`;
+            
+            // Clear existing features
+            trainSource.clear();
+            
+            // Add all trains to map
+            trains.forEach(train => {
+              const feature = new ol.Feature({
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat])),
+                heading: train.heading || 0,
+                speed: train.speed || 0,
+                id: train.id,
+                train_number: train.train_number
+              });
+              
+              // Store train data for popups
+              feature.set('train_data', train);
+              
+              trainSource.addFeature(feature);
+            });
+            
+            return; // Success! Stop trying
+          }
+        } catch (error) {
+          console.log(`Failed to load from ${path}:`, error.message);
+          // Continue to next path
+        }
       }
+      
+      // If we get here, all paths failed
+      console.error('❌ All paths failed to load trains.json');
+      document.getElementById('statusBar').innerHTML = `⚠️ Failed to load trains - check console`;
+      document.getElementById('trainCount').textContent = '?';
     }
 
     // Add click handler for train popups
@@ -235,7 +257,7 @@
     loadRealTrains();
     setInterval(loadRealTrains, 30000);
 
-    // ✅ Layer toggle handlers
+    // Layer toggle handlers
     document.getElementById('trainChk').addEventListener('change', e => {
       trainLayer.setVisible(e.target.checked);
     });
@@ -256,7 +278,7 @@
       ],'#ff5000');
     });
 
-    // ✅ Zoom functions
+    // Zoom functions
     function zoomAustralia(){ 
       map.getView().animate({ 
         center: ol.proj.fromLonLat([133.7751,-25.2744]), 
@@ -273,7 +295,7 @@
       },()=>zoomAustralia());
     }
 
-    // ✅ UI Event Listeners
+    // UI Event Listeners
     document.getElementById('zoomSelect').addEventListener('change', (e) => {
       e.target.value === 'current' ? zoomCurrent() : zoomAustralia();
     });
