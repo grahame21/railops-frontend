@@ -145,7 +145,7 @@
       box-shadow: 0 8px 30px rgba(0,0,0,0.9);
       pointer-events: none;
       transform: translate(-50%, -100%);
-      min-width: 320px;
+      min-width: 280px;
       z-index: 10000;
       font-family: 'Segoe UI', sans-serif;
     }
@@ -160,7 +160,7 @@
       border-color: #2a4a7a transparent transparent transparent;
     }
     .popup-header {
-      font-size: 18px;
+      font-size: 16px;
       font-weight: 700;
       color: #9ab0d0;
       margin-bottom: 8px;
@@ -173,7 +173,7 @@
       font-size: 13px;
     }
     .popup-label {
-      width: 90px;
+      width: 80px;
       color: #9ab0d0;
       font-weight: 600;
     }
@@ -193,7 +193,7 @@
       color: #9ab0d0;
     }
     .popup-speed {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
       color: #ffaa00;
       text-align: center;
@@ -225,7 +225,7 @@
   <!-- Search Bar with Autocomplete -->
   <div class="search-container">
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search train ID or loco number...">
+      <input type="text" id="searchInput" placeholder="Search train ID...">
       <button id="searchBtn">🔍 Search</button>
     </div>
     <div id="autocompleteList" class="autocomplete-items" style="display: none;"></div>
@@ -241,7 +241,7 @@
   <div class="layers-panel" id="layersPanel" style="display: none;">
     <h3>🗺️ MAP LAYERS</h3>
     
-    <div class="layer-row"><label><input type="checkbox" id="trainLayerChk" checked> 🚆 Live Trains</label></div>
+    <div class="layer-row"><label><input type="checkbox" id="trainLayerChk" checked> 🚆 Live Trains (<span id="layerTrainCount">0</span>)</label></div>
     <div class="layer-row"><label><input type="checkbox" id="railLayerChk" checked> 🛤️ Rail Lines (Blue)</label></div>
     <div class="layer-row"><label><input type="checkbox" id="stationsLayerChk" checked> 🏢 Stations</label></div>
     
@@ -321,7 +321,7 @@
     
     [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-    // ==================== TRAIN LAYER - SIMPLE ORANGE DOTS ====================
+    // ==================== TRAIN LAYER - ORANGE DOTS ====================
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -338,54 +338,55 @@
     map.addLayer(trainLayer);
 
     // ==================== LOAD REAL TRAINS ====================
-    let allTrains = []; // Store for search and autocomplete
+    let allTrains = [];
     
     async function loadRealTrains() {
       const url = 'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json';
       
       try {
-        console.log('🔄 Fetching trains from:', url);
         document.getElementById('lastUpdate').innerHTML = 'Loading...';
         
         const response = await fetch(url, { cache: 'no-cache' });
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
-        let trains = data.trains || [];
+        const trains = data.trains || [];
         
         console.log(`✅ Loaded ${trains.length} trains`);
+        console.log('First train:', trains[0]);
         
-        allTrains = trains; // Store for search
+        allTrains = trains;
         
         // Update UI
         document.getElementById('trainCount').textContent = trains.length;
+        document.getElementById('layerTrainCount').textContent = trains.length;
         document.getElementById('lastUpdate').innerHTML = 
           `Last: ${new Date(data.lastUpdated).toLocaleTimeString()}`;
         
         // Clear and repopulate
         trainSource.clear();
         
-        let added = 0;
-        trains.forEach(t => {
-          if (t.lat && t.lon) {
+        trains.forEach((train, index) => {
+          if (train.lat && train.lon) {
             try {
               const feature = new ol.Feature({
-                geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
+                geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
               });
-              feature.set('train_data', t);
-              feature.set('id', t.id);
-              feature.set('train_number', t.train_number || t.id);
-              feature.set('speed', t.speed || 0);
-              feature.set('heading', t.heading || 0);
+              
+              // Store ALL train data in the feature
+              feature.set('train_data', train);
+              feature.set('id', train.id);
+              feature.set('speed', train.speed || 0);
+              feature.set('heading', train.heading || 0);
+              
               trainSource.addFeature(feature);
-              added++;
             } catch (e) {
               console.error('Error adding feature:', e);
             }
           }
         });
         
-        console.log(`✅ Added ${added} trains to map`);
+        console.log(`✅ Added ${trainSource.getFeatures().length} trains to map`);
         
       } catch (error) {
         console.error('❌ Failed to load trains:', error);
@@ -393,11 +394,10 @@
       }
     }
 
-    // ==================== TRAINFINDER-STYLE HOVER POPUP ====================
+    // ==================== HOVER POPUP ====================
     let popupElement = null;
     
     map.on('pointermove', function(evt) {
-      // Only get features from the train layer
       const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
         if (layer === trainLayer) {
           return feature;
@@ -405,7 +405,6 @@
         return null;
       });
       
-      // Remove old popup
       if (popupElement) {
         map.removeOverlay(popupElement);
         popupElement = null;
@@ -413,15 +412,14 @@
       
       if (feature) {
         const coords = feature.getGeometry().getCoordinates();
-        const train = feature.get('train_data') || {};
-        const trainId = train.id || 'Unknown';
-        const speed = train.speed || 0;
-        const heading = train.heading || 0;
+        const trainData = feature.get('train_data') || {};
+        const trainId = trainData.id || 'Unknown';
+        const speed = trainData.speed || 0;
+        const heading = trainData.heading || 0;
         const lonLat = ol.proj.toLonLat(coords);
         
         const status = speed === 0 ? 'Stopped' : 'Moving';
         
-        // Create popup with available data
         const popupDiv = document.createElement('div');
         popupDiv.className = 'train-popup';
         
@@ -437,12 +435,12 @@
             <span class="popup-label">Heading:</span>
             <span class="popup-value">${heading}°</span>
           </div>
+          <div class="popup-row">
+            <span class="popup-label">Location:</span>
+            <span class="popup-value">${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°</span>
+          </div>
           <div class="popup-speed">
             ⚡ ${speed} km/h
-          </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; justify-content: center;">
-            <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}, ${lonLat[0].toFixed(4)}</span>
-            <span class="popup-badge">🧭 ${heading}°</span>
           </div>
         `;
         
@@ -462,29 +460,27 @@
     const autocompleteList = document.getElementById('autocompleteList');
     
     function updateAutocomplete() {
-      const query = searchInput.value.trim().toUpperCase();
+      const query = searchInput.value.trim().toLowerCase();
       if (query.length < 2) {
         autocompleteList.style.display = 'none';
         return;
       }
       
-      // Find matching train numbers
       const matches = [];
       const seen = new Set();
       
       allTrains.forEach(train => {
-        const trainId = (train.id || '').toUpperCase();
-        if (trainId.includes(query) && !seen.has(trainId)) {
-          seen.add(trainId);
+        const trainId = (train.id || '').toLowerCase();
+        if (trainId.includes(query) && !seen.has(train.id)) {
+          seen.add(train.id);
           matches.push({
-            id: trainId,
+            id: train.id,
             lat: train.lat,
             lon: train.lon
           });
         }
       });
       
-      // Show top 8 matches
       if (matches.length > 0) {
         autocompleteList.innerHTML = '';
         matches.slice(0, 8).forEach(match => {
@@ -507,14 +503,12 @@
       }
     }
     
-    // Debounce autocomplete
     let debounceTimer;
     searchInput.addEventListener('input', () => {
       clearTimeout(debounceTimer);
       debounceTimer = setTimeout(updateAutocomplete, 300);
     });
     
-    // Close autocomplete when clicking outside
     document.addEventListener('click', (e) => {
       if (!searchInput.contains(e.target) && !autocompleteList.contains(e.target)) {
         autocompleteList.style.display = 'none';
@@ -529,10 +523,10 @@
         duration: 1000
       });
       
-      // Flash the train
+      // Highlight the train
       trainSource.getFeatures().forEach(f => {
-        const id = f.get('id');
-        if (id === trainId) {
+        const data = f.get('train_data');
+        if (data && data.id === trainId) {
           f.setStyle(new ol.style.Style({
             image: new ol.style.Circle({ radius: 12, color: '#ffff00' })
           }));
@@ -542,14 +536,12 @@
     }
 
     function searchTrains() {
-      const query = searchInput.value.trim().toUpperCase();
+      const query = searchInput.value.trim().toLowerCase();
       if (!query) return;
       
-      // Find first matching train
       for (const train of allTrains) {
-        const trainId = (train.id || '').toUpperCase();
-        if (trainId.includes(query)) {
-          flyToTrain(train.lat, train.lon, trainId);
+        if ((train.id || '').toLowerCase().includes(query)) {
+          flyToTrain(train.lat, train.lon, train.id);
           autocompleteList.style.display = 'none';
           return;
         }
@@ -604,7 +596,6 @@
       }
     });
 
-    // Layer checkboxes
     document.getElementById('trainLayerChk').addEventListener('change', e => {
       trainLayer.setVisible(e.target.checked);
     });
@@ -629,7 +620,7 @@
 
     // ==================== INITIAL LOAD ====================
     loadRealTrains();
-    setInterval(loadRealTrains, 30000); // Update every 30 seconds
+    setInterval(loadRealTrains, 30000);
     zoomTo('au');
   </script>
 </body>
