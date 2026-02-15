@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RailOps - Base Working Version</title>
+    <title>RailOps - Trains + Rail Lines</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <style>
@@ -21,29 +21,48 @@
         // Simple map
         const map = new ol.Map({
             target: 'map',
-            layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
             view: new ol.View({ 
                 center: ol.proj.fromLonLat([133.7751, -25.2744]), 
                 zoom: 4 
             })
         });
 
-        const status = document.getElementById('status');
+        // Base OSM layer
+        map.addLayer(new ol.layer.Tile({ source: new ol.source.OSM() }));
+
+        // Blue railway lines
+        const railLayer = new ol.layer.Tile({
+            source: new ol.source.XYZ({ 
+                url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
+            })
+        });
         
-        // Simple train layer - red circles
+        // Add blue filter
+        railLayer.on('prerender', function(event) {
+            event.context.filter = 'hue-rotate(200deg) brightness(0.9)';
+        });
+        railLayer.on('postrender', function(event) {
+            event.context.filter = 'none';
+        });
+        map.addLayer(railLayer);
+
+        // Train layer - orange dots
         const trainSource = new ol.source.Vector();
         const trainLayer = new ol.layer.Vector({ 
             source: trainSource,
             style: new ol.style.Style({
                 image: new ol.style.Circle({
                     radius: 6,
-                    fill: new ol.style.Fill({ color: '#ff0000' })
+                    fill: new ol.style.Fill({ color: '#ffaa00' }),
+                    stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
                 })
             })
         });
         map.addLayer(trainLayer);
 
-        // Load trains - EXACT same as working test
+        const status = document.getElementById('status');
+
+        // Load trains
         fetch('https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json')
             .then(r => {
                 if (!r.ok) throw new Error(`HTTP ${r.status}`);
