@@ -310,12 +310,14 @@
                 geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat]))
               });
               
-              // Store ALL train data
-              feature.set('train_data', train);
-              feature.set('id', train.id);
+              // Store data directly as feature properties (NOT in train_data)
               feature.set('display_id', train.display_id || train.id);
+              feature.set('id', train.id);
               feature.set('speed', train.speed || 0);
               feature.set('heading', train.heading || 0);
+              
+              // Also store full data if needed elsewhere
+              feature.set('train_data', train);
               
               trainSource.addFeature(feature);
             } catch (e) {
@@ -332,7 +334,7 @@
       }
     }
 
-    // Hover popup
+    // Hover popup - FIXED to use direct feature properties
     let popupElement = null;
     
     map.on('pointermove', function(evt) {
@@ -347,10 +349,11 @@
       
       if (feature) {
         const coords = feature.getGeometry().getCoordinates();
-        const trainData = feature.get('train_data') || {};
-        const trainId = trainData.display_id || trainData.id || 'Unknown';
-        const speed = trainData.speed || 0;
-        const heading = trainData.heading || 0;
+        
+        // Get data directly from feature properties (NOT from train_data)
+        const trainId = feature.get('display_id') || feature.get('id') || 'Unknown';
+        const speed = feature.get('speed') || 0;
+        const heading = feature.get('heading') || 0;
         const lonLat = ol.proj.toLonLat(coords);
         
         const popupDiv = document.createElement('div');
@@ -439,8 +442,8 @@
       });
       
       trainSource.getFeatures().forEach(f => {
-        const data = f.get('train_data');
-        if (data && (data.display_id === trainId || data.id === trainId)) {
+        const id = f.get('display_id') || f.get('id');
+        if (id === trainId) {
           f.setStyle(new ol.style.Style({
             image: new ol.style.Circle({ radius: 12, color: '#ffff00' })
           }));
