@@ -42,26 +42,51 @@
       background-repeat: no-repeat; background-position: right 8px center;
     }
     
-    /* ===== SEARCH BAR ===== */
-    .search-box {
+    /* ===== SEARCH BAR WITH AUTOCOMPLETE ===== */
+    .search-container {
       position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-      z-index: 1000; background: rgba(10, 26, 42, 0.95);
-      backdrop-filter: blur(8px); border-radius: 40px;
-      padding: 6px; border: 1px solid #2a4a7a;
+      z-index: 1000; width: 340px;
+    }
+    .search-box {
+      background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
+      border-radius: 40px; border: 1px solid #2a4a7a;
       display: flex; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
     }
     .search-box input {
-      background: #1e3a5f; border: 1px solid #3a6a9a;
-      border-radius: 30px; padding: 8px 20px; width: 260px;
+      flex: 1; background: #1e3a5f; border: 1px solid #3a6a9a;
+      border-radius: 40px 0 0 40px; padding: 10px 20px;
       color: white; font-size: 14px; outline: none;
     }
     .search-box input::placeholder { color: #9ab0d0; }
     .search-box button {
-      background: #0b57cf; border: none; border-radius: 30px;
-      padding: 8px 24px; margin-left: 6px; color: white;
-      font-weight: 600; cursor: pointer; transition: 0.2s;
+      background: #0b57cf; border: none; border-radius: 0 40px 40px 0;
+      padding: 10px 24px; color: white; font-weight: 600;
+      cursor: pointer; transition: 0.2s; white-space: nowrap;
     }
     .search-box button:hover { background: #1a6ae0; }
+    
+    /* Autocomplete dropdown */
+    .autocomplete-items {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
+      border: 1px solid #2a4a7a; border-top: none;
+      border-radius: 0 0 20px 20px; max-height: 300px;
+      overflow-y: auto; z-index: 1001; margin-top: 2px;
+    }
+    .autocomplete-item {
+      padding: 10px 20px; color: white; cursor: pointer;
+      border-bottom: 1px solid #1e3a5f; font-size: 13px;
+      display: flex; justify-content: space-between;
+    }
+    .autocomplete-item:hover {
+      background: #1e3a5f;
+    }
+    .autocomplete-item .train-id {
+      font-weight: 600; color: #9ab0d0;
+    }
+    .autocomplete-item .train-loc {
+      color: #ffaa00;
+    }
     
     /* ===== STATUS BAR ===== */
     .status-bar {
@@ -145,10 +170,13 @@
     <button id="layersToggleBtn">🗺️ Layers</button>
   </div>
 
-  <!-- Search Bar -->
-  <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Search train ID or loco number...">
-    <button id="searchBtn">🔍 Search</button>
+  <!-- Search Bar with Autocomplete -->
+  <div class="search-container">
+    <div class="search-box">
+      <input type="text" id="searchInput" placeholder="Search train ID or loco number... (e.g., NR)">
+      <button id="searchBtn">🔍 Search</button>
+    </div>
+    <div id="autocompleteList" class="autocomplete-items" style="display: none;"></div>
   </div>
 
   <!-- Status Bar -->
@@ -162,7 +190,7 @@
     <h3>🗺️ Map Layers</h3>
     
     <div class="layer-row"><label><input type="checkbox" id="trainLayerChk" checked> 🚆 Live Trains</label></div>
-    <div class="layer-row"><label><input type="checkbox" id="railLayerChk" checked> 🛤️ Rail Lines</label></div>
+    <div class="layer-row"><label><input type="checkbox" id="railLayerChk" checked> 🛤️ Rail Lines (Blue)</label></div>
     <div class="layer-row"><label><input type="checkbox" id="stationsLayerChk" checked> 🏢 Stations</label></div>
     
     <div class="section-title">📱 Mobile Coverage</div>
@@ -198,13 +226,23 @@
     // Keep map north-facing
     map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
-    // ==================== RAIL LAYERS ====================
+    // ==================== RAIL LAYERS WITH BLUE FILTER ====================
     const railLayer = new ol.layer.Tile({
       source: new ol.source.XYZ({ 
         url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
       }),
       visible: true,
       zIndex: 1
+    });
+    
+    // Add blue filter to railway lines
+    railLayer.on('prerender', function(event) {
+      const ctx = event.context;
+      ctx.filter = 'hue-rotate(200deg) brightness(0.9) saturate(1.5)';
+    });
+    railLayer.on('postrender', function(event) {
+      const ctx = event.context;
+      ctx.filter = 'none';
     });
     
     const stationsLayer = new ol.layer.Tile({
@@ -338,6 +376,7 @@
     
     map.on('pointermove', function(evt) {
       const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
+        // Ignore demo train layers in popup if desired
         return feature;
       });
       
@@ -373,6 +412,8 @@
     });
 
     // ==================== LOAD REAL TRAINS ====================
+    let allTrains = []; // Store for autocomplete
+    
     async function loadRealTrains() {
       const url = 'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json';
       
@@ -380,6 +421,7 @@
         const response = await fetch(url, { cache: 'no-cache' });
         const data = await response.json();
         const trains = data.trains || [];
+        allTrains = trains; // Store for autocomplete
         
         // Update UI
         document.getElementById('trainCount').textContent = trains.length;
@@ -410,37 +452,124 @@
       }
     }
 
+    // ==================== AUTOCOMPLETE SEARCH ====================
+    const searchInput = document.getElementById('searchInput');
+    const autocompleteList = document.getElementById('autocompleteList');
+    
+    function updateAutocomplete() {
+      const query = searchInput.value.toLowerCase().trim();
+      if (query.length < 2) {
+        autocompleteList.style.display = 'none';
+        return;
+      }
+      
+      // Find matching trains (case insensitive)
+      const matches = [];
+      const seen = new Set();
+      
+      allTrains.forEach(train => {
+        const id = (train.id || '').toLowerCase();
+        const num = (train.train_number || '').toLowerCase();
+        
+        if (id.includes(query) || num.includes(query)) {
+          const displayId = train.train_number || train.id;
+          if (!seen.has(displayId)) {
+            seen.add(displayId);
+            matches.push({
+              id: displayId,
+              lat: train.lat,
+              lon: train.lon,
+              fullData: train
+            });
+          }
+        }
+      });
+      
+      // Show top 10 matches
+      if (matches.length > 0) {
+        autocompleteList.innerHTML = '';
+        matches.slice(0, 10).forEach(match => {
+          const item = document.createElement('div');
+          item.className = 'autocomplete-item';
+          item.innerHTML = `
+            <span class="train-id">${match.id}</span>
+            <span class="train-loc">${match.lat.toFixed(2)}°, ${match.lon.toFixed(2)}°</span>
+          `;
+          item.addEventListener('click', () => {
+            searchInput.value = match.id;
+            autocompleteList.style.display = 'none';
+            flyToTrain(match.lat, match.lon, match.id);
+          });
+          autocompleteList.appendChild(item);
+        });
+        autocompleteList.style.display = 'block';
+      } else {
+        autocompleteList.style.display = 'none';
+      }
+    }
+    
+    // Debounce autocomplete
+    let debounceTimer;
+    searchInput.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(updateAutocomplete, 300);
+    });
+    
+    // Close autocomplete when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!searchInput.contains(e.target) && !autocompleteList.contains(e.target)) {
+        autocompleteList.style.display = 'none';
+      }
+    });
+
     // ==================== SEARCH FUNCTION ====================
+    function flyToTrain(lat, lon, trainId) {
+      const center = ol.proj.fromLonLat([lon, lat]);
+      map.getView().animate({
+        center: center,
+        zoom: 12,
+        duration: 1000
+      });
+      
+      // Find and highlight the train
+      trainSource.getFeatures().forEach(f => {
+        const id = f.get('train_number') || f.get('id');
+        if (id === trainId) {
+          // Flash the train
+          f.setStyle(new ol.style.Style({
+            image: new ol.style.Circle({ radius: 20, color: '#ffff00' })
+          }));
+          setTimeout(() => f.setStyle(undefined), 2000);
+        }
+      });
+    }
+
     function searchTrains(query) {
       if (!query) return;
       
       query = query.toLowerCase();
-      let found = null;
+      let bestMatch = null;
       
       trainSource.getFeatures().forEach(f => {
-        const id = f.get('id') || '';
-        const num = f.get('train_number') || '';
+        const id = (f.get('id') || '').toLowerCase();
+        const num = (f.get('train_number') || '').toLowerCase();
         
-        if (id.toLowerCase().includes(query) || num.toLowerCase().includes(query)) {
-          found = f;
+        if (id.includes(query) || num.includes(query)) {
+          bestMatch = f;
         }
       });
       
-      if (found) {
-        const coords = found.getGeometry().getCoordinates();
-        map.getView().animate({
-          center: coords,
-          zoom: 12,
-          duration: 1000
-        });
-        
-        // Flash the train
-        found.setStyle(new ol.style.Style({
-          image: new ol.style.Circle({ radius: 20, color: '#ffff00' })
-        }));
-        setTimeout(() => found.setStyle(undefined), 2000);
+      if (bestMatch) {
+        const coords = bestMatch.getGeometry().getCoordinates();
+        const trainId = bestMatch.get('train_number') || bestMatch.get('id');
+        flyToTrain(
+          ol.proj.toLonLat(coords)[1],
+          ol.proj.toLonLat(coords)[0],
+          trainId
+        );
+        autocompleteList.style.display = 'none';
       } else {
-        alert('Train not found');
+        alert('No trains found matching: ' + query);
       }
     }
 
@@ -471,26 +600,26 @@
     }
 
     // ==================== EVENT LISTENERS ====================
-    // State selector
     document.getElementById('stateSelect').addEventListener('change', e => {
       zoomTo(e.target.value);
     });
 
-    // Locate button
     document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
 
-    // Layers toggle
     document.getElementById('layersToggleBtn').addEventListener('click', () => {
       const panel = document.getElementById('layersPanel');
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
     });
 
-    // Search
     document.getElementById('searchBtn').addEventListener('click', () => {
       searchTrains(document.getElementById('searchInput').value);
     });
-    document.getElementById('searchInput').addEventListener('keypress', e => {
-      if (e.key === 'Enter') searchTrains(e.target.value);
+    
+    searchInput.addEventListener('keypress', e => {
+      if (e.key === 'Enter') {
+        searchTrains(e.target.value);
+        autocompleteList.style.display = 'none';
+      }
     });
 
     // Layer checkboxes
