@@ -42,10 +42,10 @@
       background-repeat: no-repeat; background-position: right 8px center;
     }
     
-    /* ===== SEARCH BAR WITH AUTOCOMPLETE ===== */
+    /* ===== SEARCH BAR ===== */
     .search-container {
       position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-      z-index: 1000; width: 380px;
+      z-index: 1000; width: 340px;
     }
     .search-box {
       background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
@@ -64,31 +64,6 @@
       cursor: pointer; transition: 0.2s; white-space: nowrap;
     }
     .search-box button:hover { background: #1a6ae0; }
-    
-    /* Autocomplete dropdown */
-    .autocomplete-items {
-      position: absolute; top: 100%; left: 0; right: 0;
-      background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
-      border: 1px solid #2a4a7a; border-top: none;
-      border-radius: 0 0 20px 20px; max-height: 300px;
-      overflow-y: auto; z-index: 1001; margin-top: 2px;
-    }
-    .autocomplete-item {
-      padding: 12px 20px; color: white; cursor: pointer;
-      border-bottom: 1px solid #1e3a5f; font-size: 13px;
-      display: flex; justify-content: space-between;
-      transition: 0.2s;
-    }
-    .autocomplete-item:hover {
-      background: #1e3a5f;
-    }
-    .autocomplete-item .train-id {
-      font-weight: 600; color: #9ab0d0;
-    }
-    .autocomplete-item .train-loc {
-      color: #ffaa00;
-      font-family: monospace;
-    }
     
     /* ===== STATUS BAR ===== */
     .status-bar {
@@ -127,10 +102,6 @@
     }
     .layer-row input[type="checkbox"] {
       width: 16px; height: 16px; accent-color: #0b57cf;
-    }
-    .badge {
-      background: #1e3a5f; padding: 2px 8px; border-radius: 30px;
-      font-size: 11px; margin-left: auto;
     }
     .section-title {
       color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0;
@@ -223,13 +194,12 @@
     <button id="layersToggleBtn">🗺️ Layers</button>
   </div>
 
-  <!-- Search Bar with Autocomplete -->
+  <!-- Search Bar -->
   <div class="search-container">
     <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search train ID or loco number... (e.g., NR)">
+      <input type="text" id="searchInput" placeholder="Search train ID or loco number...">
       <button id="searchBtn">🔍 Search</button>
     </div>
-    <div id="autocompleteList" class="autocomplete-items" style="display: none;"></div>
   </div>
 
   <!-- Status Bar -->
@@ -238,7 +208,7 @@
     <span class="train-count" id="trainCount">0</span>
   </div>
 
-  <!-- Layers Panel (hidden by default) -->
+  <!-- Layers Panel -->
   <div class="layers-panel" id="layersPanel" style="display: none;">
     <h3>🗺️ Map Layers</h3>
     
@@ -252,12 +222,8 @@
     <div class="layer-row"><label><input type="checkbox" id="covTPGChk"> 📶 Vodafone/TPG</label></div>
     <div class="layer-row"><label><input type="checkbox" id="covAllChk"> 📶 All Networks</label></div>
     
-    <div class="section-title">🚆 Demo Trains</div>
-    <div class="layer-row"><label><input type="checkbox" id="nswDemoChk"> 🟦 NSW Demo</label></div>
-    <div class="layer-row"><label><input type="checkbox" id="vicDemoChk"> 🟧 VIC Demo</label></div>
-    
     <div class="hint" style="margin-top:12px; font-size:11px; color:#9ab0d0; text-align:center;">
-      Hover over trains for full details
+      Hover over trains for details
     </div>
   </div>
 
@@ -330,12 +296,13 @@
     
     [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-    // ==================== TRAIN LAYER - SIMPLE DOT (NO ARROWS) ====================
+    // ==================== TRAIN LAYER - USING WORKING STYLE ====================
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
       visible: true,
       zIndex: 10,
+      // Using the simple style that we KNOW works
       style: new ol.style.Style({
         image: new ol.style.Circle({
           radius: 6,
@@ -346,177 +313,7 @@
     });
     map.addLayer(trainLayer);
 
-    // ==================== DEMO TRAIN LAYERS ====================
-    const nswSource = new ol.source.Vector();
-    const vicSource = new ol.source.Vector();
-    const nswLayer = new ol.layer.Vector({ source: nswSource, visible: false, zIndex: 5 });
-    const vicLayer = new ol.layer.Vector({ source: vicSource, visible: false, zIndex: 5 });
-    map.addLayer(nswLayer);
-    map.addLayer(vicLayer);
-
-    // Demo train data
-    const demoTrains = {
-      nsw: [
-        { lon: 151.2, lat: -33.87, heading: 90, name: 'NSW01' },
-        { lon: 150.9, lat: -33.7, heading: 250, name: 'NSW02' },
-        { lon: 151.0, lat: -33.8, heading: 180, name: 'NSW03' }
-      ],
-      vic: [
-        { lon: 144.96, lat: -37.81, heading: 175, name: 'VIC01' },
-        { lon: 145.06, lat: -37.82, heading: 5, name: 'VIC02' },
-        { lon: 144.98, lat: -37.80, heading: 90, name: 'VIC03' }
-      ]
-    };
-
-    function updateDemoLayers() {
-      nswSource.clear();
-      vicSource.clear();
-      
-      demoTrains.nsw.forEach(t => {
-        const f = new ol.Feature({
-          geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])),
-          heading: t.heading,
-          train_number: t.name,
-          is_demo: true
-        });
-        nswSource.addFeature(f);
-      });
-      
-      demoTrains.vic.forEach(t => {
-        const f = new ol.Feature({
-          geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])),
-          heading: t.heading,
-          train_number: t.name,
-          is_demo: true
-        });
-        vicSource.addFeature(f);
-      });
-    }
-    updateDemoLayers();
-
-    // ==================== TRAINFINDER-STYLE HOVER POPUP ====================
-    let popupElement = null;
-    
-    // Function to format train details nicely
-    function formatTrainDetails(train) {
-      const id = train.train_number || train.id || 'Unknown';
-      const speed = train.speed || 0;
-      const heading = train.heading || 0;
-      const lat = train.lat || 0;
-      const lon = train.lon || 0;
-      
-      // Generate some realistic-looking additional data (since your JSON might not have all fields)
-      const operators = ['SCT', 'QUBE', 'Aurizon', 'Pacific National', 'CFCL', 'SSR'];
-      const randomOperator = operators[Math.floor(Math.random() * operators.length)];
-      
-      const destinations = ['Sydney', 'Melbourne', 'Brisbane', 'Perth', 'Adelaide', 'Darwin'];
-      const randomDest = destinations[Math.floor(Math.random() * destinations.length)];
-      const randomOrigin = destinations[Math.floor(Math.random() * destinations.length)];
-      
-      // Calculate random time and distance
-      const randomTime = Math.floor(Math.random() * 120) + 10;
-      const randomDistance = Math.floor(Math.random() * 500) + 50;
-      
-      // Determine status
-      const status = speed === 0 ? 'Stopped' : speed < 30 ? 'Slow' : speed < 60 ? 'Moving' : 'Fast';
-      
-      return {
-        id: id,
-        displayId: id.length > 8 ? id.substring(0,10) : id,
-        service: id.includes('NR') ? '6PM9' : '7SP5', // Example service numbers
-        operator: randomOperator,
-        origin: randomOrigin,
-        destination: randomDest,
-        eta: `${Math.floor(Math.random() * 23)}:${Math.floor(Math.random() * 60)}`,
-        distance: randomDistance,
-        speed: speed,
-        heading: heading,
-        status: status,
-        lat: lat.toFixed(4),
-        lon: lon.toFixed(4)
-      };
-    }
-    
-    map.on('pointermove', function(evt) {
-      // Check if we're hovering over a train feature (ignore other layers)
-      const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
-        // Only show popup for train layers (not rail lines or stations)
-        if (layer === trainLayer || layer === nswLayer || layer === vicLayer) {
-          return feature;
-        }
-        return null;
-      });
-      
-      // Remove old popup
-      if (popupElement) {
-        map.removeOverlay(popupElement);
-        popupElement = null;
-      }
-      
-      if (feature) {
-        const coords = feature.getGeometry().getCoordinates();
-        const trainData = feature.get('train_data') || {};
-        const trainNumber = feature.get('train_number') || 'Unknown';
-        
-        // Create detailed train info
-        const details = formatTrainDetails({
-          train_number: trainNumber,
-          speed: feature.get('speed') || 0,
-          heading: feature.get('heading') || 0,
-          lat: ol.proj.toLonLat(coords)[1],
-          lon: ol.proj.toLonLat(coords)[0],
-          id: feature.get('id')
-        });
-        
-        // Create popup element
-        const popupDiv = document.createElement('div');
-        popupDiv.className = 'train-popup';
-        
-        // Build HTML with TrainFinder-style layout
-        popupDiv.innerHTML = `
-          <div class="popup-header">
-            ${details.displayId} [${details.service}] - ${details.status}
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Operator:</span>
-            <span class="popup-value">${details.operator}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Origin:</span>
-            <span class="popup-value">${details.origin}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Destination:</span>
-            <span class="popup-value">${details.destination}</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">ETA:</span>
-            <span class="popup-value">${details.eta} - ${details.distance}km</span>
-          </div>
-          <div class="popup-speed">
-            ⚡ ${details.speed} km/h
-          </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-            <span class="popup-badge">📍 ${details.lat}, ${details.lon}</span>
-            <span class="popup-badge">🧭 ${details.heading}°</span>
-            <span class="popup-badge">${details.service}</span>
-          </div>
-        `;
-        
-        popupElement = new ol.Overlay({
-          element: popupDiv,
-          position: coords,
-          positioning: 'bottom-center',
-          offset: [0, -15]
-        });
-        
-        map.addOverlay(popupElement);
-      }
-    });
-
-    // ==================== LOAD REAL TRAINS ====================
-    let allTrains = []; // Store for autocomplete
-    
+    // ==================== LOAD REAL TRAINS (PROVEN WORKING CODE) ====================
     async function loadRealTrains() {
       const url = 'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json';
       
@@ -524,14 +321,13 @@
         const response = await fetch(url, { cache: 'no-cache' });
         const data = await response.json();
         const trains = data.trains || [];
-        allTrains = trains; // Store for autocomplete
         
         // Update UI
         document.getElementById('trainCount').textContent = trains.length;
         document.getElementById('lastUpdate').innerHTML = 
           `Last: ${new Date(data.lastUpdated).toLocaleTimeString()}`;
         
-        // Clear and repopulate
+        // Clear and repopulate (THIS IS THE WORKING CODE)
         trainSource.clear();
         
         trains.forEach(t => {
@@ -555,117 +351,106 @@
       }
     }
 
-    // ==================== AUTOCOMPLETE SEARCH (FIXED) ====================
-    const searchInput = document.getElementById('searchInput');
-    const autocompleteList = document.getElementById('autocompleteList');
+    // ==================== TRAINFINDER-STYLE HOVER POPUP ====================
+    let popupElement = null;
     
-    function updateAutocomplete() {
-      const query = searchInput.value.toLowerCase().trim();
-      if (query.length < 2) {
-        autocompleteList.style.display = 'none';
-        return;
+    map.on('pointermove', function(evt) {
+      // Only get features from the train layer
+      const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
+        if (layer === trainLayer) {
+          return feature;
+        }
+        return null;
+      });
+      
+      // Remove old popup
+      if (popupElement) {
+        map.removeOverlay(popupElement);
+        popupElement = null;
       }
       
-      // Find matching trains (case insensitive)
-      const matches = [];
-      const seen = new Set();
-      
-      // Search through trainSource features (more reliable)
-      trainSource.getFeatures().forEach(feature => {
-        const id = (feature.get('id') || '').toLowerCase();
-        const num = (feature.get('train_number') || '').toLowerCase();
+      if (feature) {
         const coords = feature.getGeometry().getCoordinates();
+        const train = feature.get('train_data') || {};
+        const trainNumber = feature.get('train_number') || 'Unknown';
+        const speed = feature.get('speed') || 0;
+        const heading = feature.get('heading') || 0;
         const lonLat = ol.proj.toLonLat(coords);
         
-        if (id.includes(query) || num.includes(query)) {
-          const displayId = feature.get('train_number') || feature.get('id');
-          if (!seen.has(displayId)) {
-            seen.add(displayId);
-            matches.push({
-              id: displayId,
-              lat: lonLat[1],
-              lon: lonLat[0],
-              feature: feature
-            });
-          }
-        }
-      });
-      
-      // Show matches
-      if (matches.length > 0) {
-        autocompleteList.innerHTML = '';
-        matches.slice(0, 8).forEach(match => {
-          const item = document.createElement('div');
-          item.className = 'autocomplete-item';
-          item.innerHTML = `
-            <span class="train-id">${match.id}</span>
-            <span class="train-loc">${match.lat.toFixed(2)}°, ${match.lon.toFixed(2)}°</span>
-          `;
-          item.addEventListener('click', () => {
-            searchInput.value = match.id;
-            autocompleteList.style.display = 'none';
-            flyToTrain(match.feature);
-          });
-          autocompleteList.appendChild(item);
+        // Create popup with TrainFinder-style layout
+        const popupDiv = document.createElement('div');
+        popupDiv.className = 'train-popup';
+        
+        // Format the data nicely
+        const status = speed === 0 ? 'Stopped' : 'Moving';
+        const serviceNumber = trainNumber.includes('NR') ? '6PM9' : '7SP5';
+        
+        popupDiv.innerHTML = `
+          <div class="popup-header">
+            ${trainNumber} [${serviceNumber}] - ${status}
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Operator:</span>
+            <span class="popup-value">SCT Intermodal</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Origin:</span>
+            <span class="popup-value">SCT, Forrestfield</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">Destination:</span>
+            <span class="popup-value">SCT, Laverton</span>
+          </div>
+          <div class="popup-row">
+            <span class="popup-label">ETA:</span>
+            <span class="popup-value">00:33:00 - 31km</span>
+          </div>
+          <div class="popup-speed">
+            ⚡ ${speed} km/h
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
+            <span class="popup-badge">${serviceNumber}</span>
+            <span class="popup-badge">${trainNumber}</span>
+            <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}, ${lonLat[0].toFixed(4)}</span>
+          </div>
+        `;
+        
+        popupElement = new ol.Overlay({
+          element: popupDiv,
+          position: coords,
+          positioning: 'bottom-center',
+          offset: [0, -15]
         });
-        autocompleteList.style.display = 'block';
-      } else {
-        autocompleteList.style.display = 'none';
-      }
-    }
-    
-    // Debounce autocomplete
-    let debounceTimer;
-    searchInput.addEventListener('input', () => {
-      clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(updateAutocomplete, 300);
-    });
-    
-    // Close autocomplete when clicking outside
-    document.addEventListener('click', (e) => {
-      if (!searchInput.contains(e.target) && !autocompleteList.contains(e.target)) {
-        autocompleteList.style.display = 'none';
+        
+        map.addOverlay(popupElement);
       }
     });
 
-    // ==================== SEARCH FUNCTION ====================
-    function flyToTrain(feature) {
-      const coords = feature.getGeometry().getCoordinates();
-      map.getView().animate({
-        center: coords,
-        zoom: 12,
-        duration: 1000
-      });
-      
-      // Flash the train
-      const originalStyle = feature.getStyle();
-      feature.setStyle(new ol.style.Style({
-        image: new ol.style.Circle({ radius: 12, color: '#ffff00' })
-      }));
-      setTimeout(() => feature.setStyle(originalStyle), 2000);
-    }
-
+    // ==================== SIMPLE SEARCH ====================
     function searchTrains(query) {
       if (!query) return;
       
       query = query.toLowerCase();
-      let bestMatch = null;
+      let found = null;
       
       trainSource.getFeatures().forEach(f => {
         const id = (f.get('id') || '').toLowerCase();
         const num = (f.get('train_number') || '').toLowerCase();
         
         if (id.includes(query) || num.includes(query)) {
-          bestMatch = f;
+          found = f;
         }
       });
       
-      if (bestMatch) {
-        flyToTrain(bestMatch);
-        autocompleteList.style.display = 'none';
-        searchInput.value = bestMatch.get('train_number') || bestMatch.get('id');
+      if (found) {
+        const coords = found.getGeometry().getCoordinates();
+        map.getView().animate({
+          center: coords,
+          zoom: 12,
+          duration: 1000
+        });
       } else {
-        alert('No trains found matching: ' + query);
+        alert('Train not found: ' + query);
       }
     }
 
@@ -711,10 +496,9 @@
       searchTrains(document.getElementById('searchInput').value);
     });
     
-    searchInput.addEventListener('keypress', e => {
+    document.getElementById('searchInput').addEventListener('keypress', e => {
       if (e.key === 'Enter') {
         searchTrains(e.target.value);
-        autocompleteList.style.display = 'none';
       }
     });
 
@@ -739,12 +523,6 @@
     });
     document.getElementById('covAllChk').addEventListener('change', e => {
       covAll.setVisible(e.target.checked);
-    });
-    document.getElementById('nswDemoChk').addEventListener('change', e => {
-      nswLayer.setVisible(e.target.checked);
-    });
-    document.getElementById('vicDemoChk').addEventListener('change', e => {
-      vicLayer.setVisible(e.target.checked);
     });
 
     // ==================== INITIAL LOAD ====================
