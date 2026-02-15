@@ -1,24 +1,46 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>RailOps - Trains + Rail Lines</title>
+    <title>RailOps - DEBUG VERSION</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
     <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
     <style>
         #map { height: 100vh; width: 100vw; }
-        #status { 
+        #debug { 
             position: fixed; top: 10px; right: 10px; 
-            background: black; color: lime; padding: 10px;
-            z-index: 1000; font-family: monospace;
+            background: black; color: lime; padding: 20px;
+            z-index: 10000; font-family: monospace;
+            width: 400px;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 2px solid #0f0;
         }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+        .info { color: #ff0; }
     </style>
 </head>
 <body>
-    <div id="status">Loading...</div>
+    <div id="debug">
+        <div><strong>🚂 RAILOPS DEBUG</strong></div>
+        <div id="log"></div>
+    </div>
     <div id="map"></div>
 
     <script>
-        // Simple map
+        const debugLog = document.getElementById('log');
+        
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            debugLog.appendChild(div);
+            console.log(msg);
+        }
+
+        log('Starting debug version...');
+
+        // Create map
         const map = new ol.Map({
             target: 'map',
             view: new ol.View({ 
@@ -27,17 +49,17 @@
             })
         });
 
-        // Base OSM layer
+        // Add OSM
         map.addLayer(new ol.layer.Tile({ source: new ol.source.OSM() }));
+        log('OSM layer added');
 
-        // Blue railway lines
+        // Add rail lines
         const railLayer = new ol.layer.Tile({
             source: new ol.source.XYZ({ 
                 url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
             })
         });
         
-        // Add blue filter
         railLayer.on('prerender', function(event) {
             event.context.filter = 'hue-rotate(200deg) brightness(0.9)';
         });
@@ -45,47 +67,96 @@
             event.context.filter = 'none';
         });
         map.addLayer(railLayer);
+        log('Rail layer added with blue filter');
 
-        // Train layer - orange dots
+        // Create train layer
         const trainSource = new ol.source.Vector();
         const trainLayer = new ol.layer.Vector({ 
             source: trainSource,
             style: new ol.style.Style({
                 image: new ol.style.Circle({
-                    radius: 6,
+                    radius: 8,
                     fill: new ol.style.Fill({ color: '#ffaa00' }),
                     stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
                 })
             })
         });
         map.addLayer(trainLayer);
+        log('Train layer created');
 
-        const status = document.getElementById('status');
-
-        // Load trains
-        fetch('https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json')
-            .then(r => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
+        // Load trains with detailed debugging
+        log('Fetching trains...');
+        
+        fetch('https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json', { 
+            cache: 'no-cache',
+            headers: { 'Cache-Control': 'no-cache' }
+        })
+            .then(response => {
+                log(`Response status: ${response.status} ${response.statusText}`, 'info');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                return response.json();
             })
             .then(data => {
-                const trains = data.trains || [];
-                status.innerHTML = `✅ ${trains.length} trains loaded`;
+                log(`Data received: ${Object.keys(data).join(', ')}`, 'success');
                 
-                trains.forEach(t => {
-                    if (t.lat && t.lon) {
-                        const f = new ol.Feature({
-                            geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
-                        });
-                        trainSource.addFeature(f);
+                const trains = data.trains || [];
+                log(`Train count: ${trains.length}`, 'success');
+                
+                if (trains.length > 0) {
+                    log(`First train: ${JSON.stringify(trains[0]).substring(0, 100)}...`, 'info');
+                } else {
+                    log('WARNING: trains array is empty!', 'error');
+                }
+                
+                // Add trains to map
+                let added = 0;
+                trains.forEach((t, index) => {
+                    if (t.lat && t.lon && !isNaN(t.lat) && !isNaN(t.lon)) {
+                        try {
+                            const point = ol.proj.fromLonLat([t.lon, t.lat]);
+                            const feature = new ol.Feature({
+                                geometry: new ol.geom.Point(point)
+                            });
+                            trainSource.addFeature(feature);
+                            added++;
+                            
+                            // Log first 5 trains
+                            if (index < 5) {
+                                log(`Train ${index}: lat=${t.lat}, lon=${t.lon} -> point=${point}`, 'info');
+                            }
+                        } catch (e) {
+                            log(`Error adding train ${index}: ${e.message}`, 'error');
+                        }
+                    } else {
+                        log(`Invalid train ${index}: lat=${t.lat}, lon=${t.lon}`, 'error');
                     }
                 });
                 
-                status.innerHTML += `<br>✅ Added ${trainSource.getFeatures().length} to map`;
+                log(`✅ Added ${added} trains to map`, 'success');
+                
+                // Force map to update
+                trainSource.changed();
+                map.render();
+                
+                // Log final feature count
+                log(`Final feature count: ${trainSource.getFeatures().length}`, 'info');
+                
+                // Test a specific coordinate to verify projection works
+                const testPoint = ol.proj.fromLonLat([151.2093, -33.8688]); // Sydney
+                log(`Test projection: Sydney -> ${testPoint}`, 'info');
             })
-            .catch(err => {
-                status.innerHTML = `❌ Error: ${err.message}`;
+            .catch(error => {
+                log(`❌ ERROR: ${error.message}`, 'error');
+                log(`Stack: ${error.stack}`, 'error');
             });
+
+        // Add click handler to test if map is working
+        map.on('click', function(evt) {
+            const coord = ol.proj.toLonLat(evt.coordinate);
+            log(`Map clicked at: ${coord[1].toFixed(4)}°, ${coord[0].toFixed(4)}°`, 'info');
+        });
+
+        log('Debug version ready - waiting for data...');
     </script>
 </body>
 </html>
