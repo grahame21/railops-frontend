@@ -39,6 +39,7 @@
     }
     .train-count{background:#1e3a8a;padding:2px 8px;border-radius:12px;font-size:12px}
     .warning{color:#ffaa00;font-weight:bold}
+    .error{color:#ff4444;font-weight:bold}
   </style>
 </head>
 <body>
@@ -60,7 +61,7 @@
 
   <div id="layersPanel" class="panel" style="display:none">
     <div class="row"><label><input id="trainChk" type="checkbox" checked> 🚆 Live Trains (<span id="trainCount">0</span>)</label></div>
-    <div class="row"><label><input id="railChk" type="checkbox" checked> 🛤️ Rail lines (OpenRailwayMap) <span style="color:#888">(changed to blue)</span></label></div>
+    <div class="row"><label><input id="railChk" type="checkbox" checked> 🛤️ Rail lines (OpenRailwayMap) <span style="color:#888">(blue filter)</span></label></div>
     <div class="row"><label><input id="stationsChk" type="checkbox" checked> 🏢 Stations (OpenRailwayMap)</label></div>
     <div class="row" style="border-top:2px solid #444;margin-top:6px;padding-top:10px"><span style="opacity:.7">📱 Mobile coverage (ACCC)</span></div>
     <div class="row"><label><input id="covTelstra" type="checkbox"> 📶 Telstra — outdoor</label></div>
@@ -71,7 +72,8 @@
     <div class="row"><label><input id="nswChk" type="checkbox"> NSW Trains (demo)</label></div>
     <div class="row"><label><input id="vicChk" type="checkbox"> VIC Trains (demo)</label></div>
     <div class="hint">Last update: <span id="lastUpdateTime">-</span></div>
-    <div class="hint warning" id="staleWarning" style="display:none">⚠️ Data is stale! Last update was over 30 minutes ago.</div>
+    <div id="staleWarning" class="hint warning" style="display:none">⚠️ Data is stale! Last update was over 30 minutes ago.</div>
+    <div id="errorMsg" class="hint error" style="display:none"></div>
   </div>
 
   <script>
@@ -89,7 +91,7 @@
     // Keep map north-facing
     map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
-    // Rail layers - CHANGED TO BLUE to avoid orange conflict
+    // Rail layers with blue filter
     const railLayer = new ol.layer.Tile({
       source: new ol.source.XYZ({ 
         url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png',
@@ -106,10 +108,10 @@
       visible: true
     });
     
-    // Apply a blue filter to railway lines to distinguish from orange train arrows
+    // Apply blue filter to railway lines
     railLayer.on('prerender', function(event) {
       const ctx = event.context;
-      ctx.filter = 'hue-rotate(200deg) brightness(0.9)'; // Turns orange rails to blue/purple
+      ctx.filter = 'hue-rotate(200deg) brightness(0.9)';
     });
     railLayer.on('postrender', function(event) {
       const ctx = event.context;
@@ -137,7 +139,7 @@
     const covAll = acccLayer(4);
     [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-    // LIVE TRAINS LAYER - IMPROVED STYLING
+    // LIVE TRAINS LAYER
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -147,13 +149,12 @@
         const speed = feature.get('speed') || 0;
         const trainNumber = feature.get('train_number') || '';
         
-        // Color based on speed: green=moving (>0), orange=stopped (0), red=fast (>80)
-        let color = '#ffaa00'; // Default orange for stopped
-        if (speed > 0 && speed < 30) color = '#44ff44'; // Light green for slow moving
-        else if (speed >= 30 && speed < 80) color = '#00cc00'; // Green for moving
-        else if (speed >= 80) color = '#ff4444'; // Red for fast trains
+        // Color based on speed
+        let color = '#ffaa00'; // Orange for stopped
+        if (speed > 0 && speed < 30) color = '#44ff44'; // Light green
+        else if (speed >= 30 && speed < 80) color = '#00cc00'; // Green
+        else if (speed >= 80) color = '#ff4444'; // Red for fast
         
-        // Larger arrows for better visibility
         return new ol.style.Style({
           image: new ol.style.RegularShape({
             points: 3,
@@ -163,14 +164,13 @@
             stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
           }),
           text: new ol.style.Text({
-            text: trainNumber.length > 10 ? trainNumber.substring(0,8) + '…' : trainNumber,
-            font: 'bold 10px monospace',
+            text: trainNumber.length > 8 ? trainNumber.substring(0,6) + '…' : trainNumber,
+            font: 'bold 9px monospace',
             fill: new ol.style.Fill({ color: '#ffffff' }),
-            stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
-            offsetY: -20,
-            backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.6)' }),
-            backgroundStroke: new ol.style.Stroke({ color: '#ffffff', width: 1 }),
-            padding: [2, 4, 2, 4]
+            stroke: new ol.style.Stroke({ color: '#000000', width: 2 }),
+            offsetY: -18,
+            backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.5)' }),
+            padding: [2, 3, 2, 3]
           })
         });
       }
@@ -185,39 +185,49 @@
     map.addLayer(nswLayer);
     map.addLayer(vicLayer);
 
-    // LOAD REAL TRAINS - WITH BETTER NUMBER EXTRACTION
+    // LOAD REAL TRAINS - IMPROVED ERROR HANDLING
     async function loadRealTrains() {
       const trainUrl = 'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json';
       
       try {
-        console.log('Fetching trains from:', trainUrl);
-        const response = await fetch(trainUrl, { cache: 'no-cache' });
+        console.log('🔄 Fetching trains from:', trainUrl);
+        document.getElementById('statusBar').innerHTML = '⏳ Loading trains...';
         
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const response = await fetch(trainUrl, { 
+          cache: 'no-cache',
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
         
         const data = await response.json();
         const trains = data.trains || [];
         
-        console.log(`✅ Loaded ${trains.length} trains`);
+        console.log(`✅ Success! Loaded ${trains.length} trains`);
+        console.log('Sample train:', trains[0]);
         
-        // Check if data is stale (older than 30 minutes)
+        // Hide any previous error messages
+        document.getElementById('errorMsg').style.display = 'none';
+        
+        // Update UI
+        document.getElementById('trainCount').textContent = trains.length;
+        
         const updateTime = new Date(data.lastUpdated);
         const now = new Date();
         const minutesAgo = Math.round((now - updateTime) / 60000);
         
-        // Update UI
-        document.getElementById('trainCount').textContent = trains.length;
         document.getElementById('lastUpdateTime').textContent = 
           updateTime.toLocaleTimeString('en-AU', { timeZone: 'Australia/Sydney' }) + 
           ` (${minutesAgo} min ago)`;
         
         // Show stale warning if needed
-        const staleWarning = document.getElementById('staleWarning');
         if (minutesAgo > 30) {
-          staleWarning.style.display = 'block';
+          document.getElementById('staleWarning').style.display = 'block';
           document.getElementById('statusBar').innerHTML = `⚠️ Stale data · ${minutesAgo} min ago`;
         } else {
-          staleWarning.style.display = 'none';
+          document.getElementById('staleWarning').style.display = 'none';
           document.getElementById('statusBar').innerHTML = 
             `🚆 ${trains.length} trains · ${updateTime.toLocaleTimeString()}`;
         }
@@ -226,77 +236,69 @@
         trainSource.clear();
         
         if (trains.length === 0) {
-          console.warn('No trains in data');
+          console.warn('⚠️ No trains in data - might be Sunday or off-peak');
+          document.getElementById('statusBar').innerHTML = '🚆 0 trains (Sunday)';
           return;
         }
         
-        // Add each train to map with better train number extraction
+        // Add each train to map
+        let added = 0;
         trains.forEach((train, index) => {
           // Validate coordinates
           if (!train.lat || !train.lon || isNaN(train.lat) || isNaN(train.lon)) {
+            console.warn('Invalid train coordinates:', train);
             return;
           }
           
           try {
-            // EXTRACT REAL TRAIN NUMBER/ID
+            // Extract a readable train number
             let trainNumber = train.train_number || train.id || '';
             
-            // Clean up the train number - remove source prefixes
+            // Clean up source prefixes
             trainNumber = trainNumber
               .replace(/regTrainsSource_/g, '')
               .replace(/unregTrainsSource_/g, '')
               .replace(/markerSource_/g, '')
               .replace(/arrowMarkersSource_/g, '')
-              .trim();
+              .substring(0, 10);
             
-            // If it's just a number, keep it, otherwise try to extract a meaningful ID
-            if (trainNumber.length > 0 && trainNumber.length < 20) {
-              // Good to use
-            } else if (train.id && train.id.includes('_')) {
-              // Try to get the last part after underscore
+            // If trainNumber is empty or too long, use last part of ID
+            if (trainNumber.length === 0 || trainNumber.length > 15) {
               const parts = train.id.split('_');
-              trainNumber = parts[parts.length - 1];
-            } else {
-              trainNumber = train.id.substring(0, 12);
+              trainNumber = parts[parts.length - 1].substring(0, 8);
             }
-            
-            // Generate random speed for demo purposes (since your data has 0 speed)
-            // REMOVE THIS LINE once your real data has speed values
-            const demoHeading = Math.floor(Math.random() * 360);
-            const demoSpeed = Math.floor(Math.random() * 60);
             
             const feature = new ol.Feature({
               geometry: new ol.geom.Point(ol.proj.fromLonLat([train.lon, train.lat])),
-              heading: train.heading || demoHeading, // Use demo heading if real is 0
-              speed: train.speed || demoSpeed,       // Use demo speed if real is 0
+              heading: train.heading || 0,
+              speed: train.speed || 0,
               id: train.id || `train_${index}`,
-              train_number: trainNumber || '?'
+              train_number: trainNumber
             });
             
-            feature.set('train_data', {
-              ...train,
-              display_number: trainNumber,
-              // Add demo data for display
-              speed: train.speed || demoSpeed,
-              heading: train.heading || demoHeading
-            });
-            
+            feature.set('train_data', train);
             trainSource.addFeature(feature);
+            added++;
           } catch (e) {
             console.error('Error adding train:', e);
           }
         });
         
-        console.log(`✅ Added ${trainSource.getFeatures().length} features to map`);
+        console.log(`✅ Added ${added} trains to map`);
+        
+        // Force map to update
+        trainSource.changed();
         
       } catch (error) {
         console.error('❌ Failed to load trains:', error);
+        document.getElementById('errorMsg').style.display = 'block';
+        document.getElementById('errorMsg').textContent = `Error: ${error.message}`;
         document.getElementById('statusBar').innerHTML = '⚠️ Failed to load trains';
         document.getElementById('trainCount').textContent = '?';
       }
     }
 
-    // Click handler for train popups - IMPROVED WITH REAL DATA
+    // Click handler for train popups
     map.on('singleclick', function(evt) {
       const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature) {
         return feature;
@@ -304,21 +306,20 @@
       
       if (feature && feature.get('train_data')) {
         const train = feature.get('train_data');
-        const trainNumber = train.display_number || train.train_number || train.id;
+        const trainNumber = feature.get('train_number') || train.id;
         alert(
           `🚆 Train Details\n` +
           `Number: ${trainNumber}\n` +
-          `📍 Location: ${train.lat.toFixed(4)}, ${train.lon.toFixed(4)}\n` +
+          `📍 ${train.lat.toFixed(4)}, ${train.lon.toFixed(4)}\n` +
           `📊 Speed: ${train.speed} km/h\n` +
-          `🧭 Heading: ${train.heading}°\n` +
-          `🆔 Full ID: ${train.id}`
+          `🧭 Heading: ${train.heading}°`
         );
       }
     });
 
-    // Load trains immediately and every 2 minutes (to match backend)
+    // Load trains immediately and every 30 seconds
     loadRealTrains();
-    setInterval(loadRealTrains, 120000); // 2 minutes
+    setInterval(loadRealTrains, 30000);
 
     // Demo train functions
     function arrow(color, bearing) {
