@@ -1,533 +1,72 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>RailOps — AU Live Map</title>
-
-  <!-- OpenLayers -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
-  <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
-
-  <style>
-    /* ===== RESET & BASE ===== */
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; }
-    
-    /* ===== MAP ===== */
-    #map { height: 100%; width: 100%; background: #0a1a2a; }
-    
-    /* ===== TOP TOOLBAR ===== */
-    .toolbar {
-      position: absolute; top: 12px; left: 12px; z-index: 1000;
-      background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
-      color: white; padding: 10px 16px; border-radius: 40px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-      display: flex; gap: 12px; align-items: center;
-      border: 1px solid #2a4a7a;
-      font-size: 14px; font-weight: 500;
-    }
-    .toolbar button, .toolbar select {
-      background: #1e3a5f; color: white;
-      border: 1px solid #3a6a9a; border-radius: 30px;
-      padding: 6px 16px; font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: all 0.2s;
-    }
-    .toolbar button:hover {
-      background: #2a4a7a; border-color: #5a8aca;
-    }
-    .toolbar select {
-      background: #0a1a2a; padding: 6px 24px 6px 16px;
-      appearance: none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='white'><path d='M7 10l5 5 5-5z'/></svg>");
-      background-repeat: no-repeat; background-position: right 8px center;
-    }
-    
-    /* ===== SEARCH BAR ===== */
-    .search-container {
-      position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-      z-index: 1000; width: 340px;
-    }
-    .search-box {
-      background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
-      border-radius: 40px; border: 1px solid #2a4a7a;
-      display: flex; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-    }
-    .search-box input {
-      flex: 1; background: #1e3a5f; border: 1px solid #3a6a9a;
-      border-radius: 40px 0 0 40px; padding: 10px 20px;
-      color: white; font-size: 14px; outline: none;
-    }
-    .search-box input::placeholder { color: #9ab0d0; }
-    .search-box button {
-      background: #0b57cf; border: none; border-radius: 0 40px 40px 0;
-      padding: 10px 24px; color: white; font-weight: 600;
-      cursor: pointer; transition: 0.2s; white-space: nowrap;
-    }
-    .search-box button:hover { background: #1a6ae0; }
-    
-    /* ===== STATUS BAR ===== */
-    .status-bar {
-      position: absolute; top: 12px; right: 12px; z-index: 1000;
-      background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
-      color: white; padding: 8px 20px; border-radius: 40px;
-      font-size: 13px; border: 1px solid #2a4a7a;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-      display: flex; gap: 12px; align-items: center;
-    }
-    .train-count {
-      background: #0b57cf; padding: 2px 12px;
-      border-radius: 30px; font-weight: 700;
-    }
-    
-    /* ===== LAYERS PANEL ===== */
-    .layers-panel {
-      position: absolute; left: 12px; bottom: 12px; z-index: 1000;
-      background: rgba(10, 26, 42, 0.95); backdrop-filter: blur(8px);
-      color: white; border-radius: 20px; padding: 16px;
-      border: 1px solid #2a4a7a; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
-      width: 260px; max-height: 80vh; overflow-y: auto;
-    }
-    .layers-panel h3 {
-      margin: 0 0 12px 0; color: #9ab0d0;
-      font-size: 14px; text-transform: uppercase; letter-spacing: 1px;
-    }
-    .layer-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 8px 0; border-bottom: 1px solid #1e3a5f;
-    }
-    .layer-row:last-child { border-bottom: none; }
-    .layer-row label {
-      display: flex; align-items: center; gap: 8px;
-      width: 100%; cursor: pointer;
-    }
-    .layer-row input[type="checkbox"] {
-      width: 16px; height: 16px; accent-color: #0b57cf;
-    }
-    .section-title {
-      color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0;
-      text-transform: uppercase; letter-spacing: 0.5px;
-    }
-    
-    /* ===== TRAINFINDER-STYLE HOVER POPUP ===== */
-    .train-popup {
-      position: absolute;
-      background: rgba(10, 26, 42, 0.98);
-      backdrop-filter: blur(8px);
-      color: white;
-      padding: 16px;
-      border-radius: 16px;
-      border: 2px solid #2a4a7a;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.9);
-      pointer-events: none;
-      transform: translate(-50%, -100%);
-      min-width: 280px;
-      z-index: 10000;
-      font-family: 'Segoe UI', monospace;
-    }
-    .train-popup::after {
-      content: '';
-      position: absolute;
-      top: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      border-width: 10px;
-      border-style: solid;
-      border-color: #2a4a7a transparent transparent transparent;
-    }
-    .popup-header {
-      font-size: 18px;
-      font-weight: 700;
-      color: #9ab0d0;
-      margin-bottom: 8px;
-      border-bottom: 1px solid #2a4a7a;
-      padding-bottom: 4px;
-    }
-    .popup-row {
-      display: flex;
-      margin: 6px 0;
-      font-size: 13px;
-    }
-    .popup-label {
-      width: 100px;
-      color: #9ab0d0;
-      font-weight: 600;
-    }
-    .popup-value {
-      flex: 1;
-      color: white;
-      font-weight: 500;
-    }
-    .popup-badge {
-      background: #1e3a5f;
-      padding: 4px 10px;
-      border-radius: 30px;
-      font-size: 12px;
-      display: inline-block;
-      margin-right: 6px;
-      margin-top: 4px;
-      color: #9ab0d0;
-    }
-    .popup-speed {
-      font-size: 20px;
-      font-weight: 700;
-      color: #ffaa00;
-      text-align: center;
-      margin: 8px 0;
-    }
-  </style>
+    <title>RailOps - Base Working Version</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
+    <style>
+        #map { height: 100vh; width: 100vw; }
+        #status { 
+            position: fixed; top: 10px; right: 10px; 
+            background: black; color: lime; padding: 10px;
+            z-index: 1000; font-family: monospace;
+        }
+    </style>
 </head>
 <body>
-  <!-- Top Toolbar -->
-  <div class="toolbar">
-    <span style="font-weight:700; color:#9ab0d0">🚂 RailOps</span>
-    <select id="stateSelect">
-      <option value="au">🇦🇺 Australia</option>
-      <option value="nsw">📍 NSW</option>
-      <option value="vic">📍 VIC</option>
-      <option value="qld">📍 QLD</option>
-      <option value="sa">📍 SA</option>
-      <option value="wa">📍 WA</option>
-      <option value="tas">📍 TAS</option>
-      <option value="nt">📍 NT</option>
-    </select>
-    <button id="locateBtn">📍 My Location</button>
-    <button id="layersToggleBtn">🗺️ Layers</button>
-  </div>
+    <div id="status">Loading...</div>
+    <div id="map"></div>
 
-  <!-- Search Bar -->
-  <div class="search-container">
-    <div class="search-box">
-      <input type="text" id="searchInput" placeholder="Search train ID or loco number...">
-      <button id="searchBtn">🔍 Search</button>
-    </div>
-  </div>
+    <script>
+        // Simple map
+        const map = new ol.Map({
+            target: 'map',
+            layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
+            view: new ol.View({ 
+                center: ol.proj.fromLonLat([133.7751, -25.2744]), 
+                zoom: 4 
+            })
+        });
 
-  <!-- Status Bar -->
-  <div class="status-bar">
-    <span id="lastUpdate">Loading...</span>
-    <span class="train-count" id="trainCount">0</span>
-  </div>
-
-  <!-- Layers Panel -->
-  <div class="layers-panel" id="layersPanel" style="display: none;">
-    <h3>🗺️ Map Layers</h3>
-    
-    <div class="layer-row"><label><input type="checkbox" id="trainLayerChk" checked> 🚆 Live Trains</label></div>
-    <div class="layer-row"><label><input type="checkbox" id="railLayerChk" checked> 🛤️ Rail Lines (Blue)</label></div>
-    <div class="layer-row"><label><input type="checkbox" id="stationsLayerChk" checked> 🏢 Stations</label></div>
-    
-    <div class="section-title">📱 Mobile Coverage</div>
-    <div class="layer-row"><label><input type="checkbox" id="covTelstraChk"> 📶 Telstra</label></div>
-    <div class="layer-row"><label><input type="checkbox" id="covOptusChk"> 📶 Optus</label></div>
-    <div class="layer-row"><label><input type="checkbox" id="covTPGChk"> 📶 Vodafone/TPG</label></div>
-    <div class="layer-row"><label><input type="checkbox" id="covAllChk"> 📶 All Networks</label></div>
-    
-    <div class="hint" style="margin-top:12px; font-size:11px; color:#9ab0d0; text-align:center;">
-      Hover over trains for details
-    </div>
-  </div>
-
-  <!-- Map Container -->
-  <div id="map"></div>
-
-  <script>
-    // ==================== INITIALIZATION ====================
-    const map = new ol.Map({
-      target: 'map',
-      layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
-      view: new ol.View({
-        center: ol.proj.fromLonLat([133.7751, -25.2744]),
-        zoom: 4,
-        maxZoom: 18
-      })
-    });
-
-    // Keep map north-facing
-    map.getView().on('change:rotation', () => map.getView().setRotation(0));
-
-    // ==================== RAIL LAYERS WITH BLUE FILTER ====================
-    const railLayer = new ol.layer.Tile({
-      source: new ol.source.XYZ({ 
-        url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png'
-      }),
-      visible: true,
-      zIndex: 1
-    });
-    
-    // Add blue filter to railway lines
-    railLayer.on('prerender', function(event) {
-      const ctx = event.context;
-      ctx.filter = 'hue-rotate(200deg) brightness(0.9) saturate(1.5)';
-    });
-    railLayer.on('postrender', function(event) {
-      const ctx = event.context;
-      ctx.filter = 'none';
-    });
-    
-    const stationsLayer = new ol.layer.Tile({
-      source: new ol.source.XYZ({ 
-        url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png'
-      }),
-      visible: true,
-      zIndex: 2
-    });
-    
-    map.addLayer(railLayer);
-    map.addLayer(stationsLayer);
-
-    // ==================== ACCC COVERAGE LAYERS ====================
-    const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
-    function createAcccLayer(id) {
-      return new ol.layer.Tile({
-        source: new ol.source.TileArcGISRest({
-          url: ACCC_URL,
-          params: { layers: `show:${id}`, dpi: 96, transparent: true, format: 'png32' }
-        }),
-        opacity: 0.45,
-        visible: false,
-        zIndex: 3
-      });
-    }
-    
-    const covTelstra = createAcccLayer(25);
-    const covOptus = createAcccLayer(15);
-    const covTPG = createAcccLayer(33);
-    const covAll = createAcccLayer(4);
-    
-    [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
-
-    // ==================== TRAIN LAYER - USING WORKING STYLE ====================
-    const trainSource = new ol.source.Vector();
-    const trainLayer = new ol.layer.Vector({
-      source: trainSource,
-      visible: true,
-      zIndex: 10,
-      // Using the simple style that we KNOW works
-      style: new ol.style.Style({
-        image: new ol.style.Circle({
-          radius: 6,
-          fill: new ol.style.Fill({ color: '#ffaa00' }),
-          stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-        })
-      })
-    });
-    map.addLayer(trainLayer);
-
-    // ==================== LOAD REAL TRAINS (PROVEN WORKING CODE) ====================
-    async function loadRealTrains() {
-      const url = 'https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json';
-      
-      try {
-        const response = await fetch(url, { cache: 'no-cache' });
-        const data = await response.json();
-        const trains = data.trains || [];
+        const status = document.getElementById('status');
         
-        // Update UI
-        document.getElementById('trainCount').textContent = trains.length;
-        document.getElementById('lastUpdate').innerHTML = 
-          `Last: ${new Date(data.lastUpdated).toLocaleTimeString()}`;
-        
-        // Clear and repopulate (THIS IS THE WORKING CODE)
-        trainSource.clear();
-        
-        trains.forEach(t => {
-          if (t.lat && t.lon) {
-            const feature = new ol.Feature({
-              geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])),
-              heading: t.heading || 0,
-              speed: t.speed || 0,
-              id: t.id,
-              train_number: t.train_number || t.id
+        // Simple train layer - red circles
+        const trainSource = new ol.source.Vector();
+        const trainLayer = new ol.layer.Vector({ 
+            source: trainSource,
+            style: new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 6,
+                    fill: new ol.style.Fill({ color: '#ff0000' })
+                })
+            })
+        });
+        map.addLayer(trainLayer);
+
+        // Load trains - EXACT same as working test
+        fetch('https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json')
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
+            .then(data => {
+                const trains = data.trains || [];
+                status.innerHTML = `✅ ${trains.length} trains loaded`;
+                
+                trains.forEach(t => {
+                    if (t.lat && t.lon) {
+                        const f = new ol.Feature({
+                            geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
+                        });
+                        trainSource.addFeature(f);
+                    }
+                });
+                
+                status.innerHTML += `<br>✅ Added ${trainSource.getFeatures().length} to map`;
+            })
+            .catch(err => {
+                status.innerHTML = `❌ Error: ${err.message}`;
             });
-            feature.set('train_data', t);
-            trainSource.addFeature(feature);
-          }
-        });
-        
-        console.log(`✅ Loaded ${trains.length} trains`);
-      } catch (error) {
-        console.error('Failed to load trains:', error);
-        document.getElementById('lastUpdate').innerHTML = '⚠️ Update failed';
-      }
-    }
-
-    // ==================== TRAINFINDER-STYLE HOVER POPUP ====================
-    let popupElement = null;
-    
-    map.on('pointermove', function(evt) {
-      // Only get features from the train layer
-      const feature = map.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
-        if (layer === trainLayer) {
-          return feature;
-        }
-        return null;
-      });
-      
-      // Remove old popup
-      if (popupElement) {
-        map.removeOverlay(popupElement);
-        popupElement = null;
-      }
-      
-      if (feature) {
-        const coords = feature.getGeometry().getCoordinates();
-        const train = feature.get('train_data') || {};
-        const trainNumber = feature.get('train_number') || 'Unknown';
-        const speed = feature.get('speed') || 0;
-        const heading = feature.get('heading') || 0;
-        const lonLat = ol.proj.toLonLat(coords);
-        
-        // Create popup with TrainFinder-style layout
-        const popupDiv = document.createElement('div');
-        popupDiv.className = 'train-popup';
-        
-        // Format the data nicely
-        const status = speed === 0 ? 'Stopped' : 'Moving';
-        const serviceNumber = trainNumber.includes('NR') ? '6PM9' : '7SP5';
-        
-        popupDiv.innerHTML = `
-          <div class="popup-header">
-            ${trainNumber} [${serviceNumber}] - ${status}
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Operator:</span>
-            <span class="popup-value">SCT Intermodal</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Origin:</span>
-            <span class="popup-value">SCT, Forrestfield</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">Destination:</span>
-            <span class="popup-value">SCT, Laverton</span>
-          </div>
-          <div class="popup-row">
-            <span class="popup-label">ETA:</span>
-            <span class="popup-value">00:33:00 - 31km</span>
-          </div>
-          <div class="popup-speed">
-            ⚡ ${speed} km/h
-          </div>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px;">
-            <span class="popup-badge">${serviceNumber}</span>
-            <span class="popup-badge">${trainNumber}</span>
-            <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}, ${lonLat[0].toFixed(4)}</span>
-          </div>
-        `;
-        
-        popupElement = new ol.Overlay({
-          element: popupDiv,
-          position: coords,
-          positioning: 'bottom-center',
-          offset: [0, -15]
-        });
-        
-        map.addOverlay(popupElement);
-      }
-    });
-
-    // ==================== SIMPLE SEARCH ====================
-    function searchTrains(query) {
-      if (!query) return;
-      
-      query = query.toLowerCase();
-      let found = null;
-      
-      trainSource.getFeatures().forEach(f => {
-        const id = (f.get('id') || '').toLowerCase();
-        const num = (f.get('train_number') || '').toLowerCase();
-        
-        if (id.includes(query) || num.includes(query)) {
-          found = f;
-        }
-      });
-      
-      if (found) {
-        const coords = found.getGeometry().getCoordinates();
-        map.getView().animate({
-          center: coords,
-          zoom: 12,
-          duration: 1000
-        });
-      } else {
-        alert('Train not found: ' + query);
-      }
-    }
-
-    // ==================== ZOOM FUNCTIONS ====================
-    const stateBounds = {
-      au: [112, -44, 154, -10],
-      nsw: [141, -38, 154, -28],
-      vic: [141, -40, 150, -34],
-      qld: [138, -30, 154, -9],
-      sa: [129, -40, 141, -25],
-      wa: [112, -36, 129, -13],
-      tas: [143, -44, 149, -39],
-      nt: [129, -27, 138, -10]
-    };
-
-    function zoomTo(region) {
-      const bounds = stateBounds[region] || stateBounds.au;
-      const extent = ol.proj.transformExtent(bounds, 'EPSG:4326', 'EPSG:3857');
-      map.getView().fit(extent, { duration: 1000, maxZoom: 10 });
-    }
-
-    function zoomToCurrent() {
-      if (!navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition(pos => {
-        const center = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
-        map.getView().animate({ center, zoom: 12, duration: 1000 });
-      });
-    }
-
-    // ==================== EVENT LISTENERS ====================
-    document.getElementById('stateSelect').addEventListener('change', e => {
-      zoomTo(e.target.value);
-    });
-
-    document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
-
-    document.getElementById('layersToggleBtn').addEventListener('click', () => {
-      const panel = document.getElementById('layersPanel');
-      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-    });
-
-    document.getElementById('searchBtn').addEventListener('click', () => {
-      searchTrains(document.getElementById('searchInput').value);
-    });
-    
-    document.getElementById('searchInput').addEventListener('keypress', e => {
-      if (e.key === 'Enter') {
-        searchTrains(e.target.value);
-      }
-    });
-
-    // Layer checkboxes
-    document.getElementById('trainLayerChk').addEventListener('change', e => {
-      trainLayer.setVisible(e.target.checked);
-    });
-    document.getElementById('railLayerChk').addEventListener('change', e => {
-      railLayer.setVisible(e.target.checked);
-    });
-    document.getElementById('stationsLayerChk').addEventListener('change', e => {
-      stationsLayer.setVisible(e.target.checked);
-    });
-    document.getElementById('covTelstraChk').addEventListener('change', e => {
-      covTelstra.setVisible(e.target.checked);
-    });
-    document.getElementById('covOptusChk').addEventListener('change', e => {
-      covOptus.setVisible(e.target.checked);
-    });
-    document.getElementById('covTPGChk').addEventListener('change', e => {
-      covTPG.setVisible(e.target.checked);
-    });
-    document.getElementById('covAllChk').addEventListener('change', e => {
-      covAll.setVisible(e.target.checked);
-    });
-
-    // ==================== INITIAL LOAD ====================
-    loadRealTrains();
-    setInterval(loadRealTrains, 30000); // Update every 30 seconds
-  </script>
+    </script>
 </body>
 </html>
