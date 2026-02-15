@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Train Map Test</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v7.5.2/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v7.5.2/dist/ol.js"></script>
+    <style>
+        #map { height: 100vh; width: 100vw; }
+        #status { 
+            position: fixed; top: 10px; right: 10px; 
+            background: black; color: lime; padding: 10px;
+            z-index: 1000; font-family: monospace;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="status">Loading test...</div>
+    <div id="map"></div>
+
+    <script>
+        // Simple map
+        const map = new ol.Map({
+            target: 'map',
+            layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
+            view: new ol.View({ center: ol.proj.fromLonLat([133, -27]), zoom: 4 })
+        });
+
+        const status = document.getElementById('status');
+        const trainSource = new ol.source.Vector();
+        const trainLayer = new ol.layer.Vector({ source: trainSource });
+        map.addLayer(trainLayer);
+
+        // Load trains
+        fetch('https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json')
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
+            .then(data => {
+                const trains = data.trains || [];
+                status.innerHTML = `✅ Loaded ${trains.length} trains`;
+                console.log('First train:', trains[0]);
+                
+                trains.slice(0, 100).forEach(t => {
+                    if (t.lat && t.lon) {
+                        try {
+                            const f = new ol.Feature({
+                                geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
+                            });
+                            trainSource.addFeature(f);
+                        } catch (e) {
+                            console.error('Error adding train:', e);
+                        }
+                    }
+                });
+                status.innerHTML += `<br>✅ Added ${trainSource.getFeatures().length} to map`;
+            })
+            .catch(err => {
+                status.innerHTML = `❌ Error: ${err.message}`;
+                console.error(err);
+            });
+    </script>
+</body>
+</html>
