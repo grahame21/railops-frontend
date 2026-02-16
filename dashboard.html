@@ -108,33 +108,52 @@
       color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0;
     }
     
-    /* Train Marker Style - Shows number without hovering */
-    .train-label {
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
+    /* Train Marker Style - Shows both IDs without hovering */
+    .train-marker {
+      position: relative;
+      width: 12px;
+      height: 12px;
+    }
+    .train-id-top {
+      background: rgba(0, 0, 0, 0.8);
+      color: #ffaa00;
       padding: 2px 6px;
-      border-radius: 12px;
+      border-radius: 12px 12px 0 0;
       font-size: 11px;
       font-weight: bold;
       border: 1px solid #ffaa00;
+      border-bottom: none;
       white-space: nowrap;
-      pointer-events: none;
-      text-shadow: 1px 1px 1px black;
+      text-align: center;
+      transform: translateY(-100%);
+      margin-top: -22px;
+    }
+    .train-id-bottom {
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 2px 6px;
+      border-radius: 0 0 12px 12px;
+      font-size: 10px;
+      border: 1px solid #ffaa00;
+      border-top: none;
+      white-space: nowrap;
+      text-align: center;
+      margin-top: -2px;
     }
     
-    /* TrainFinder-style Popup */
+    /* TrainFinder-style Popup - Clean and professional */
     .train-popup {
       position: absolute;
       background: rgba(10, 26, 42, 0.98);
       backdrop-filter: blur(8px);
       color: white;
       padding: 16px;
-      border-radius: 16px;
-      border: 2px solid #2a4a7a;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.9);
+      border-radius: 12px;
+      border: 1px solid #2a4a7a;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
       pointer-events: none;
       transform: translate(-50%, -100%);
-      min-width: 340px;
+      min-width: 300px;
       z-index: 10000;
       font-family: 'Segoe UI', sans-serif;
     }
@@ -144,67 +163,59 @@
       top: 100%;
       left: 50%;
       transform: translateX(-50%);
-      border-width: 10px;
+      border-width: 8px;
       border-style: solid;
       border-color: #2a4a7a transparent transparent transparent;
     }
     .popup-header {
-      font-size: 20px;
-      font-weight: 700;
+      font-size: 16px;
+      font-weight: 600;
       color: #ffaa00;
       margin-bottom: 8px;
       border-bottom: 1px solid #2a4a7a;
       padding-bottom: 4px;
     }
     .popup-subheader {
-      font-size: 14px;
-      color: #9ab0d0;
-      margin-bottom: 12px;
-      font-style: italic;
-    }
-    .popup-row {
-      display: flex;
-      margin: 8px 0;
       font-size: 13px;
+      color: #9ab0d0;
+      margin-bottom: 8px;
+    }
+    .popup-grid {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      gap: 6px;
+      font-size: 12px;
+      margin: 8px 0;
     }
     .popup-label {
-      width: 90px;
       color: #9ab0d0;
-      font-weight: 600;
+      font-weight: 500;
     }
     .popup-value {
-      flex: 1;
       color: white;
+    }
+    .popup-speed {
+      font-size: 14px;
       font-weight: 500;
+      color: #ffaa00;
+      text-align: right;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #2a4a7a;
+    }
+    .popup-badge-container {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 8px;
     }
     .popup-badge {
       background: #1e3a5f;
-      padding: 4px 12px;
-      border-radius: 30px;
-      font-size: 12px;
-      display: inline-block;
-      margin-right: 6px;
-      margin-top: 4px;
+      padding: 3px 8px;
+      border-radius: 20px;
+      font-size: 10px;
       color: #9ab0d0;
-    }
-    .popup-speed {
-      font-size: 24px;
-      font-weight: 700;
-      color: #ffaa00;
-      text-align: center;
-      margin: 12px 0 8px;
-      padding: 8px;
-      background: rgba(0,0,0,0.3);
-      border-radius: 30px;
-    }
-    .popup-footer {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 8px;
-      justify-content: center;
-      font-size: 11px;
-      color: #9ab0d0;
+      border: 1px solid #2a4a7a;
     }
   </style>
 </head>
@@ -308,7 +319,7 @@
     const covAll = createAcccLayer(4);
     [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-    // Train layer with custom style showing numbers
+    // Train layer with custom style showing both IDs
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -317,15 +328,19 @@
       style: function(feature) {
         const train = feature.get('train_data') || {};
         const trainNumber = train.train_number || train.id || '';
-        const trainName = train.train_name || '';
+        const trainName = train.train_name || train.trKey || '';
         const speed = train.speed || 0;
         
         // Determine color based on speed
         let dotColor = '#ffaa00'; // default orange
         if (speed > 80) dotColor = '#ff4444'; // red for fast
         else if (speed > 30) dotColor = '#00cc00'; // green for moving
+        else if (speed > 0) dotColor = '#44ff44'; // light green for slow
         
-        // Create style with label
+        // Create two-line label
+        const topText = trainNumber;
+        const bottomText = trainName && trainName !== trainNumber ? trainName : '';
+        
         return [
           // The dot
           new ol.style.Style({
@@ -335,19 +350,32 @@
               stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
             })
           }),
-          // The label (train number)
+          // Top label (train number)
           new ol.style.Style({
             text: new ol.style.Text({
-              text: trainName || trainNumber,
+              text: topText,
               font: 'bold 11px monospace',
-              fill: new ol.style.Fill({ color: '#ffffff' }),
+              fill: new ol.style.Fill({ color: '#ffaa00' }),
               stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
-              offsetY: -18,
-              backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.7)' }),
+              offsetY: -22,
+              backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.8)' }),
               backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
               padding: [2, 6, 2, 6]
             })
-          })
+          }),
+          // Bottom label (loco number) - only if different from top
+          ...(bottomText ? [new ol.style.Style({
+            text: new ol.style.Text({
+              text: bottomText,
+              font: '10px monospace',
+              fill: new ol.style.Fill({ color: '#ffffff' }),
+              stroke: new ol.style.Stroke({ color: '#000000', width: 2 }),
+              offsetY: -8,
+              backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.8)' }),
+              backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
+              padding: [2, 6, 2, 6]
+            })
+          })] : [])
         ];
       }
     });
@@ -400,7 +428,7 @@
       }
     }
 
-    // TrainFinder-style hover popup with ALL details
+    // Clean TrainFinder-style hover popup with subtle speed
     let popupElement = null;
     
     map.on('pointermove', function(evt) {
@@ -420,16 +448,15 @@
         
         // Extract all the rich data
         const trainNumber = train.train_number || train.id || 'Unknown';
-        const trainName = train.train_name || '';
+        const trainName = train.train_name || train.trKey || '';
         const speed = train.speed || 0;
         const origin = train.origin || 'Unknown';
         const destination = train.destination || 'Unknown';
         const description = train.description || '';
         const km = train.km || '';
         const time = train.time || '';
-        const date = train.date || '';
-        const trKey = train.trKey || '';
         const cId = train.cId ? train.cId.substring(0, 8) + '...' : '';
+        const servId = train.servId ? train.servId.substring(0, 8) + '...' : '';
         
         // Format the header
         let header = trainNumber;
@@ -442,30 +469,34 @@
         
         popupDiv.innerHTML = `
           <div class="popup-header">
-            ${header} - ${speed}km/h
+            ${header}
           </div>
           ${description ? `<div class="popup-subheader">${description}</div>` : ''}
-          <div class="popup-row">
+          <div class="popup-grid">
             <span class="popup-label">Origin:</span>
             <span class="popup-value">${origin}</span>
-          </div>
-          <div class="popup-row">
+            
             <span class="popup-label">Destination:</span>
             <span class="popup-value">${destination}</span>
+            
+            ${time ? `
+            <span class="popup-label">Time:</span>
+            <span class="popup-value">${time}</span>
+            ` : ''}
+            
+            ${km ? `
+            <span class="popup-label">Distance:</span>
+            <span class="popup-value">${km}</span>
+            ` : ''}
+            
+            <span class="popup-label">Speed:</span>
+            <span class="popup-value">${speed} km/h</span>
           </div>
-          ${time || km ? `
-          <div class="popup-row">
-            <span class="popup-label">ETA/Dist:</span>
-            <span class="popup-value">${time || '--:--'} ${km ? `- ${km}` : ''}</span>
-          </div>
-          ` : ''}
-          <div class="popup-speed">
-            ⚡ ${speed} km/h
-          </div>
-          <div class="popup-footer">
-            ${trainName ? `<span class="popup-badge">Loco: ${trainName}</span>` : ''}
-            ${trKey ? `<span class="popup-badge">Key: ${trKey}</span>` : ''}
-            <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°</span>
+          <div class="popup-badge-container">
+            ${trainNumber ? `<span class="popup-badge">Train: ${trainNumber}</span>` : ''}
+            ${trainName && trainName !== trainNumber ? `<span class="popup-badge">Loco: ${trainName}</span>` : ''}
+            ${cId ? `<span class="popup-badge">ID: ${cId}</span>` : ''}
+            <span class="popup-badge">📍 ${lonLat[1].toFixed(2)}°, ${lonLat[0].toFixed(2)}°</span>
           </div>
         `;
         
