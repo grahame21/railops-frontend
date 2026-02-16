@@ -125,14 +125,14 @@
     });
     map.addLayer(railLayer);
 
-    // Train layer - FIXED to show correct IDs
+    // Train layer
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
       style: function(feature) {
         const train = feature.get('train_data') || {};
         
-        // Use train_name or train_number for display, NOT the source ID
+        // Use train_name or train_number for display
         const displayId = train.train_name || train.train_number || train.id || '???';
         const speed = train.speed || 0;
         
@@ -238,15 +238,39 @@
       }
     });
 
+    // Zoom functions
+    function zoomTo(region) {
+      const bounds = {
+        au: [112, -44, 154, -10],
+        nsw: [141, -38, 154, -28],
+        vic: [141, -40, 150, -34],
+        qld: [138, -30, 154, -9],
+        sa: [129, -40, 141, -25],
+        wa: [112, -36, 129, -13]
+      }[region] || [112, -44, 154, -10];
+      
+      map.getView().fit(ol.proj.transformExtent(bounds, 'EPSG:4326', 'EPSG:3857'), { duration: 1000 });
+    }
+
+    function zoomToCurrent() {
+      if (!navigator.geolocation) return;
+      navigator.geolocation.getCurrentPosition(pos => {
+        map.getView().animate({
+          center: ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]),
+          zoom: 12,
+          duration: 1000
+        });
+      });
+    }
+
+    // Event listeners
+    document.getElementById('stateSelect').addEventListener('change', e => zoomTo(e.target.value));
+    document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
+
     // Initial load
     loadTrains();
     setInterval(loadTrains, 30000);
     zoomTo('au');
-    
-    function zoomTo(region) {
-      const bounds = { au: [112, -44, 154, -10] }[region] || [112, -44, 154, -10];
-      map.getView().fit(ol.proj.transformExtent(bounds, 'EPSG:4326', 'EPSG:3857'), { duration: 1000 });
-    }
   </script>
 </body>
 </html>
