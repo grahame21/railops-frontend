@@ -108,18 +108,34 @@
       color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0;
     }
     
-    /* Train Marker Style - FIXED to show real IDs */
-    .train-label {
-      background: rgba(0, 0, 0, 0.8);
+    /* Train Marker Style - Two-line label */
+    .train-marker {
+      position: relative;
+    }
+    .train-id-top {
+      background: rgba(0, 0, 0, 0.9);
       color: #ffaa00;
-      padding: 2px 6px;
-      border-radius: 12px;
+      padding: 2px 8px;
+      border-radius: 12px 12px 0 0;
       font-size: 11px;
       font-weight: bold;
       border: 1px solid #ffaa00;
+      border-bottom: none;
       white-space: nowrap;
-      pointer-events: none;
-      text-shadow: 1px 1px 1px black;
+      text-align: center;
+      transform: translateY(-100%);
+      margin-top: -22px;
+    }
+    .train-id-bottom {
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 2px 8px;
+      border-radius: 0 0 12px 12px;
+      font-size: 10px;
+      border: 1px solid #ffaa00;
+      border-top: none;
+      white-space: nowrap;
+      text-align: center;
     }
     
     /* TrainFinder-style Popup */
@@ -307,7 +323,7 @@
     const covAll = createAcccLayer(4);
     [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-    // Train layer - FIXED to show real IDs
+    // Train layer - UPDATED to show two-line labels
     const trainSource = new ol.source.Vector();
     const trainLayer = new ol.layer.Vector({
       source: trainSource,
@@ -316,17 +332,19 @@
       style: function(feature) {
         const train = feature.get('train_data') || {};
         
-        // Use train_name OR train_number for display - NEVER the source ID
-        const displayId = train.train_name || train.train_number || train.id || '???';
+        // Get train number and loco name
+        const trainNumber = train.train_number || '';
+        const trainName = train.train_name || '';
         const speed = train.speed || 0;
         
-        // Color based on speed
+        // Determine color based on speed
         let dotColor = '#ffaa00'; // default orange
         if (speed > 80) dotColor = '#ff4444'; // red for fast
         else if (speed > 30) dotColor = '#00cc00'; // green for moving
         else if (speed > 0) dotColor = '#44ff44'; // light green for slow
         
-        return [
+        // Create two-line label if we have both IDs
+        let styles = [
           // The dot
           new ol.style.Style({
             image: new ol.style.Circle({
@@ -334,21 +352,59 @@
               fill: new ol.style.Fill({ color: dotColor }),
               stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
             })
-          }),
-          // The label (train number/name)
-          new ol.style.Style({
-            text: new ol.style.Text({
-              text: displayId,
-              font: 'bold 11px monospace',
-              fill: new ol.style.Fill({ color: '#ffaa00' }),
-              stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
-              offsetY: -18,
-              backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.7)' }),
-              backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
-              padding: [2, 6, 2, 6]
-            })
           })
         ];
+        
+        if (trainName && trainNumber && trainName !== trainNumber) {
+          // We have both - show two lines
+          styles.push(
+            // Top line (train number)
+            new ol.style.Style({
+              text: new ol.style.Text({
+                text: trainNumber,
+                font: 'bold 11px monospace',
+                fill: new ol.style.Fill({ color: '#ffaa00' }),
+                stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
+                offsetY: -26,
+                backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.9)' }),
+                backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
+                padding: [2, 8, 2, 8]
+              })
+            }),
+            // Bottom line (loco name)
+            new ol.style.Style({
+              text: new ol.style.Text({
+                text: trainName,
+                font: '10px monospace',
+                fill: new ol.style.Fill({ color: '#ffffff' }),
+                stroke: new ol.style.Stroke({ color: '#000000', width: 2 }),
+                offsetY: -10,
+                backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.9)' }),
+                backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
+                padding: [2, 8, 2, 8]
+              })
+            })
+          );
+        } else {
+          // Only one ID - show single line
+          const displayId = trainName || trainNumber || '???';
+          styles.push(
+            new ol.style.Style({
+              text: new ol.style.Text({
+                text: displayId,
+                font: 'bold 11px monospace',
+                fill: new ol.style.Fill({ color: '#ffaa00' }),
+                stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
+                offsetY: -18,
+                backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.9)' }),
+                backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
+                padding: [2, 8, 2, 8]
+              })
+            })
+          );
+        }
+        
+        return styles;
       }
     });
     map.addLayer(trainLayer);
@@ -427,7 +483,6 @@
         const description = train.description || '';
         const km = train.km || '';
         const time = train.time || '';
-        const trKey = train.trKey || '';
         
         // Format the header
         let header = trainNumber;
@@ -469,7 +524,6 @@
           <div class="popup-footer">
             ${trainNumber ? `<span class="popup-badge">Train: ${trainNumber}</span>` : ''}
             ${trainName && trainName !== trainNumber ? `<span class="popup-badge">Loco: ${trainName}</span>` : ''}
-            ${trKey ? `<span class="popup-badge">Key: ${trKey}</span>` : ''}
             <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°</span>
           </div>
         `;
@@ -488,6 +542,7 @@
     // Search functionality
     const searchInput = document.getElementById('searchInput');
     const autocompleteList = document.getElementById('autocompleteList');
+    let debounceTimer;
     
     function updateAutocomplete() {
       const query = searchInput.value.trim().toLowerCase();
@@ -503,7 +558,6 @@
         const searchable = [
           train.train_number,
           train.train_name,
-          train.trKey,
           train.origin,
           train.destination,
           train.id
@@ -563,7 +617,6 @@
         const searchable = [
           train.train_number,
           train.train_name,
-          train.trKey,
           train.id
         ].filter(Boolean).map(s => s.toLowerCase());
         
@@ -626,8 +679,6 @@
     loadRealTrains();
     setInterval(loadRealTrains, 30000);
     zoomTo('au');
-    
-    let debounceTimer;
   </script>
 </body>
 </html>
