@@ -108,9 +108,20 @@ padding: 8px 0; border-bottom: 1px solid #1e3a5f;
 color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0;
 }
 
-/* Train Marker Style - Single line with train number */
+/* Train Marker Styles */
 .train-marker {
 position: relative;
+}
+.train-label {
+background: rgba(0, 0, 0, 0.9);
+color: #ffaa00;
+padding: 2px 8px;
+border-radius: 12px;
+font-size: 11px;
+font-weight: bold;
+border: 1px solid #ffaa00;
+white-space: nowrap;
+text-align: center;
 }
 
 /* TrainFinder-style Popup */
@@ -298,7 +309,7 @@ const covTPG = createAcccLayer(33);
 const covAll = createAcccLayer(4);
 [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-// Train layer - FIXED to use correct fields
+// Train layer - FIXED to show loco number + train ID
 const trainSource = new ol.source.Vector();
 const trainLayer = new ol.layer.Vector({
 source: trainSource,
@@ -307,8 +318,23 @@ zIndex: 10,
 style: function(feature) {
 const train = feature.get('train_data') || {};
 
-// Use train_number as the primary display ID
-const displayId = train.train_number || train.id || '???';
+// Get the important identifiers
+const locoNumber = train.trKey || train.train_name || '';
+const trainId = train.train_number || train.id || '';
+
+// Skip arrow markers (they have no real data)
+if (locoNumber.includes('arrow') || trainId.includes('arrow')) {
+return [
+new ol.style.Style({
+image: new ol.style.Circle({
+radius: 4,
+fill: new ol.style.Fill({ color: '#666666' }),
+stroke: new ol.style.Stroke({ color: '#ffffff', width: 1 })
+})
+})
+];
+}
+
 const speed = train.speed || 0;
 
 // Determine color based on speed
@@ -317,7 +343,7 @@ if (speed > 80) dotColor = '#ff4444'; // red for fast
 else if (speed > 30) dotColor = '#00cc00'; // green for moving
 else if (speed > 0) dotColor = '#44ff44'; // light green for slow
 
-return [
+let styles = [
 // The dot
 new ol.style.Style({
 image: new ol.style.Circle({
@@ -325,8 +351,43 @@ radius: 8,
 fill: new ol.style.Fill({ color: dotColor }),
 stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
 })
+})
+];
+
+// Show loco number and train ID if they're different
+if (locoNumber && trainId && locoNumber !== trainId) {
+// Two lines: loco on top, train ID below
+styles.push(
+new ol.style.Style({
+text: new ol.style.Text({
+text: locoNumber,
+font: 'bold 11px monospace',
+fill: new ol.style.Fill({ color: '#ffaa00' }),
+stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
+offsetY: -26,
+backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.9)' }),
+backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
+padding: [2, 8, 2, 8]
+})
 }),
-// The label (train number)
+new ol.style.Style({
+text: new ol.style.Text({
+text: trainId,
+font: '10px monospace',
+fill: new ol.style.Fill({ color: '#ffffff' }),
+stroke: new ol.style.Stroke({ color: '#000000', width: 2 }),
+offsetY: -10,
+backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.9)' }),
+backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
+padding: [2, 8, 2, 8]
+})
+})
+);
+} else {
+// Single line with whatever identifier we have
+const displayId = locoNumber || trainId || '';
+if (displayId) {
+styles.push(
 new ol.style.Style({
 text: new ol.style.Text({
 text: displayId,
@@ -339,7 +400,11 @@ backgroundStroke: new ol.style.Stroke({ color: '#ffaa00', width: 1 }),
 padding: [2, 8, 2, 8]
 })
 })
-];
+);
+}
+}
+
+return styles;
 }
 });
 map.addLayer(trainLayer);
@@ -391,7 +456,7 @@ document.getElementById('lastUpdate').innerHTML = '⚠️ Update failed';
 }
 }
 
-// TrainFinder-style hover popup - FIXED to show all fields
+// TrainFinder-style hover popup
 let popupElement = null;
 
 map.on('pointermove', function(evt) {
@@ -409,8 +474,12 @@ const coords = feature.getGeometry().getCoordinates();
 const train = feature.get('train_data') || {};
 const lonLat = ol.proj.toLonLat(coords);
 
+// Skip arrow markers in popup
+if (train.id && train.id.includes('arrow')) return;
+
 // Extract all the rich data
-const trainNumber = train.train_number || train.id || 'Unknown';
+const locoNumber = train.trKey || train.train_name || '';
+const trainId = train.train_number || train.id || 'Unknown';
 const description = train.description || '';
 const origin = train.origin || 'Unknown';
 const destination = train.destination || 'Unknown';
@@ -420,12 +489,20 @@ const time = train.time || '';
 const heading = train.heading || 0;
 const cId = train.cId ? train.cId.substring(0, 8) + '...' : '';
 
+// Format header to show loco + train ID
+let header = locoNumber;
+if (locoNumber && trainId && locoNumber !== trainId) {
+header = `${locoNumber} [${trainId}] - ${speed}km/h`;
+} else {
+header = `${trainId} - ${speed}km/h`;
+}
+
 const popupDiv = document.createElement('div');
 popupDiv.className = 'train-popup';
 
 popupDiv.innerHTML = `
 <div class="popup-header">
-${trainNumber} - ${speed}km/h
+${header}
 </div>
 ${description ? `<div class="popup-subheader">${description}</div>` : ''}
 <div class="popup-grid">
@@ -446,7 +523,8 @@ ${km ? `
 ` : ''}
 </div>
 <div class="popup-footer">
-${trainNumber ? `<span class="popup-badge">Train: ${trainNumber}</span>` : ''}
+${trainId ? `<span class="popup-badge">Train: ${trainId}</span>` : ''}
+${locoNumber && locoNumber !== trainId ? `<span class="popup-badge">Loco: ${locoNumber}</span>` : ''}
 ${cId ? `<span class="popup-badge">ID: ${cId}</span>` : ''}
 <span class="popup-badge">🧭 ${heading}°</span>
 <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}°, ${lonLat[0].toFixed(4)}°</span>
@@ -480,18 +558,22 @@ const matches = [];
 const seen = new Set();
 
 allTrains.forEach(train => {
+// Skip arrow markers
+if (train.id && train.id.includes('arrow')) return;
+
 const searchable = [
 train.train_number,
+train.trKey,
+train.train_name,
 train.description,
 train.origin,
-train.destination,
-train.id
+train.destination
 ].filter(Boolean).map(s => s.toLowerCase());
 
 if (searchable.some(s => s.includes(query)) && !seen.has(train.id)) {
 seen.add(train.id);
 matches.push({
-id: train.train_number || train.id,
+id: train.trKey || train.train_name || train.train_number || train.id,
 full: train,
 lat: train.lat,
 lon: train.lon
@@ -539,14 +621,18 @@ const query = searchInput.value.trim().toLowerCase();
 if (!query) return;
 
 for (const train of allTrains) {
+// Skip arrow markers
+if (train.id && train.id.includes('arrow')) continue;
+
 const searchable = [
 train.train_number,
-train.description,
+train.trKey,
+train.train_name,
 train.id
 ].filter(Boolean).map(s => s.toLowerCase());
 
 if (searchable.some(s => s.includes(query))) {
-flyToTrain(train.lat, train.lon, train.train_number || train.id);
+flyToTrain(train.lat, train.lon, train.trKey || train.train_name || train.train_number || train.id);
 autocompleteList.style.display = 'none';
 return;
 }
