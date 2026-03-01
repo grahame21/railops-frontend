@@ -20,24 +20,46 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   --panel-btn-border: #3a6a9a;
   --accent: #ffaa00;
   --blue: #0b57cf;
+  --shadow: 0 6px 26px rgba(0,0,0,0.70);
+}
+
+/* Make top bars SOLID and “punchy” */
+.toolbar,
+.status-bar,
+.search-box,
+.autocomplete-items,
+.layers-panel {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  opacity: 1 !important;
 }
 
 .toolbar {
   position: absolute; top: 12px; left: 12px; z-index: 1000;
   background: var(--panel-bg);
   color: white; padding: 10px 16px; border-radius: 40px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  box-shadow: var(--shadow);
   display: flex; gap: 12px; align-items: center;
   border: 1px solid var(--panel-border);
   font-size: 14px; font-weight: 700;
 }
+
+/* Stronger select/button styling */
 .toolbar button, .toolbar select {
   background: var(--panel-btn); color: white;
   border: 1px solid var(--panel-btn-border); border-radius: 30px;
   padding: 6px 16px; font-size: 13px; font-weight: 800;
   cursor: pointer; transition: all 0.2s;
+  outline: none;
 }
-.toolbar button:hover { background: #2a4a7a; border-color: #5a8aca; }
+.toolbar button:hover, .toolbar select:hover { background: #2a4a7a; border-color: #5a8aca; }
+
+/* Helps dropdown menu readability (native dropdowns are limited by browser/OS) */
+.toolbar select option {
+  background: #0b1522;
+  color: #ffffff;
+  font-weight: 700;
+}
 
 .search-container {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
@@ -46,7 +68,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 .search-box {
   background: var(--panel-bg);
   border-radius: 40px; border: 1px solid var(--panel-border);
-  display: flex; box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  display: flex; box-shadow: var(--shadow);
 }
 .search-box input {
   flex: 1; background: #15283f; border: 1px solid var(--panel-btn-border);
@@ -67,6 +89,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   border: 1px solid var(--panel-border);
   border-radius: 16px; max-height: 320px;
   overflow-y: auto; z-index: 1001;
+  box-shadow: var(--shadow);
 }
 .autocomplete-item {
   padding: 12px 16px; color: white; cursor: pointer;
@@ -83,7 +106,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   color: white; padding: 8px 16px; border-radius: 40px;
   font-size: 13px; border: 1px solid var(--panel-border);
   display: flex; gap: 10px; align-items: center;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  box-shadow: var(--shadow);
 }
 .train-count {
   background: var(--blue); padding: 2px 12px;
@@ -99,7 +122,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   background: var(--panel-bg);
   color: white; border-radius: 20px; padding: 16px;
   border: 1px solid var(--panel-border); width: 280px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  box-shadow: var(--shadow);
 }
 .layer-row {
   display: flex; align-items: center; gap: 10px;
@@ -116,7 +139,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   padding: 14px;
   border-radius: 14px;
   border: 2px solid var(--panel-border);
-  box-shadow: 0 8px 30px rgba(0,0,0,0.85);
+  box-shadow: 0 10px 36px rgba(0,0,0,0.90);
   pointer-events: none;
   transform: translate(-50%, -100%);
   min-width: 340px;
@@ -171,7 +194,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 </head>
 
 <body>
-<div class="toolbar">
+<div class="toolbar" id="toolbar">
   <span style="font-weight:900; color:var(--accent)">🚂 RailOps</span>
   <select id="stateSelect">
     <option value="au">🇦🇺 Australia</option>
@@ -187,7 +210,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   <button id="layersToggleBtn">🗺️ Layers</button>
 </div>
 
-<div class="search-container">
+<div class="search-container" id="searchContainer">
   <div class="search-box">
     <input type="text" id="searchInput" placeholder="Search train number, loco, origin, destination...">
     <button id="searchBtn">🔍 Search</button>
@@ -195,7 +218,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
 </div>
 
-<div class="status-bar">
+<div class="status-bar" id="statusBar">
   <span id="lastUpdate">Loading...</span>
   <span class="note-pill" id="statusNote">…</span>
   <span class="train-count" id="trainCount">0</span>
@@ -255,16 +278,35 @@ function getTrainId(train){
 function buildLabel(train){
   const loco = getLoco(train);
   const tid = getTrainId(train);
-
-  // If the "train id" is junk (arrowMarkersSource...), ignore it.
-  // If both missing, no label at all.
   if (!loco && !tid) return "";
-
-  // If both exist and different, show both on ONE line
   if (loco && tid && loco !== tid) return `${loco} • ${tid}`;
-
-  // Otherwise show whichever exists
   return loco || tid;
+}
+
+/** Local time helper (follows your device timezone automatically) */
+function formatLocal(dt){
+  try {
+    if (!dt) return "";
+    const d = (dt instanceof Date) ? dt : new Date(dt);
+    if (!isFinite(d.getTime())) return "";
+    // Includes date + time so it’s unambiguous when travelling
+    return d.toLocaleString(undefined, {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit"
+    });
+  } catch {
+    return "";
+  }
+}
+function formatLocalTimeOnly(dt){
+  try {
+    if (!dt) return "";
+    const d = (dt instanceof Date) ? dt : new Date(dt);
+    if (!isFinite(d.getTime())) return "";
+    return d.toLocaleTimeString();
+  } catch {
+    return "";
+  }
 }
 
 /** Map setup */
@@ -321,8 +363,6 @@ const trainLayer = new ol.layer.Vector({
   style: function(feature){
     const train = feature.get('train_data') || {};
     const label = buildLabel(train);
-
-    // If label is empty OR label is junk => do not draw text at all
     const speed = Number(train.speed || 0);
 
     let dotColor = '#ffaa00';
@@ -353,36 +393,69 @@ const trainLayer = new ol.layer.Vector({
         })
       }));
     }
-
     return styles;
   }
 });
 map.addLayer(trainLayer);
 
 let allTrains = [];
+let lastGoodTrains = [];
+let lastGoodUpdatedISO = null;
+let consecutiveEmpty = 0;
 
-/** Load trains */
+/** Load trains (resilient) */
 async function loadRealTrains() {
   const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
-  try {
-    document.getElementById('lastUpdate').textContent = 'Loading...';
+  const lastUpdateEl = document.getElementById('lastUpdate');
+  const statusNoteEl = document.getElementById('statusNote');
+  const trainCountEl = document.getElementById('trainCount');
 
-    const response = await fetch(url, { cache: 'no-store' });
+  // Show that we are attempting a refresh (but keep map as-is unless good data arrives)
+  lastUpdateEl.textContent = 'Loading...';
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  try {
+    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
-    const trains = data.trains || [];
+    const trains = Array.isArray(data.trains) ? data.trains : [];
+    const updatedISO = data.lastUpdated || null;
+
+    // Update status bar time using DEVICE local timezone
+    const localTs = updatedISO ? formatLocal(updatedISO) : formatLocal(new Date());
+    lastUpdateEl.textContent = localTs ? `Last: ${localTs}` : 'Last: (unknown)';
+    statusNoteEl.textContent = (data.note || 'ok').toString();
+
+    // If backend glitches and sends empty trains, DON'T clear immediately
+    if (trains.length === 0) {
+      consecutiveEmpty += 1;
+
+      // If we have last good data, keep it unless empty happens repeatedly
+      if (lastGoodTrains.length > 0 && consecutiveEmpty < 3) {
+        trainCountEl.textContent = lastGoodTrains.length;
+        statusNoteEl.textContent = `empty payload (${consecutiveEmpty}) — keeping last good`;
+        return;
+      }
+    } else {
+      consecutiveEmpty = 0;
+    }
+
+    // Accept this payload as the “good” one
     allTrains = trains;
+    if (trains.length > 0) {
+      lastGoodTrains = trains.slice();
+      lastGoodUpdatedISO = updatedISO;
+    }
 
-    document.getElementById('trainCount').textContent = trains.length;
-    document.getElementById('statusNote').textContent = (data.note || 'ok').toString();
-    const ts = data.lastUpdated ? new Date(data.lastUpdated) : new Date();
-    document.getElementById('lastUpdate').textContent = `Last: ${ts.toLocaleTimeString()}`;
+    trainCountEl.textContent = trains.length;
 
+    // Rebuild features
     trainSource.clear();
 
     trains.forEach(train => {
-      // HARD skip pure arrow-marker items (these are what caused your screenshot)
       const maybeId = train.id || train.train_number || train.trainNumber || train.trKey || "";
       const maybeName = train.train_name || train.loco || "";
       if (isJunkId(maybeId) && isJunkId(maybeName)) return;
@@ -400,12 +473,21 @@ async function loadRealTrains() {
 
   } catch (err) {
     console.error('❌ Failed to load trains:', err);
-    document.getElementById('lastUpdate').textContent = '⚠️ Update failed';
-    document.getElementById('statusNote').textContent = 'error';
+
+    // Keep existing trains on-screen (do NOT clear)
+    statusNoteEl.textContent = 'error (keeping last good)';
+    if (lastGoodUpdatedISO) {
+      lastUpdateEl.textContent = `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`;
+      trainCountEl.textContent = lastGoodTrains.length;
+    } else {
+      lastUpdateEl.textContent = '⚠️ Update failed';
+    }
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 
-/** Hover popup (skips junk marker features automatically) */
+/** Hover popup (local time included) */
 let popupOverlay = null;
 function removePopup() {
   if (popupOverlay) { map.removeOverlay(popupOverlay); popupOverlay = null; }
@@ -421,8 +503,6 @@ map.on('pointermove', function(evt){
 
   const train = feature.get('train_data') || {};
   const label = buildLabel(train);
-
-  // If it’s junk, no popup
   if (!label || isJunkId(label)) return;
 
   const coords = feature.getGeometry().getCoordinates();
@@ -434,10 +514,17 @@ map.on('pointermove', function(evt){
   const desc   = train.description || train.serviceDesc || '';
   const heading= train.heading || 0;
 
+  // This is the update timestamp coming from backend payload
+  // Uses your device local timezone automatically
+  const popupUpdated = lastGoodUpdatedISO
+    ? formatLocal(lastGoodUpdatedISO)
+    : formatLocal(new Date());
+
   const popupDiv = document.createElement('div');
   popupDiv.className = 'train-popup';
   popupDiv.innerHTML = `
     <div class="popup-header">${label} — ${speed} km/h</div>
+    <div class="popup-subheader">Updated: ${popupUpdated || 'Unknown'}</div>
     ${desc ? `<div class="popup-subheader">${desc}</div>` : ''}
     <div class="popup-grid">
       <span class="popup-label">Origin:</span><span class="popup-value">${origin || 'Unknown'}</span>
@@ -469,9 +556,13 @@ function displayId(train){
   return buildLabel(train);
 }
 
+function hideAutocomplete(){
+  autocompleteList.style.display = 'none';
+}
+
 function updateAutocomplete(){
   const query = searchInput.value.trim().toLowerCase();
-  if (query.length < 2) { autocompleteList.style.display = 'none'; return; }
+  if (query.length < 2) { hideAutocomplete(); return; }
 
   const matches = [];
   const seen = new Set();
@@ -499,7 +590,7 @@ function updateAutocomplete(){
     }
   }
 
-  if (matches.length === 0) { autocompleteList.style.display = 'none'; return; }
+  if (matches.length === 0) { hideAutocomplete(); return; }
 
   autocompleteList.innerHTML = '';
   matches.slice(0, 10).forEach(match => {
@@ -510,11 +601,12 @@ function updateAutocomplete(){
     item.innerHTML = `<span class="train-id">${match.id}</span><span class="train-loc">${o} → ${d}</span>`;
     item.addEventListener('click', () => {
       searchInput.value = match.id;
-      autocompleteList.style.display = 'none';
+      hideAutocomplete();
       flyToTrain(match.lat, match.lon);
     });
     autocompleteList.appendChild(item);
   });
+
   autocompleteList.style.display = 'block';
 }
 
@@ -544,7 +636,7 @@ function searchTrains(){
 
     if (searchable.some(s => s.includes(query))){
       flyToTrain(Number(train.lat), Number(train.lon));
-      autocompleteList.style.display = 'none';
+      hideAutocomplete();
       return;
     }
   }
@@ -578,10 +670,20 @@ function zoomToCurrent(){
 /** UI events */
 document.getElementById('stateSelect').addEventListener('change', e => zoomTo(e.target.value));
 document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
-document.getElementById('layersToggleBtn').addEventListener('click', () => {
+
+function toggleLayersPanel(){
   const panel = document.getElementById('layersPanel');
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+function hideLayersPanel(){
+  document.getElementById('layersPanel').style.display = 'none';
+}
+
+document.getElementById('layersToggleBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleLayersPanel();
 });
+
 document.getElementById('searchBtn').addEventListener('click', searchTrains);
 searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchTrains(); });
 
@@ -592,6 +694,41 @@ document.getElementById('covTelstraChk').addEventListener('change', e => covTels
 document.getElementById('covOptusChk').addEventListener('change', e => covOptus.setVisible(e.target.checked));
 document.getElementById('covTPGChk').addEventListener('change', e => covTPG.setVisible(e.target.checked));
 document.getElementById('covAllChk').addEventListener('change', e => covAll.setVisible(e.target.checked));
+
+/** Click-anywhere-to-close behaviour */
+document.addEventListener('click', (e) => {
+  const layersPanel = document.getElementById('layersPanel');
+  const layersBtn = document.getElementById('layersToggleBtn');
+  const searchContainer = document.getElementById('searchContainer');
+  const toolbar = document.getElementById('toolbar');
+
+  // Close layers panel if click outside panel and button
+  if (layersPanel.style.display !== 'none') {
+    const clickedInsidePanel = layersPanel.contains(e.target);
+    const clickedLayersBtn = layersBtn.contains(e.target);
+    if (!clickedInsidePanel && !clickedLayersBtn) hideLayersPanel();
+  }
+
+  // Close autocomplete if click outside search area
+  if (autocompleteList.style.display !== 'none') {
+    const clickedInsideSearch = searchContainer.contains(e.target);
+    if (!clickedInsideSearch) hideAutocomplete();
+  }
+
+  // Blur the state dropdown if you click elsewhere (native dropdown behaviour depends on OS/browser)
+  const stateSelect = document.getElementById('stateSelect');
+  if (stateSelect && !stateSelect.contains(e.target) && toolbar && !toolbar.contains(e.target)) {
+    try { stateSelect.blur(); } catch {}
+  }
+});
+
+/** Escape closes dropdowns */
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    hideAutocomplete();
+    hideLayersPanel();
+  }
+});
 
 /** Start */
 loadRealTrains();
