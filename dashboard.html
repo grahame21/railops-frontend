@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>RailOps — AU Live Map</title>
 
+<!-- OpenLayers -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
 <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 
@@ -13,12 +14,12 @@
 html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI', system-ui, sans-serif; }
 #map { height: 100%; width: 100%; background: #0a1a2a; }
 
-/* SOLID (not transparent) top UI */
+/* Top Toolbar */
 .toolbar {
   position: absolute; top: 12px; left: 12px; z-index: 1000;
-  background: #0a1a2a;
+  background: #0a1a2a; /* SOLID */
   color: white; padding: 10px 16px; border-radius: 40px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
   display: flex; gap: 12px; align-items: center;
   border: 1px solid #2a4a7a;
   font-size: 14px; font-weight: 500;
@@ -26,16 +27,22 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 .toolbar button, .toolbar select {
   background: #1e3a5f; color: white;
   border: 1px solid #3a6a9a; border-radius: 30px;
-  padding: 6px 16px; font-size: 13px; font-weight: 700;
+  padding: 6px 16px; font-size: 13px; font-weight: 600;
   cursor: pointer; transition: all 0.2s;
 }
-.toolbar button:hover { background: #2a4a7a; border-color: #5a8aca; }
+.toolbar button:hover {
+  background: #2a4a7a; border-color: #5a8aca;
+}
 
-.search-container { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 1000; width: 380px; }
+/* Search Bar */
+.search-container {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  z-index: 1000; width: 420px;
+}
 .search-box {
-  background: #0a1a2a;
+  background: #0a1a2a; /* SOLID */
   border-radius: 40px; border: 1px solid #2a4a7a;
-  display: flex; box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  display: flex; box-shadow: 0 4px 20px rgba(0,0,0,0.6);
 }
 .search-box input {
   flex: 1; background: #1e3a5f; border: 1px solid #3a6a9a;
@@ -45,96 +52,126 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 .search-box input::placeholder { color: #9ab0d0; }
 .search-box button {
   background: #0b57cf; border: none; border-radius: 0 40px 40px 0;
-  padding: 10px 24px; color: white; font-weight: 800;
+  padding: 10px 24px; color: white; font-weight: 700;
   cursor: pointer; transition: 0.2s;
 }
 
+/* Autocomplete */
 .autocomplete-items {
   position: absolute; top: 100%; left: 0; right: 0;
-  background: #0a1a2a;
+  background: #0a1a2a; /* SOLID */
   border: 1px solid #2a4a7a; border-top: none;
-  border-radius: 0 0 20px 20px; max-height: 300px;
+  border-radius: 0 0 20px 20px; max-height: 320px;
   overflow-y: auto; z-index: 1001; margin-top: 2px;
 }
 .autocomplete-item {
   padding: 12px 20px; color: white; cursor: pointer;
   border-bottom: 1px solid #1e3a5f; font-size: 13px;
-  display: flex; justify-content: space-between;
+  display: flex; justify-content: space-between; gap: 12px;
 }
 .autocomplete-item:hover { background: #1e3a5f; }
-.autocomplete-item .train-id { font-weight: 800; color: #9ab0d0; }
-.autocomplete-item .train-loc { color: #ffaa00; }
+.autocomplete-item .train-id { font-weight: 700; color: #9ab0d0; }
+.autocomplete-item .train-loc { color: #ffaa00; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 250px; }
 
+/* Status Bar */
 .status-bar {
   position: absolute; top: 12px; right: 12px; z-index: 1000;
-  background: #0a1a2a;
-  color: white; padding: 8px 20px; border-radius: 40px;
+  background: #0a1a2a; /* SOLID */
+  color: white; padding: 8px 16px; border-radius: 40px;
   font-size: 13px; border: 1px solid #2a4a7a;
-  display: flex; gap: 12px; align-items: center;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  display: flex; gap: 10px; align-items: center;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
 }
-.train-count { background: #0b57cf; padding: 2px 12px; border-radius: 30px; font-weight: 900; }
+.train-count {
+  background: #0b57cf; padding: 2px 12px;
+  border-radius: 30px; font-weight: 800;
+}
 
+/* Layers Panel */
 .layers-panel {
   position: absolute; left: 12px; bottom: 12px; z-index: 1000;
-  background: #0a1a2a;
+  background: #0a1a2a; /* SOLID */
   color: white; border-radius: 20px; padding: 16px;
   border: 1px solid #2a4a7a; width: 260px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.55);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
 }
-.layer-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #1e3a5f; }
+.layer-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid #1e3a5f;
+}
 .layer-row:last-child { border-bottom: none; }
 .section-title { color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0; }
 
-/* Hover popup */
+/* TrainFinder-style Popup */
 .train-popup {
-  background: rgba(10, 26, 42, 0.98);
+  position: absolute;
+  background: #0a1a2a; /* SOLID */
   color: white;
-  padding: 14px 16px;
-  border-radius: 14px;
+  padding: 16px;
+  border-radius: 16px;
   border: 2px solid #2a4a7a;
   box-shadow: 0 8px 30px rgba(0,0,0,0.9);
-  min-width: 320px;
-  font-family: 'Segoe UI', sans-serif;
   pointer-events: none;
+  transform: translate(-50%, -100%);
+  min-width: 340px;
+  z-index: 10000;
 }
-.train-popup .popup-header {
-  font-size: 16px;
-  font-weight: 900;
+.train-popup::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 10px;
+  border-style: solid;
+  border-color: #2a4a7a transparent transparent transparent;
+}
+.popup-header {
+  font-size: 18px;
+  font-weight: 800;
   color: #ffaa00;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   border-bottom: 1px solid #2a4a7a;
   padding-bottom: 4px;
 }
-.train-popup .popup-subheader {
-  font-size: 13px;
+.popup-subheader {
+  font-size: 14px;
   color: #9ab0d0;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
   font-style: italic;
 }
-.train-popup .popup-grid {
+.popup-grid {
   display: grid;
-  grid-template-columns: 95px 1fr;
-  gap: 7px;
+  grid-template-columns: 90px 1fr;
+  gap: 8px;
   font-size: 13px;
+  margin: 8px 0;
 }
-.train-popup .popup-label { color: #9ab0d0; font-weight: 700; }
-.train-popup .popup-badges {
-  display: flex; flex-wrap: wrap; gap: 6px;
-  margin-top: 10px;
-}
-.badge {
+.popup-label { color: #9ab0d0; font-weight: 700; }
+.popup-value { color: white; }
+.popup-badge {
   background: #1e3a5f;
-  padding: 4px 10px;
+  padding: 4px 12px;
   border-radius: 30px;
+  font-size: 12px;
+  display: inline-block;
+  margin-right: 6px;
+  margin-top: 4px;
+  color: #9ab0d0;
+}
+.popup-footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+  justify-content: center;
   font-size: 11px;
-  color: #cfe0ff;
-  border: 1px solid rgba(255,170,0,0.25);
+  color: #9ab0d0;
 }
 </style>
 </head>
-
 <body>
+
 <div class="toolbar">
   <span style="font-weight:900; color:#ffaa00">🚂 RailOps</span>
   <select id="stateSelect">
@@ -153,14 +190,14 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 
 <div class="search-container">
   <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Search train number, loco, or destination...">
+    <input type="text" id="searchInput" placeholder="Search loco, train number, origin, destination...">
     <button id="searchBtn">🔍 Search</button>
   </div>
   <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
 </div>
 
 <div class="status-bar">
-  <span id="lastUpdate">Loading...</span>
+  <span id="lastUpdate">Loading…</span>
   <span class="train-count" id="trainCount">0</span>
 </div>
 
@@ -179,8 +216,12 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 <div id="map"></div>
 
 <script>
-const DATA_URL = 'https://railops-live-au.fly.dev/trains.json';
+// ========= CONFIG =========
+// IMPORTANT: Set this to your Fly app public URL (the one that serves /trains.json)
+const BACKEND_BASE = "https://railops-live-au.fly.dev"; // <- if your fly URL is different, change ONLY this
+const TRAINS_URL = () => `${BACKEND_BASE}/trains.json?ts=${Date.now()}`;
 
+// ========= MAP =========
 const map = new ol.Map({
   target: 'map',
   layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
@@ -192,6 +233,7 @@ const map = new ol.Map({
 });
 map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
+// Rail layers
 const railLayer = new ol.layer.Tile({
   source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
   visible: true,
@@ -209,6 +251,7 @@ const stationsLayer = new ol.layer.Tile({
 map.addLayer(railLayer);
 map.addLayer(stationsLayer);
 
+// ACCC coverage layers
 const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
 function createAcccLayer(id) {
   return new ol.layer.Tile({
@@ -222,263 +265,290 @@ function createAcccLayer(id) {
   });
 }
 const covTelstra = createAcccLayer(25);
-const covOptus = createAcccLayer(15);
-const covTPG = createAcccLayer(33);
-const covAll = createAcccLayer(4);
+const covOptus  = createAcccLayer(15);
+const covTPG    = createAcccLayer(33);
+const covAll    = createAcccLayer(4);
 [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
+// ========= TRAIN LOGIC =========
 const trainSource = new ol.source.Vector();
+
+function isJunkMarker(t) {
+  const id = (t?.id ?? "").toString().toLowerCase();
+  const trainId = (t?.train_number ?? "").toString().toLowerCase();
+  const trKey = (t?.trKey ?? "").toString().toLowerCase();
+
+  // hide arrow markers
+  if (id.includes("arrow") || trainId.includes("arrow") || trKey.includes("arrow")) return true;
+
+  // hide generic markerSource_* junk (only if it doesn't have real IDs)
+  if (id.startsWith("markersource_") && !trKey && !trainId) return true;
+
+  // also hide any pure markerSource-looking IDs
+  if (id.includes("markersource_") && !trKey && !trainId) return true;
+
+  return false;
+}
+
+function getDisplayId(t) {
+  const loco = (t.trKey || '').toString().trim();
+  const service = (t.train_number || '').toString().trim();
+  const name = (t.train_name || '').toString().trim();
+  const id = (t.id || '').toString().trim();
+
+  if (loco && service && loco !== service) return `${loco} [${service}]`;
+  if (loco) return loco;
+  if (service) return service;
+  if (name) return name;
+  return id || 'Unknown';
+}
+
 const trainLayer = new ol.layer.Vector({
   source: trainSource,
   visible: true,
   zIndex: 10,
   style: (feature) => {
     const t = feature.get('train_data') || {};
-    const loco = t.trKey || t.train_name || '';
-    const id = t.train_number || t.id || '';
-    const speed = t.speed || 0;
+    const speed = Number(t.speed || 0);
 
-    let dot = '#ffaa00';
-    if (speed > 80) dot = '#ff4444';
-    else if (speed > 30) dot = '#00cc00';
-    else if (speed > 0) dot = '#44ff44';
+    let dotColor = '#ffaa00';
+    if (speed > 80) dotColor = '#ff4444';
+    else if (speed > 30) dotColor = '#00cc00';
+    else if (speed > 0) dotColor = '#44ff44';
 
-    const isArrow = String(id).includes('arrow');
-    const styles = [
+    const label = getDisplayId(t);
+
+    return [
       new ol.style.Style({
         image: new ol.style.Circle({
           radius: 8,
-          fill: new ol.style.Fill({ color: dot }),
+          fill: new ol.style.Fill({ color: dotColor }),
           stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+        })
+      }),
+      new ol.style.Style({
+        text: new ol.style.Text({
+          text: label,
+          font: 'bold 11px monospace',
+          fill: new ol.style.Fill({ color: '#ffaa00' }),
+          stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
+          offsetY: -18,
+          backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.9)' }),
+          padding: [2, 8, 2, 8]
         })
       })
     ];
-    if (isArrow) return styles;
-
-    const labelStroke = new ol.style.Stroke({ color: '#000', width: 5 });
-    const bgFill = new ol.style.Fill({ color: 'rgba(0,0,0,0.98)' });
-    const bgStroke = new ol.style.Stroke({ color: 'rgba(255,170,0,0.9)', width: 1 });
-
-    if (loco && id && loco !== id) {
-      styles.push(
-        new ol.style.Style({
-          text: new ol.style.Text({
-            text: loco,
-            font: 'bold 12px monospace',
-            fill: new ol.style.Fill({ color: '#ffaa00' }),
-            stroke: labelStroke,
-            offsetY: -28,
-            backgroundFill: bgFill,
-            backgroundStroke: bgStroke,
-            padding: [3, 10, 3, 10]
-          })
-        }),
-        new ol.style.Style({
-          text: new ol.style.Text({
-            text: id,
-            font: 'bold 11px monospace',
-            fill: new ol.style.Fill({ color: '#fff' }),
-            stroke: new ol.style.Stroke({ color: '#000', width: 4 }),
-            offsetY: -11,
-            backgroundFill: bgFill,
-            backgroundStroke: bgStroke,
-            padding: [3, 10, 3, 10]
-          })
-        })
-      );
-    } else {
-      const txt = loco || id;
-      if (txt) {
-        styles.push(new ol.style.Style({
-          text: new ol.style.Text({
-            text: txt,
-            font: 'bold 12px monospace',
-            fill: new ol.style.Fill({ color: '#ffaa00' }),
-            stroke: labelStroke,
-            offsetY: -18,
-            backgroundFill: bgFill,
-            backgroundStroke: bgStroke,
-            padding: [3, 10, 3, 10]
-          })
-        }));
-      }
-    }
-    return styles;
   }
 });
 map.addLayer(trainLayer);
 
-let allTrains = [];
-
-function isJunkTrain(t) {
-  const id = String(t?.id || '');
-  const hasIdentity = Boolean(t?.train_number || t?.trKey || t?.train_name);
-  const hasRoute = Boolean(t?.origin || t?.destination || t?.description);
-  return id.startsWith('markerSource_') && !(hasIdentity || hasRoute);
-}
+let allTrains = []; // filtered trains (no junk)
 
 async function loadRealTrains() {
-  const url = `${DATA_URL}?ts=${Date.now()}`;
   try {
-    document.getElementById('lastUpdate').textContent = 'Loading...';
-    const res = await fetch(url, { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const trains = (data.trains || []).filter(t => t?.lat && t?.lon).filter(t => !isJunkTrain(t));
+    document.getElementById('lastUpdate').textContent = 'Loading…';
+
+    const response = await fetch(TRAINS_URL(), { cache: 'no-store' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    const raw = data.trains || [];
+
+    // filter out junk markerSource and arrows
+    const trains = raw.filter(t => t && t.lat && t.lon && !isJunkMarker(t));
+
     allTrains = trains;
 
     document.getElementById('trainCount').textContent = trains.length;
-    const stamp = data.lastUpdated ? new Date(data.lastUpdated).toLocaleTimeString() : '—';
-    const note = data.note ? ` | ${data.note}` : '';
-    document.getElementById('lastUpdate').textContent = `Last: ${stamp}${note}`;
+    const ts = data.lastUpdated ? new Date(data.lastUpdated) : new Date();
+    document.getElementById('lastUpdate').textContent = `Last: ${ts.toLocaleTimeString()}`;
 
     trainSource.clear();
+
     for (const t of trains) {
-      const f = new ol.Feature({ geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat])) });
-      f.set('train_data', t);
-      trainSource.addFeature(f);
+      const feature = new ol.Feature({
+        geometry: new ol.geom.Point(ol.proj.fromLonLat([t.lon, t.lat]))
+      });
+      feature.set('train_data', t);
+      trainSource.addFeature(feature);
     }
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error('Failed to load trains:', err);
     document.getElementById('lastUpdate').textContent = '⚠️ Update failed';
   }
 }
 
-/* ✅ Hover popup overlay */
-const popupDiv = document.createElement('div');
-popupDiv.className = 'train-popup';
+// ========= HOVER POPUP =========
+let popupOverlay = null;
 
-const popupOverlay = new ol.Overlay({
-  element: popupDiv,
-  positioning: 'bottom-center',
-  offset: [0, -12],
-  stopEvent: false
-});
-map.addOverlay(popupOverlay);
-popupOverlay.setPosition(undefined);
+function removePopup() {
+  if (popupOverlay) {
+    map.removeOverlay(popupOverlay);
+    popupOverlay = null;
+  }
+}
 
-map.on('pointermove', (evt) => {
+map.on('pointermove', function(evt) {
   const feature = map.forEachFeatureAtPixel(evt.pixel, (f, layer) => (layer === trainLayer ? f : null));
-  if (!feature) {
-    popupOverlay.setPosition(undefined);
-    return;
-  }
+  removePopup();
 
-  const t = feature.get('train_data') || {};
+  if (!feature) return;
+
   const coords = feature.getGeometry().getCoordinates();
+  const t = feature.get('train_data') || {};
+  const lonLat = ol.proj.toLonLat(coords);
 
-  // Don’t show popup for "arrow" markers (if any exist)
-  const id = String(t.train_number || t.id || '');
-  if (id.includes('arrow')) {
-    popupOverlay.setPosition(undefined);
-    return;
-  }
+  // build popup
+  const label = getDisplayId(t);
+  const origin = t.origin || 'Unknown';
+  const destination = t.destination || 'Unknown';
+  const desc = t.description || '';
+  const speed = Number(t.speed || 0);
+  const heading = (t.heading ?? 0);
+  const km = t.km || '';
+  const timeStr = t.time || '';
+  const cId = t.cId ? String(t.cId).slice(0, 8) + '…' : '';
 
-  const loco = t.trKey || t.train_name || '';
-  const trainId = t.train_number || t.id || 'Unknown';
-  const speed = t.speed || 0;
-
-  const header = loco && loco !== trainId
-    ? `${loco} [${trainId}] — ${speed} km/h`
-    : `${trainId} — ${speed} km/h`;
-
+  const popupDiv = document.createElement('div');
+  popupDiv.className = 'train-popup';
   popupDiv.innerHTML = `
-    <div class="popup-header">${header}</div>
-    ${t.description ? `<div class="popup-subheader">${t.description}</div>` : ''}
+    <div class="popup-header">${label} — ${speed} km/h</div>
+    ${desc ? `<div class="popup-subheader">${desc}</div>` : ''}
     <div class="popup-grid">
-      <div class="popup-label">Origin:</div><div>${t.origin || 'Unknown'}</div>
-      <div class="popup-label">Dest:</div><div>${t.destination || 'Unknown'}</div>
-      ${t.time ? `<div class="popup-label">Time:</div><div>${t.time}</div>` : ''}
-      ${t.km ? `<div class="popup-label">KM:</div><div>${t.km}</div>` : ''}
+      <span class="popup-label">Origin:</span><span class="popup-value">${origin}</span>
+      <span class="popup-label">Dest:</span><span class="popup-value">${destination}</span>
+      ${timeStr ? `<span class="popup-label">Time:</span><span class="popup-value">${timeStr}</span>` : ''}
+      ${km ? `<span class="popup-label">KM:</span><span class="popup-value">${km}</span>` : ''}
     </div>
-    <div class="popup-badges">
-      ${trainId ? `<span class="badge">Train: ${trainId}</span>` : ''}
-      ${loco && loco !== trainId ? `<span class="badge">Loco: ${loco}</span>` : ''}
-      ${t.operator ? `<span class="badge">Op: ${t.operator}</span>` : ''}
-      <span class="badge">🧭 ${t.heading || 0}°</span>
+    <div class="popup-footer">
+      ${cId ? `<span class="popup-badge">ID: ${cId}</span>` : ''}
+      <span class="popup-badge">🧭 ${heading}°</span>
+      <span class="popup-badge">📍 ${lonLat[1].toFixed(4)}, ${lonLat[0].toFixed(4)}</span>
     </div>
   `;
 
-  popupOverlay.setPosition(coords);
+  popupOverlay = new ol.Overlay({
+    element: popupDiv,
+    position: coords,
+    positioning: 'bottom-center',
+    offset: [0, -15]
+  });
+
+  map.addOverlay(popupOverlay);
 });
 
-/* Search */
+// ========= SEARCH =========
 const searchInput = document.getElementById('searchInput');
 const autocompleteList = document.getElementById('autocompleteList');
-let debounceTimer;
+let debounceTimer = null;
 
-function flyToTrain(lat, lon) {
-  map.getView().animate({ center: ol.proj.fromLonLat([lon, lat]), zoom: 12, duration: 900 });
-}
 function updateAutocomplete() {
-  const query = searchInput.value.trim().toLowerCase();
-  if (query.length < 2) { autocompleteList.style.display = 'none'; return; }
+  const q = searchInput.value.trim().toLowerCase();
+  if (q.length < 2) { autocompleteList.style.display = 'none'; return; }
 
   const matches = [];
   const seen = new Set();
 
-  allTrains.forEach(t => {
-    const searchable = [t.train_number, t.trKey, t.train_name, t.description, t.origin, t.destination]
-      .filter(Boolean).map(s => String(s).toLowerCase());
-    const key = t.id || t.trKey || t.train_number || t.train_name || '';
-    if (searchable.some(s => s.includes(query)) && !seen.has(key)) {
+  for (const t of allTrains) {
+    const key = (t.id || getDisplayId(t) || '').toString();
+    if (seen.has(key)) continue;
+
+    const searchable = [
+      getDisplayId(t),
+      t.train_number,
+      t.trKey,
+      t.train_name,
+      t.description,
+      t.origin,
+      t.destination
+    ].filter(Boolean).map(x => x.toString().toLowerCase());
+
+    if (searchable.some(s => s.includes(q))) {
       seen.add(key);
-      matches.push({ id: key, full: t });
+      matches.push(t);
     }
+  }
+
+  if (!matches.length) { autocompleteList.style.display = 'none'; return; }
+
+  autocompleteList.innerHTML = '';
+  matches.slice(0, 10).forEach(t => {
+    const item = document.createElement('div');
+    item.className = 'autocomplete-item';
+    item.innerHTML = `
+      <span class="train-id">${getDisplayId(t)}</span>
+      <span class="train-loc">${(t.origin || '')} → ${(t.destination || '')}</span>
+    `;
+    item.addEventListener('click', () => {
+      searchInput.value = getDisplayId(t);
+      autocompleteList.style.display = 'none';
+      flyToTrain(t.lat, t.lon);
+    });
+    autocompleteList.appendChild(item);
   });
 
-  if (matches.length) {
-    autocompleteList.innerHTML = '';
-    matches.slice(0, 8).forEach(m => {
-      const item = document.createElement('div');
-      item.className = 'autocomplete-item';
-      item.innerHTML = `<span class="train-id">${m.id}</span><span class="train-loc">${m.full.origin || ''} → ${m.full.destination || ''}</span>`;
-      item.addEventListener('click', () => {
-        searchInput.value = m.id;
-        autocompleteList.style.display = 'none';
-        flyToTrain(m.full.lat, m.full.lon);
-      });
-      autocompleteList.appendChild(item);
-    });
-    autocompleteList.style.display = 'block';
-  } else {
-    autocompleteList.style.display = 'none';
-  }
+  autocompleteList.style.display = 'block';
 }
+
 searchInput.addEventListener('input', () => {
   clearTimeout(debounceTimer);
   debounceTimer = setTimeout(updateAutocomplete, 250);
 });
+
+function flyToTrain(lat, lon) {
+  map.getView().animate({
+    center: ol.proj.fromLonLat([lon, lat]),
+    zoom: 12,
+    duration: 900
+  });
+}
+
 function searchTrains() {
-  const query = searchInput.value.trim().toLowerCase();
-  if (!query) return;
+  const q = searchInput.value.trim().toLowerCase();
+  if (!q) return;
+
   for (const t of allTrains) {
-    const searchable = [t.train_number, t.trKey, t.train_name, t.id].filter(Boolean).map(s => String(s).toLowerCase());
-    if (searchable.some(s => s.includes(query))) {
-      flyToTrain(t.lat, t.lon);
+    const searchable = [
+      getDisplayId(t),
+      t.train_number,
+      t.trKey,
+      t.train_name,
+      t.description,
+      t.origin,
+      t.destination
+    ].filter(Boolean).map(x => x.toString().toLowerCase());
+
+    if (searchable.some(s => s.includes(q))) {
       autocompleteList.style.display = 'none';
+      flyToTrain(t.lat, t.lon);
       return;
     }
   }
-  alert('No trains found matching: ' + query);
+
+  alert('No trains found matching: ' + q);
 }
 
-/* Zoom */
+document.getElementById('searchBtn').addEventListener('click', searchTrains);
+searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchTrains(); });
+
+// ========= ZOOM / UI =========
 const stateBounds = {
   au: [112, -44, 154, -10],
   nsw: [141, -38, 154, -28],
   vic: [141, -40, 150, -34],
   qld: [138, -30, 154, -9],
-  sa: [129, -40, 141, -25],
-  wa: [112, -36, 129, -13],
+  sa:  [129, -40, 141, -25],
+  wa:  [112, -36, 129, -13],
   tas: [143, -44, 149, -39],
-  nt: [129, -27, 138, -10]
+  nt:  [129, -27, 138, -10]
 };
+
 function zoomTo(region) {
   const bounds = stateBounds[region] || stateBounds.au;
   const extent = ol.proj.transformExtent(bounds, 'EPSG:4326', 'EPSG:3857');
   map.getView().fit(extent, { duration: 900, maxZoom: 10 });
 }
+
 function zoomToCurrent() {
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(pos => {
@@ -487,16 +557,14 @@ function zoomToCurrent() {
   });
 }
 
-/* UI events */
 document.getElementById('stateSelect').addEventListener('change', e => zoomTo(e.target.value));
 document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
 document.getElementById('layersToggleBtn').addEventListener('click', () => {
   const panel = document.getElementById('layersPanel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
 });
-document.getElementById('searchBtn').addEventListener('click', searchTrains);
-searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchTrains(); });
 
+// Layer toggles
 document.getElementById('trainLayerChk').addEventListener('change', e => trainLayer.setVisible(e.target.checked));
 document.getElementById('railLayerChk').addEventListener('change', e => railLayer.setVisible(e.target.checked));
 document.getElementById('stationsLayerChk').addEventListener('change', e => stationsLayer.setVisible(e.target.checked));
@@ -505,9 +573,11 @@ document.getElementById('covOptusChk').addEventListener('change', e => covOptus.
 document.getElementById('covTPGChk').addEventListener('change', e => covTPG.setVisible(e.target.checked));
 document.getElementById('covAllChk').addEventListener('change', e => covAll.setVisible(e.target.checked));
 
+// Initial load + refresh
+zoomTo('au');
 loadRealTrains();
 setInterval(loadRealTrains, 30000);
-zoomTo('au');
 </script>
+
 </body>
 </html>
