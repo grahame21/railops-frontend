@@ -60,7 +60,7 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 
 .search-container {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
-  z-index: 1000; width: 440px;
+  z-index: 1000; width: 500px;
 }
 .search-box {
   background: var(--panel-bg);
@@ -259,6 +259,7 @@ function getLoco(train){
   }
   return "";
 }
+
 function getTrainId(train){
   const candidates = [train.train_number, train.trainNumber, train.id, train.ID];
   for (const c of candidates){
@@ -286,16 +287,6 @@ function formatLocal(dt){
       year: "numeric", month: "2-digit", day: "2-digit",
       hour: "2-digit", minute: "2-digit", second: "2-digit"
     });
-  } catch {
-    return "";
-  }
-}
-function formatLocalTimeOnly(dt){
-  try {
-    if (!dt) return "";
-    const d = (dt instanceof Date) ? dt : new Date(dt);
-    if (!isFinite(d.getTime())) return "";
-    return d.toLocaleTimeString();
   } catch {
     return "";
   }
@@ -467,7 +458,10 @@ async function loadRealTrains() {
 
 let popupOverlay = null;
 function removePopup() {
-  if (popupOverlay) { map.removeOverlay(popupOverlay); popupOverlay = null; }
+  if (popupOverlay) {
+    map.removeOverlay(popupOverlay);
+    popupOverlay = null;
+  }
 }
 
 map.on('pointermove', function(evt){
@@ -483,13 +477,12 @@ map.on('pointermove', function(evt){
   if (!label || isJunkId(label)) return;
 
   const coords = feature.getGeometry().getCoordinates();
-  const lonLat = ol.proj.toLonLat(coords);
 
   const origin = train.origin || train.serviceFrom || '';
   const dest   = train.destination || train.serviceTo || '';
   const speed  = Number(train.speed || 0);
   const desc   = train.description || train.serviceDesc || '';
-  const heading= train.heading || 0;
+  const km     = train.km || train.trainKM || 'Unknown';
 
   const popupUpdated = lastGoodUpdatedISO
     ? formatLocal(lastGoodUpdatedISO)
@@ -504,8 +497,7 @@ map.on('pointermove', function(evt){
     <div class="popup-grid">
       <span class="popup-label">Origin:</span><span class="popup-value">${origin || 'Unknown'}</span>
       <span class="popup-label">Destination:</span><span class="popup-value">${dest || 'Unknown'}</span>
-      <span class="popup-label">Heading:</span><span class="popup-value">${heading}°</span>
-      <span class="popup-label">Coords:</span><span class="popup-value">${lonLat[1].toFixed(4)}, ${lonLat[0].toFixed(4)}</span>
+      <span class="popup-label">Current KM:</span><span class="popup-value">${km || 'Unknown'}</span>
     </div>
     <div class="popup-footer">
       ${getLoco(train) ? `<span class="popup-badge">Loco: ${getLoco(train)}</span>` : ''}
@@ -627,11 +619,13 @@ const stateBounds = {
   tas: [143, -44, 149, -39],
   nt: [129, -27, 138, -10]
 };
+
 function zoomTo(region){
   const bounds = stateBounds[region] || stateBounds.au;
   const extent = ol.proj.transformExtent(bounds, 'EPSG:4326', 'EPSG:3857');
   map.getView().fit(extent, { duration: 900, maxZoom: 10 });
 }
+
 function zoomToCurrent(){
   if (!navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(pos => {
