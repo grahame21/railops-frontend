@@ -23,7 +23,6 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   --shadow: 0 6px 26px rgba(0,0,0,0.70);
 }
 
-/* Make top bars SOLID and “punchy” */
 .toolbar,
 .status-bar,
 .search-box,
@@ -44,7 +43,6 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
   font-size: 14px; font-weight: 700;
 }
 
-/* Stronger select/button styling */
 .toolbar button, .toolbar select {
   background: var(--panel-btn); color: white;
   border: 1px solid var(--panel-btn-border); border-radius: 30px;
@@ -54,7 +52,6 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 }
 .toolbar button:hover, .toolbar select:hover { background: #2a4a7a; border-color: #5a8aca; }
 
-/* Helps dropdown menu readability (native dropdowns are limited by browser/OS) */
 .toolbar select option {
   background: #0b1522;
   color: #ffffff;
@@ -240,9 +237,8 @@ html, body { height: 100%; width: 100%; overflow: hidden; font-family: 'Segoe UI
 <div id="map"></div>
 
 <script>
-const TRAINS_URL_BASE = "https://railops-live-au.fly.dev/trains.json";
+const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
 
-/** junk ids from extraction sources (we NEVER display these as labels) */
 function isJunkId(s){
   if (!s) return true;
   const v = String(s).toLowerCase();
@@ -254,7 +250,6 @@ function isJunkId(s){
       || v.includes("arrowmarkerssource");
 }
 
-/** Pick best IDs from a train object */
 function getLoco(train){
   const candidates = [train.trKey, train.loco, train.train_name, train.trainName];
   for (const c of candidates){
@@ -274,7 +269,6 @@ function getTrainId(train){
   return "";
 }
 
-/** Build the ONE-LINE label you want: "LOCO • TRAIN" */
 function buildLabel(train){
   const loco = getLoco(train);
   const tid = getTrainId(train);
@@ -283,13 +277,11 @@ function buildLabel(train){
   return loco || tid;
 }
 
-/** Local time helper (follows your device timezone automatically) */
 function formatLocal(dt){
   try {
     if (!dt) return "";
     const d = (dt instanceof Date) ? dt : new Date(dt);
     if (!isFinite(d.getTime())) return "";
-    // Includes date + time so it’s unambiguous when travelling
     return d.toLocaleString(undefined, {
       year: "numeric", month: "2-digit", day: "2-digit",
       hour: "2-digit", minute: "2-digit", second: "2-digit"
@@ -309,7 +301,6 @@ function formatLocalTimeOnly(dt){
   }
 }
 
-/** Map setup */
 const map = new ol.Map({
   target: 'map',
   layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
@@ -321,7 +312,6 @@ const map = new ol.Map({
 });
 map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
-/** Rail layers */
 const railLayer = new ol.layer.Tile({
   source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
   visible: true, zIndex: 1
@@ -337,7 +327,6 @@ const stationsLayer = new ol.layer.Tile({
 map.addLayer(railLayer);
 map.addLayer(stationsLayer);
 
-/** ACCC coverage */
 const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
 function createAcccLayer(id) {
   return new ol.layer.Tile({
@@ -354,7 +343,6 @@ const covTPG     = createAcccLayer(33);
 const covAll     = createAcccLayer(4);
 [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
-/** Train layer */
 const trainSource = new ol.source.Vector();
 const trainLayer = new ol.layer.Vector({
   source: trainSource,
@@ -403,14 +391,12 @@ let lastGoodTrains = [];
 let lastGoodUpdatedISO = null;
 let consecutiveEmpty = 0;
 
-/** Load trains (resilient) */
 async function loadRealTrains() {
   const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
   const lastUpdateEl = document.getElementById('lastUpdate');
   const statusNoteEl = document.getElementById('statusNote');
   const trainCountEl = document.getElementById('trainCount');
 
-  // Show that we are attempting a refresh (but keep map as-is unless good data arrives)
   lastUpdateEl.textContent = 'Loading...';
 
   const controller = new AbortController();
@@ -424,16 +410,12 @@ async function loadRealTrains() {
     const trains = Array.isArray(data.trains) ? data.trains : [];
     const updatedISO = data.lastUpdated || null;
 
-    // Update status bar time using DEVICE local timezone
     const localTs = updatedISO ? formatLocal(updatedISO) : formatLocal(new Date());
     lastUpdateEl.textContent = localTs ? `Last: ${localTs}` : 'Last: (unknown)';
     statusNoteEl.textContent = (data.note || 'ok').toString();
 
-    // If backend glitches and sends empty trains, DON'T clear immediately
     if (trains.length === 0) {
       consecutiveEmpty += 1;
-
-      // If we have last good data, keep it unless empty happens repeatedly
       if (lastGoodTrains.length > 0 && consecutiveEmpty < 3) {
         trainCountEl.textContent = lastGoodTrains.length;
         statusNoteEl.textContent = `empty payload (${consecutiveEmpty}) — keeping last good`;
@@ -443,7 +425,6 @@ async function loadRealTrains() {
       consecutiveEmpty = 0;
     }
 
-    // Accept this payload as the “good” one
     allTrains = trains;
     if (trains.length > 0) {
       lastGoodTrains = trains.slice();
@@ -452,7 +433,6 @@ async function loadRealTrains() {
 
     trainCountEl.textContent = trains.length;
 
-    // Rebuild features
     trainSource.clear();
 
     trains.forEach(train => {
@@ -473,8 +453,6 @@ async function loadRealTrains() {
 
   } catch (err) {
     console.error('❌ Failed to load trains:', err);
-
-    // Keep existing trains on-screen (do NOT clear)
     statusNoteEl.textContent = 'error (keeping last good)';
     if (lastGoodUpdatedISO) {
       lastUpdateEl.textContent = `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`;
@@ -487,7 +465,6 @@ async function loadRealTrains() {
   }
 }
 
-/** Hover popup (local time included) */
 let popupOverlay = null;
 function removePopup() {
   if (popupOverlay) { map.removeOverlay(popupOverlay); popupOverlay = null; }
@@ -514,8 +491,6 @@ map.on('pointermove', function(evt){
   const desc   = train.description || train.serviceDesc || '';
   const heading= train.heading || 0;
 
-  // This is the update timestamp coming from backend payload
-  // Uses your device local timezone automatically
   const popupUpdated = lastGoodUpdatedISO
     ? formatLocal(lastGoodUpdatedISO)
     : formatLocal(new Date());
@@ -547,7 +522,6 @@ map.on('pointermove', function(evt){
   map.addOverlay(popupOverlay);
 });
 
-/** Search + autocomplete (also ignores junk ids) */
 const searchInput = document.getElementById('searchInput');
 const autocompleteList = document.getElementById('autocompleteList');
 let debounceTimer;
@@ -643,7 +617,6 @@ function searchTrains(){
   alert('No trains found matching: ' + query);
 }
 
-/** Zoom helpers */
 const stateBounds = {
   au: [112, -44, 154, -10],
   nsw: [141, -38, 154, -28],
@@ -667,7 +640,6 @@ function zoomToCurrent(){
   });
 }
 
-/** UI events */
 document.getElementById('stateSelect').addEventListener('change', e => zoomTo(e.target.value));
 document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
 
@@ -695,34 +667,29 @@ document.getElementById('covOptusChk').addEventListener('change', e => covOptus.
 document.getElementById('covTPGChk').addEventListener('change', e => covTPG.setVisible(e.target.checked));
 document.getElementById('covAllChk').addEventListener('change', e => covAll.setVisible(e.target.checked));
 
-/** Click-anywhere-to-close behaviour */
 document.addEventListener('click', (e) => {
   const layersPanel = document.getElementById('layersPanel');
   const layersBtn = document.getElementById('layersToggleBtn');
   const searchContainer = document.getElementById('searchContainer');
   const toolbar = document.getElementById('toolbar');
 
-  // Close layers panel if click outside panel and button
   if (layersPanel.style.display !== 'none') {
     const clickedInsidePanel = layersPanel.contains(e.target);
     const clickedLayersBtn = layersBtn.contains(e.target);
     if (!clickedInsidePanel && !clickedLayersBtn) hideLayersPanel();
   }
 
-  // Close autocomplete if click outside search area
   if (autocompleteList.style.display !== 'none') {
     const clickedInsideSearch = searchContainer.contains(e.target);
     if (!clickedInsideSearch) hideAutocomplete();
   }
 
-  // Blur the state dropdown if you click elsewhere (native dropdown behaviour depends on OS/browser)
   const stateSelect = document.getElementById('stateSelect');
   if (stateSelect && !stateSelect.contains(e.target) && toolbar && !toolbar.contains(e.target)) {
     try { stateSelect.blur(); } catch {}
   }
 });
 
-/** Escape closes dropdowns */
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     hideAutocomplete();
@@ -730,7 +697,6 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-/** Start */
 loadRealTrains();
 setInterval(loadRealTrains, 30000);
 zoomTo('au');
