@@ -1,0 +1,22 @@
+app = "railops-flight-api"
+primary_region = "syd"
+
+[build]
+
+[env]
+  PORT = "8080"
+  USE_SAMPLE_DATA = "true"
+  CACHE_TTL_SECONDS = "15"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  memory = "256mb"
+  cpu_kind = "shared"
+  cpus = 1
