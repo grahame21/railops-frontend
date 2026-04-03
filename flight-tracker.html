@@ -14,9 +14,9 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      font-family: Arial, sans-serif;
       background: #07111f;
-      color: white;
+      color: #fff;
+      font-family: Arial, sans-serif;
       overflow: hidden;
     }
 
@@ -34,15 +34,17 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 10px;
-      background: rgba(0,0,0,0.7);
-      border: 1px solid #2d5ea8;
-      border-radius: 12px;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid #1e5ec8;
+      border-radius: 14px;
       padding: 10px 14px;
       backdrop-filter: blur(6px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
     }
 
-    .topbar-left {
+    .topbar-left,
+    .topbar-right {
       display: flex;
       align-items: center;
       gap: 10px;
@@ -51,43 +53,158 @@
 
     .title {
       font-size: 18px;
-      font-weight: bold;
+      font-weight: 700;
       color: #7fc8ff;
+      margin-right: 8px;
     }
 
-    .nav-btn, .toggle-btn {
-      text-decoration: none;
-      color: white;
-      background: #0d47a1;
+    .nav-btn,
+    .toggle-btn,
+    .action-btn {
+      background: #0b57cf;
+      color: #fff;
       border: none;
-      border-radius: 8px;
+      border-radius: 10px;
       padding: 8px 12px;
-      cursor: pointer;
+      text-decoration: none;
       font-size: 14px;
+      cursor: pointer;
+      transition: 0.2s ease;
     }
 
-    .nav-btn:hover, .toggle-btn:hover {
-      background: #1565c0;
+    .nav-btn:hover,
+    .toggle-btn:hover,
+    .action-btn:hover {
+      background: #1a6ae8;
+    }
+
+    .toggle-btn.active {
+      background: #0d8f4b;
     }
 
     .status-box {
       font-size: 13px;
-      color: #cfe8ff;
+      color: #d6ebff;
+      background: rgba(255,255,255,0.06);
+      border-radius: 10px;
+      padding: 8px 12px;
       white-space: nowrap;
     }
 
-    .popup {
-      background: rgba(0,0,0,0.88);
-      color: white;
-      padding: 10px;
+    .search-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.06);
       border-radius: 10px;
-      border: 1px solid #4da3ff;
-      min-width: 220px;
-      font-size: 13px;
+      padding: 6px;
     }
 
-    .popup strong {
+    .search-wrap input {
+      width: 220px;
+      max-width: 40vw;
+      border: none;
+      outline: none;
+      background: transparent;
+      color: #fff;
+      padding: 6px 8px;
+      font-size: 14px;
+    }
+
+    .search-wrap input::placeholder {
+      color: #c6d8ef;
+    }
+
+    .legend {
+      position: absolute;
+      bottom: 14px;
+      left: 14px;
+      z-index: 1000;
+      background: rgba(0,0,0,0.78);
+      border: 1px solid #2457a8;
+      border-radius: 12px;
+      padding: 12px 14px;
+      min-width: 180px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    }
+
+    .legend h4 {
+      margin: 0 0 10px 0;
+      font-size: 14px;
       color: #7fc8ff;
+    }
+
+    .legend-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 6px 0;
+      font-size: 13px;
+      color: #eaf4ff;
+    }
+
+    .dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.7);
+      flex-shrink: 0;
+    }
+
+    .popup {
+      min-width: 260px;
+      max-width: 320px;
+      background: rgba(6, 14, 27, 0.96);
+      color: white;
+      border-radius: 12px;
+      border: 1px solid #338dff;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.4);
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .popup-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #7fc8ff;
+      margin-bottom: 8px;
+    }
+
+    .popup-grid {
+      display: grid;
+      grid-template-columns: 95px 1fr;
+      gap: 5px 8px;
+    }
+
+    .popup-label {
+      color: #a7c9ef;
+    }
+
+    .ol-popup-anchor {
+      position: absolute;
+      transform: translate(-50%, -100%);
+      margin-top: -10px;
+    }
+
+    @media (max-width: 900px) {
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .topbar-left,
+      .topbar-right {
+        justify-content: flex-start;
+      }
+
+      .search-wrap input {
+        width: 150px;
+      }
+
+      .status-box {
+        white-space: normal;
+      }
     }
   </style>
 </head>
@@ -97,13 +214,32 @@
       <div class="title">✈️ RailOps Flight Tracker</div>
       <a href="dashboard.html" class="nav-btn">Train Tracker</a>
       <a href="admin.html" class="nav-btn">Admin</a>
-      <button id="militaryToggle" class="toggle-btn">Military: OFF</button>
+      <button id="militaryToggle" class="toggle-btn">Military Only: OFF</button>
+      <button id="refreshBtn" class="action-btn">Refresh</button>
     </div>
-    <div class="status-box" id="statusBox">Loading aircraft...</div>
+
+    <div class="topbar-right">
+      <div class="search-wrap">
+        <input id="searchInput" type="text" placeholder="Search callsign, rego, type..." />
+        <button id="searchBtn" class="action-btn">Find</button>
+      </div>
+      <div class="status-box" id="statusBox">Loading aircraft...</div>
+    </div>
   </div>
 
   <div id="map"></div>
-  <div id="popup" class="popup" style="display:none; position:absolute; z-index:1001;"></div>
+
+  <div class="legend">
+    <h4>Aircraft Legend</h4>
+    <div class="legend-row"><span class="dot" style="background:#00c853;"></span> Civil / standard</div>
+    <div class="legend-row"><span class="dot" style="background:#ff9800;"></span> Slow / low speed</div>
+    <div class="legend-row"><span class="dot" style="background:#ff5252;"></span> Fast aircraft</div>
+    <div class="legend-row"><span class="dot" style="background:#9c27b0;"></span> Military</div>
+  </div>
+
+  <div id="popupContainer" class="ol-popup-anchor" style="display:none;">
+    <div id="popup" class="popup"></div>
+  </div>
 
   <script src="static/js/flight-tracker.js"></script>
 </body>
