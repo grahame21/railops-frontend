@@ -5,14 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RailOps — Admin</title>
   <link rel="stylesheet" href="styles.css" />
+  <style>
+    .nav-links{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin:16px 0;
+    }
+    .nav-links a{
+      display:inline-block;
+      padding:10px 14px;
+      border-radius:8px;
+      border:1px solid #073;
+      background:#001b12;
+      color:#00ff9c;
+      text-decoration:none;
+      font-weight:600;
+    }
+    .nav-links a:hover{
+      background:#003322;
+    }
+  </style>
 </head>
 <body>
   <div class="console" id="console">
     <h1>RailOps Admin Console</h1>
+
+    <div class="nav-links">
+      <a href="dashboard.html">Train Tracker</a>
+      <a href="flight-tracker.html">Flight Tracker</a>
+    </div>
+
     <div class="line">> status: OK</div>
     <div class="line">> sessions: auto-refresh every 60s</div>
     <div class="line">> backend: trains.json via GitHub Actions</div>
     <div class="line">> tips: type 'help' below</div>
+
     <div style="margin-top:16px">
       <input id="cmd" placeholder="enter command…" style="width:100%;padding:10px;border-radius:8px;border:1px solid #073;outline:0;background:#001b12;color:#00ff9c">
     </div>
@@ -20,13 +48,17 @@
 
   <script>
     const log = (t)=>{
-      const d=document.createElement('div'); d.className='line'; d.textContent=t;
+      const d=document.createElement('div');
+      d.className='line';
+      d.textContent=t;
       document.getElementById('console').appendChild(d);
       window.scrollTo(0,document.body.scrollHeight);
     };
+
     document.getElementById('cmd').addEventListener('keydown',e=>{
       if(e.key==='Enter'){
-        const v=e.target.value.trim(); e.target.value='';
+        const v=e.target.value.trim();
+        e.target.value='';
         if(!v) return;
         if(v==='help'){ log('help: users, tokens, purge, version'); }
         else if(v==='version'){ log('RailOps Admin v2.0'); }
