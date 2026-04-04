@@ -10,24 +10,24 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <title>RailOps — AU Live Map</title>
 
-<!-- Use LOCAL OpenLayers if possible -->
-<link rel="stylesheet" href="./ol/ol.css">
+<link rel="manifest" href="./manifest.json" />
+<link rel="apple-touch-icon" href="./icons/icon-180.png" />
 
-<!-- Fallback if you still want CDN instead, swap the line above for this:
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
--->
+<link rel="stylesheet" href="./ol/ol.css">
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root{
-  --panel-bg: #0b1522;
+  --panel-bg: rgba(8, 20, 38, 0.96);
   --panel-border: #2a4a7a;
   --panel-btn: #1e3a5f;
   --panel-btn-border: #3a6a9a;
   --accent: #ffaa00;
   --blue: #0b57cf;
-  --shadow: 0 6px 26px rgba(0,0,0,0.70);
+  --text: #ffffff;
+  --muted: #b8c9e8;
+  --shadow: 0 8px 28px rgba(0,0,0,0.55);
 
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -39,7 +39,7 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  font-family: 'Segoe UI', system-ui, sans-serif;
+  font-family: "Segoe UI", system-ui, sans-serif;
   background: #071326;
 }
 
@@ -48,31 +48,123 @@ body {
 }
 
 #map {
-  height: 100dvh;
+  position: fixed;
+  inset: 0;
   width: 100%;
+  height: 100dvh;
   background: #0a1a2a;
 }
 
+/* Shared glass look */
+.top-card,
 .toolbar,
 .status-bar,
 .search-box,
 .autocomplete-items,
 .layers-panel {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  opacity: 1 !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
-/* TOP LEFT */
+/* MOBILE SINGLE TOP CARD */
+.top-card {
+  position: absolute;
+  top: calc(var(--safe-top) + 8px);
+  left: calc(var(--safe-left) + 10px);
+  right: calc(var(--safe-right) + 10px);
+  z-index: 1000;
+  background: var(--panel-bg);
+  border: 1px solid var(--panel-border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  padding: 12px;
+  display: none;
+}
+
+.mobile-brand {
+  color: var(--accent);
+  font-size: 18px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+
+.mobile-controls-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.mobile-controls-grid button,
+.mobile-controls-grid select {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  border-radius: 18px;
+  border: 1px solid var(--panel-btn-border);
+  background: var(--panel-btn);
+  color: white;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 10px 12px;
+  outline: none;
+}
+
+#mobileLayersBtn {
+  grid-column: 1 / -1;
+}
+
+.mobile-search-wrap {
+  margin-bottom: 10px;
+}
+
+.mobile-status-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.mobile-last {
+  min-width: 0;
+  color: white;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.mobile-note,
+.mobile-count {
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.mobile-note {
+  background: #15283f;
+  border: 1px solid #2b4f80;
+  color: #cfe2ff;
+}
+
+.mobile-count {
+  background: var(--blue);
+  color: white;
+  min-width: 58px;
+  text-align: center;
+}
+
+/* DESKTOP FLOATING CONTROLS */
 .toolbar {
   position: absolute;
   top: calc(var(--safe-top) + 12px);
   left: calc(var(--safe-left) + 12px);
   z-index: 1000;
   background: var(--panel-bg);
-  color: white;
+  color: var(--text);
   padding: 10px 16px;
-  border-radius: 40px;
+  border-radius: 26px;
   box-shadow: var(--shadow);
   display: flex;
   gap: 12px;
@@ -80,47 +172,39 @@ body {
   border: 1px solid var(--panel-border);
   font-size: 14px;
   font-weight: 700;
-  max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
-  flex-wrap: wrap;
 }
 
-.toolbar button, .toolbar select {
+.toolbar button,
+.toolbar select {
   background: var(--panel-btn);
   color: white;
   border: 1px solid var(--panel-btn-border);
-  border-radius: 30px;
-  padding: 6px 16px;
-  font-size: 13px;
+  border-radius: 18px;
+  padding: 10px 14px;
+  font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: all 0.2s;
   outline: none;
-}
-
-.toolbar button:hover, .toolbar select:hover {
-  background: #2a4a7a;
-  border-color: #5a8aca;
+  min-height: 44px;
 }
 
 .toolbar select option {
   background: #0b1522;
   color: #ffffff;
-  font-weight: 700;
 }
 
-/* TOP CENTER */
 .search-container {
   position: absolute;
   top: calc(var(--safe-top) + 12px);
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  width: min(500px, calc(100vw - 24px - var(--safe-left) - var(--safe-right)));
+  width: min(520px, calc(100vw - 390px));
 }
 
 .search-box {
   background: var(--panel-bg);
-  border-radius: 40px;
+  border-radius: 24px;
   border: 1px solid var(--panel-border);
   display: flex;
   box-shadow: var(--shadow);
@@ -131,56 +215,66 @@ body {
   flex: 1;
   min-width: 0;
   background: #15283f;
-  border: 1px solid var(--panel-btn-border);
-  border-radius: 40px 0 0 40px;
-  padding: 10px 18px;
+  border: 0;
+  padding: 12px 16px;
   color: white;
   font-size: 16px;
   outline: none;
 }
 
-.search-box input::placeholder { color: #9ab0d0; }
+.search-box input::placeholder {
+  color: #9ab0d0;
+}
 
 .search-box button {
   background: var(--blue);
-  border: none;
-  border-radius: 0 40px 40px 0;
-  padding: 10px 22px;
+  border: 0;
+  padding: 12px 18px;
   color: white;
   font-weight: 900;
   cursor: pointer;
-  transition: 0.2s;
+  min-width: 120px;
+  font-size: 15px;
 }
-
-.search-box button:hover { filter: brightness(1.08); }
 
 .autocomplete-items {
   position: absolute;
-  top: calc(100% + 2px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 16px;
-  max-height: 320px;
+  max-height: 280px;
   overflow-y: auto;
   z-index: 1001;
   box-shadow: var(--shadow);
 }
 
 .autocomplete-item {
-  padding: 12px 16px;
+  padding: 12px 14px;
   color: white;
   cursor: pointer;
   border-bottom: 1px solid #1e3a5f;
   font-size: 13px;
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
-.autocomplete-item:hover { background: #13243a; }
-.autocomplete-item .train-id { font-weight: 900; color: #cfe2ff; }
+.autocomplete-item:last-child {
+  border-bottom: none;
+}
+
+.autocomplete-item:hover {
+  background: #13243a;
+}
+
+.autocomplete-item .train-id {
+  font-weight: 900;
+  color: #cfe2ff;
+}
+
 .autocomplete-item .train-loc {
   color: var(--accent);
   white-space: nowrap;
@@ -188,7 +282,6 @@ body {
   text-overflow: ellipsis;
 }
 
-/* TOP RIGHT */
 .status-bar {
   position: absolute;
   top: calc(var(--safe-top) + 12px);
@@ -196,29 +289,29 @@ body {
   z-index: 1000;
   background: var(--panel-bg);
   color: white;
-  padding: 8px 16px;
-  border-radius: 40px;
+  padding: 10px 14px;
+  border-radius: 24px;
   font-size: 13px;
   border: 1px solid var(--panel-border);
   display: flex;
   gap: 10px;
   align-items: center;
   box-shadow: var(--shadow);
-  max-width: calc(100vw - var(--safe-left) - var(--safe-right) - 24px);
-  flex-wrap: wrap;
 }
 
 .train-count {
   background: var(--blue);
-  padding: 2px 12px;
-  border-radius: 30px;
+  padding: 6px 12px;
+  border-radius: 999px;
   font-weight: 900;
+  min-width: 56px;
+  text-align: center;
 }
 
 .note-pill {
   background: #15283f;
   border: 1px solid #2b4f80;
-  padding: 2px 10px;
+  padding: 6px 10px;
   border-radius: 999px;
   font-weight: 800;
   color: #cfe2ff;
@@ -231,12 +324,12 @@ body {
   z-index: 1000;
   background: var(--panel-bg);
   color: white;
-  border-radius: 20px;
-  padding: 16px;
+  border-radius: 18px;
+  padding: 14px;
   border: 1px solid var(--panel-border);
-  width: min(280px, calc(100vw - 24px - var(--safe-left) - var(--safe-right)));
+  width: 280px;
   box-shadow: var(--shadow);
-  max-height: 70dvh;
+  max-height: 60dvh;
   overflow-y: auto;
 }
 
@@ -249,21 +342,28 @@ body {
   font-size: 13px;
 }
 
-.layer-row:last-child { border-bottom: none; }
-.section-title { color: #9ab0d0; font-size: 12px; margin: 12px 0 4px 0; }
+.layer-row:last-child {
+  border-bottom: none;
+}
+
+.section-title {
+  color: #9ab0d0;
+  font-size: 12px;
+  margin: 12px 0 4px 0;
+}
 
 .train-popup {
   position: absolute;
-  background: #0b1522;
+  background: rgba(9, 20, 38, 0.98);
   color: white;
   padding: 14px;
-  border-radius: 14px;
-  border: 2px solid var(--panel-border);
-  box-shadow: 0 10px 36px rgba(0,0,0,0.90);
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 10px 36px rgba(0,0,0,0.85);
   pointer-events: none;
   transform: translate(-50%, -100%);
-  min-width: 340px;
-  max-width: min(340px, calc(100vw - 24px));
+  min-width: 300px;
+  max-width: 340px;
   z-index: 10000;
 }
 
@@ -273,7 +373,7 @@ body {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  border-width: 10px;
+  border-width: 9px;
   border-style: solid;
   border-color: var(--panel-border) transparent transparent transparent;
 }
@@ -296,7 +396,7 @@ body {
 
 .popup-grid {
   display: grid;
-  grid-template-columns: 110px 1fr;
+  grid-template-columns: 100px 1fr;
   gap: 6px;
   font-size: 13px;
   margin: 6px 0;
@@ -304,6 +404,7 @@ body {
 
 .popup-label { color: #9ab0d0; font-weight: 800; }
 .popup-value { color: white; }
+
 .popup-badge {
   background: #15283f;
   border: 1px solid #2b4f80;
@@ -315,68 +416,100 @@ body {
   margin-top: 6px;
   color: #cfe2ff;
 }
-.popup-footer { display:flex; gap:6px; flex-wrap:wrap; margin-top:6px; }
 
-/* MOBILE STACK */
+.popup-footer {
+  display:flex;
+  gap:6px;
+  flex-wrap:wrap;
+  margin-top:6px;
+}
+
+/* MOBILE MODE */
 @media (max-width: 900px) {
+  .top-card {
+    display: block;
+  }
+
   .toolbar,
   .search-container,
   .status-bar {
-    left: calc(var(--safe-left) + 12px);
-    right: calc(var(--safe-right) + 12px);
-    transform: none;
+    display: none !important;
+  }
+
+  .layers-panel {
+    left: calc(var(--safe-left) + 10px);
+    right: calc(var(--safe-right) + 10px);
     width: auto;
-    max-width: none;
-  }
-
-  .toolbar {
-    top: calc(var(--safe-top) + 8px);
-  }
-
-  .search-container {
-    top: calc(var(--safe-top) + 86px);
-  }
-
-  .status-bar {
-    top: calc(var(--safe-top) + 160px);
-  }
-}
-
-@media (max-width: 520px) {
-  .toolbar {
-    padding: 10px 12px;
-    gap: 8px;
-    border-radius: 24px;
-  }
-
-  .toolbar button,
-  .toolbar select {
-    padding: 8px 12px;
-    font-size: 13px;
-  }
-
-  .search-box input,
-  .search-box button {
-    min-height: 48px;
-  }
-
-  .status-bar {
-    padding: 10px 12px;
-    border-radius: 24px;
+    bottom: calc(var(--safe-bottom) + 10px);
+    max-height: 48dvh;
   }
 
   .train-popup {
     min-width: unset;
+    max-width: min(300px, calc(100vw - 24px));
+    padding: 12px;
   }
 
   .popup-grid {
     grid-template-columns: 1fr;
+    gap: 4px;
+  }
+}
+
+@media (max-width: 520px) {
+  .mobile-controls-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mobile-status-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .mobile-note,
+  .mobile-count {
+    width: fit-content;
   }
 }
 </style>
 </head>
 
 <body>
+
+<div class="top-card" id="topCard">
+  <div class="mobile-brand">🚂 RailOps</div>
+
+  <div class="mobile-controls-grid">
+    <select id="mobileStateSelect">
+      <option value="au">🇦🇺 Australia</option>
+      <option value="nsw">📍 NSW</option>
+      <option value="vic">📍 VIC</option>
+      <option value="qld">📍 QLD</option>
+      <option value="sa">📍 SA</option>
+      <option value="wa">📍 WA</option>
+      <option value="tas">📍 TAS</option>
+      <option value="nt">📍 NT</option>
+    </select>
+
+    <button id="mobileLocateBtn">📍 My Location</button>
+    <button id="mobileLayersBtn">🗺️ Layers</button>
+  </div>
+
+  <div class="mobile-search-wrap">
+    <div class="search-box">
+      <input type="text" id="mobileSearchInput" placeholder="Search train, loco, origin, destination...">
+      <button id="mobileSearchBtn">🔍 Search</button>
+    </div>
+    <div id="mobileAutocompleteList" class="autocomplete-items" style="display:none;"></div>
+  </div>
+
+  <div class="mobile-status-row">
+    <div class="mobile-last" id="mobileLastUpdate">Loading...</div>
+    <div class="mobile-note" id="mobileStatusNote">…</div>
+    <div class="mobile-count" id="mobileTrainCount">0</div>
+  </div>
+</div>
+
 <div class="toolbar" id="toolbar">
   <span style="font-weight:900; color:var(--accent)">🚂 RailOps</span>
   <select id="stateSelect">
@@ -422,10 +555,7 @@ body {
 
 <div id="map"></div>
 
-<!-- LOCAL OpenLayers -->
 <script src="./ol/ol.js"></script>
-
-<!-- Fallback to CDN only if local ol.js failed -->
 <script>
 if (typeof window.ol === "undefined") {
   document.write('<script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"><\/script>');
@@ -440,6 +570,10 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
+
+function isMobileLayout() {
+  return window.matchMedia("(max-width: 900px)").matches;
+}
 
 function isJunkId(s){
   if (!s) return true;
@@ -507,12 +641,14 @@ const map = new ol.Map({
     maxZoom: 18
   })
 });
+
 map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
 const railLayer = new ol.layer.Tile({
   source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
   visible: true, zIndex: 1
 });
+
 railLayer.on('prerender', (e)=>{ if (e.context) e.context.filter='hue-rotate(200deg) brightness(0.95) saturate(1.6)'; });
 railLayer.on('postrender', (e)=>{ if (e.context) e.context.filter='none'; });
 
@@ -534,6 +670,7 @@ function createAcccLayer(id) {
     opacity: 0.45, visible: false, zIndex: 3
   });
 }
+
 const covTelstra = createAcccLayer(25);
 const covOptus   = createAcccLayer(15);
 const covTPG     = createAcccLayer(33);
@@ -549,6 +686,7 @@ const trainLayer = new ol.layer.Vector({
     const train = feature.get('train_data') || {};
     const label = buildLabel(train);
     const speed = Number(train.speed || 0);
+    const zoom = map.getView().getZoom() || 4;
 
     let dotColor = '#ffaa00';
     if (speed > 80) dotColor = '#ff4444';
@@ -558,14 +696,14 @@ const trainLayer = new ol.layer.Vector({
     const styles = [
       new ol.style.Style({
         image: new ol.style.Circle({
-          radius: 7,
+          radius: isMobileLayout() ? 6 : 7,
           fill: new ol.style.Fill({ color: dotColor }),
           stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
         })
       })
     ];
 
-    if (label && !isJunkId(label)) {
+    if (label && !isJunkId(label) && zoom >= 7) {
       styles.push(new ol.style.Style({
         text: new ol.style.Text({
           text: label,
@@ -578,23 +716,42 @@ const trainLayer = new ol.layer.Vector({
         })
       }));
     }
+
     return styles;
   }
 });
+
 map.addLayer(trainLayer);
 
 let allTrains = [];
 let lastGoodTrains = [];
 let lastGoodUpdatedISO = null;
 let consecutiveEmpty = 0;
+let popupOverlay = null;
+let desktopDebounceTimer;
+let mobileDebounceTimer;
 
-async function loadRealTrains() {
-  const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
+function setStatusUI(lastText, noteText, countText) {
   const lastUpdateEl = document.getElementById('lastUpdate');
   const statusNoteEl = document.getElementById('statusNote');
   const trainCountEl = document.getElementById('trainCount');
 
-  lastUpdateEl.textContent = 'Loading...';
+  const mobileLastUpdateEl = document.getElementById('mobileLastUpdate');
+  const mobileStatusNoteEl = document.getElementById('mobileStatusNote');
+  const mobileTrainCountEl = document.getElementById('mobileTrainCount');
+
+  if (lastUpdateEl) lastUpdateEl.textContent = lastText;
+  if (statusNoteEl) statusNoteEl.textContent = noteText;
+  if (trainCountEl) trainCountEl.textContent = countText;
+
+  if (mobileLastUpdateEl) mobileLastUpdateEl.textContent = lastText;
+  if (mobileStatusNoteEl) mobileStatusNoteEl.textContent = noteText;
+  if (mobileTrainCountEl) mobileTrainCountEl.textContent = countText;
+}
+
+async function loadRealTrains() {
+  const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
+  setStatusUI('Loading...', '…', '0');
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -608,14 +765,16 @@ async function loadRealTrains() {
     const updatedISO = data.lastUpdated || null;
 
     const localTs = updatedISO ? formatLocal(updatedISO) : formatLocal(new Date());
-    lastUpdateEl.textContent = localTs ? `Last: ${localTs}` : 'Last: (unknown)';
-    statusNoteEl.textContent = (data.note || 'ok').toString();
+    const statusText = (data.note || 'ok').toString();
 
     if (trains.length === 0) {
       consecutiveEmpty += 1;
       if (lastGoodTrains.length > 0 && consecutiveEmpty < 3) {
-        trainCountEl.textContent = lastGoodTrains.length;
-        statusNoteEl.textContent = `empty payload (${consecutiveEmpty}) — keeping last good`;
+        setStatusUI(
+          localTs ? `Last: ${localTs}` : 'Last: (unknown)',
+          `empty payload (${consecutiveEmpty}) — keeping last good`,
+          String(lastGoodTrains.length)
+        );
         return;
       }
     } else {
@@ -628,7 +787,12 @@ async function loadRealTrains() {
       lastGoodUpdatedISO = updatedISO;
     }
 
-    trainCountEl.textContent = trains.length;
+    setStatusUI(
+      localTs ? `Last: ${localTs}` : 'Last: (unknown)',
+      statusText,
+      String(trains.length)
+    );
+
     trainSource.clear();
 
     trains.forEach(train => {
@@ -647,21 +811,24 @@ async function loadRealTrains() {
       trainSource.addFeature(feature);
     });
 
+    trainLayer.changed();
+
   } catch (err) {
     console.error('❌ Failed to load trains:', err);
-    statusNoteEl.textContent = 'error (keeping last good)';
     if (lastGoodUpdatedISO) {
-      lastUpdateEl.textContent = `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`;
-      trainCountEl.textContent = lastGoodTrains.length;
+      setStatusUI(
+        `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`,
+        'error (keeping last good)',
+        String(lastGoodTrains.length)
+      );
     } else {
-      lastUpdateEl.textContent = '⚠️ Update failed';
+      setStatusUI('⚠️ Update failed', 'error', '0');
     }
   } finally {
     clearTimeout(timeoutId);
   }
 }
 
-let popupOverlay = null;
 function removePopup() {
   if (popupOverlay) {
     map.removeOverlay(popupOverlay);
@@ -669,11 +836,7 @@ function removePopup() {
   }
 }
 
-map.on('pointermove', function(evt){
-  const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
-    return layer === trainLayer ? f : null;
-  });
-
+function showTrainPopup(feature) {
   removePopup();
   if (!feature) return;
 
@@ -682,7 +845,6 @@ map.on('pointermove', function(evt){
   if (!label || isJunkId(label)) return;
 
   const coords = feature.getGeometry().getCoordinates();
-
   const origin = train.origin || train.serviceFrom || '';
   const dest   = train.destination || train.serviceTo || '';
   const speed  = Number(train.speed || 0);
@@ -716,24 +878,55 @@ map.on('pointermove', function(evt){
     positioning: 'bottom-center',
     offset: [0, -12]
   });
+
   map.addOverlay(popupOverlay);
+}
+
+map.on('click', function(evt){
+  const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
+    return layer === trainLayer ? f : null;
+  });
+  showTrainPopup(feature);
 });
 
-const searchInput = document.getElementById('searchInput');
-const autocompleteList = document.getElementById('autocompleteList');
-let debounceTimer;
+map.on('pointermove', function(evt){
+  if ('ontouchstart' in window) return;
+  const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
+    return layer === trainLayer ? f : null;
+  });
+  showTrainPopup(feature);
+});
+
+function getSearchElements() {
+  if (isMobileLayout()) {
+    return {
+      input: document.getElementById('mobileSearchInput'),
+      button: document.getElementById('mobileSearchBtn'),
+      list: document.getElementById('mobileAutocompleteList')
+    };
+  }
+  return {
+    input: document.getElementById('searchInput'),
+    button: document.getElementById('searchBtn'),
+    list: document.getElementById('autocompleteList')
+  };
+}
 
 function displayId(train){
   return buildLabel(train);
 }
 
 function hideAutocomplete(){
-  autocompleteList.style.display = 'none';
+  document.getElementById('autocompleteList').style.display = 'none';
+  document.getElementById('mobileAutocompleteList').style.display = 'none';
 }
 
-function updateAutocomplete(){
-  const query = searchInput.value.trim().toLowerCase();
-  if (query.length < 2) { hideAutocomplete(); return; }
+function updateAutocompleteFor(inputEl, listEl){
+  const query = inputEl.value.trim().toLowerCase();
+  if (query.length < 2) {
+    listEl.style.display = 'none';
+    return;
+  }
 
   const matches = [];
   const seen = new Set();
@@ -761,9 +954,12 @@ function updateAutocomplete(){
     }
   }
 
-  if (matches.length === 0) { hideAutocomplete(); return; }
+  if (matches.length === 0) {
+    listEl.style.display = 'none';
+    return;
+  }
 
-  autocompleteList.innerHTML = '';
+  listEl.innerHTML = '';
   matches.slice(0, 10).forEach(match => {
     const item = document.createElement('div');
     item.className = 'autocomplete-item';
@@ -771,28 +967,42 @@ function updateAutocomplete(){
     const d = match.full.destination || match.full.serviceTo || '';
     item.innerHTML = `<span class="train-id">${match.id}</span><span class="train-loc">${o} → ${d}</span>`;
     item.addEventListener('click', () => {
-      searchInput.value = match.id;
-      hideAutocomplete();
+      inputEl.value = match.id;
+      listEl.style.display = 'none';
       flyToTrain(match.lat, match.lon);
     });
-    autocompleteList.appendChild(item);
+    listEl.appendChild(item);
   });
 
-  autocompleteList.style.display = 'block';
+  listEl.style.display = 'block';
 }
 
-searchInput.addEventListener('input', () => {
-  clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(updateAutocomplete, 180);
-});
+function wireSearchBox(inputId, buttonId, listId, isMobile) {
+  const input = document.getElementById(inputId);
+  const button = document.getElementById(buttonId);
+  const list = document.getElementById(listId);
+
+  input.addEventListener('input', () => {
+    clearTimeout(isMobile ? mobileDebounceTimer : desktopDebounceTimer);
+    const timer = setTimeout(() => updateAutocompleteFor(input, list), 180);
+    if (isMobile) mobileDebounceTimer = timer;
+    else desktopDebounceTimer = timer;
+  });
+
+  input.addEventListener('keypress', e => {
+    if (e.key === 'Enter') searchTrainsFromInput(input);
+  });
+
+  button.addEventListener('click', () => searchTrainsFromInput(input));
+}
 
 function flyToTrain(lat, lon){
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
   map.getView().animate({ center: ol.proj.fromLonLat([lon, lat]), zoom: 12, duration: 850 });
 }
 
-function searchTrains(){
-  const query = searchInput.value.trim().toLowerCase();
+function searchTrainsFromInput(inputEl){
+  const query = inputEl.value.trim().toLowerCase();
   if (!query) return;
 
   for (const train of allTrains){
@@ -811,6 +1021,7 @@ function searchTrains(){
       return;
     }
   }
+
   alert('No trains found matching: ' + query);
 }
 
@@ -839,13 +1050,29 @@ function zoomToCurrent(){
   });
 }
 
-document.getElementById('stateSelect').addEventListener('change', e => zoomTo(e.target.value));
+function syncStateSelect(value) {
+  document.getElementById('stateSelect').value = value;
+  document.getElementById('mobileStateSelect').value = value;
+}
+
+document.getElementById('stateSelect').addEventListener('change', e => {
+  syncStateSelect(e.target.value);
+  zoomTo(e.target.value);
+});
+
+document.getElementById('mobileStateSelect').addEventListener('change', e => {
+  syncStateSelect(e.target.value);
+  zoomTo(e.target.value);
+});
+
 document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
+document.getElementById('mobileLocateBtn').addEventListener('click', zoomToCurrent);
 
 function toggleLayersPanel(){
   const panel = document.getElementById('layersPanel');
   panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
 }
+
 function hideLayersPanel(){
   document.getElementById('layersPanel').style.display = 'none';
 }
@@ -855,8 +1082,10 @@ document.getElementById('layersToggleBtn').addEventListener('click', (e) => {
   toggleLayersPanel();
 });
 
-document.getElementById('searchBtn').addEventListener('click', searchTrains);
-searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchTrains(); });
+document.getElementById('mobileLayersBtn').addEventListener('click', (e) => {
+  e.stopPropagation();
+  toggleLayersPanel();
+});
 
 document.getElementById('trainLayerChk').addEventListener('change', e => trainLayer.setVisible(e.target.checked));
 document.getElementById('railLayerChk').addEventListener('change', e => railLayer.setVisible(e.target.checked));
@@ -869,23 +1098,25 @@ document.getElementById('covAllChk').addEventListener('change', e => covAll.setV
 document.addEventListener('click', (e) => {
   const layersPanel = document.getElementById('layersPanel');
   const layersBtn = document.getElementById('layersToggleBtn');
+  const mobileLayersBtn = document.getElementById('mobileLayersBtn');
   const searchContainer = document.getElementById('searchContainer');
-  const toolbar = document.getElementById('toolbar');
+  const topCard = document.getElementById('topCard');
 
   if (layersPanel.style.display !== 'none') {
     const clickedInsidePanel = layersPanel.contains(e.target);
-    const clickedLayersBtn = layersBtn.contains(e.target);
-    if (!clickedInsidePanel && !clickedLayersBtn) hideLayersPanel();
+    const clickedDesktopBtn = layersBtn.contains(e.target);
+    const clickedMobileBtn = mobileLayersBtn.contains(e.target);
+    if (!clickedInsidePanel && !clickedDesktopBtn && !clickedMobileBtn) hideLayersPanel();
   }
 
-  if (autocompleteList.style.display !== 'none') {
-    const clickedInsideSearch = searchContainer.contains(e.target);
-    if (!clickedInsideSearch) hideAutocomplete();
+  if (document.getElementById('autocompleteList').style.display !== 'none') {
+    const clickedInsideDesktopSearch = searchContainer.contains(e.target);
+    if (!clickedInsideDesktopSearch) document.getElementById('autocompleteList').style.display = 'none';
   }
 
-  const stateSelect = document.getElementById('stateSelect');
-  if (stateSelect && !stateSelect.contains(e.target) && toolbar && !toolbar.contains(e.target)) {
-    try { stateSelect.blur(); } catch {}
+  if (document.getElementById('mobileAutocompleteList').style.display !== 'none') {
+    const clickedInsideMobileSearch = topCard.contains(e.target);
+    if (!clickedInsideMobileSearch) document.getElementById('mobileAutocompleteList').style.display = 'none';
   }
 });
 
@@ -893,12 +1124,33 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     hideAutocomplete();
     hideLayersPanel();
+    removePopup();
   }
+});
+
+wireSearchBox('searchInput', 'searchBtn', 'autocompleteList', false);
+wireSearchBox('mobileSearchInput', 'mobileSearchBtn', 'mobileAutocompleteList', true);
+
+window.addEventListener('resize', () => {
+  trainLayer.changed();
+  hideAutocomplete();
+  removePopup();
 });
 
 loadRealTrains();
 setInterval(loadRealTrains, 30000);
 zoomTo('au');
 </script>
+
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js")
+      .then(() => console.log("Service worker registered"))
+      .catch((err) => console.error("Service worker registration failed:", err));
+  });
+}
+</script>
+
 </body>
 </html>
