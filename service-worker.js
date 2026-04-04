@@ -1,13 +1,14 @@
-const CACHE_NAME = "railops-cache-v1";
+const CACHE_NAME = "railops-pwa-v1";
+
 const APP_SHELL = [
   "./",
   "./dashboard.html",
-  "./styles.css",
-  "./main.js",
   "./manifest.json",
   "./icons/icon-180.png",
   "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/icon-512.png",
+  "./ol/ol.css",
+  "./ol/ol.js"
 ];
 
 self.addEventListener("install", (event) => {
@@ -25,7 +26,6 @@ self.addEventListener("activate", (event) => {
           if (key !== CACHE_NAME) {
             return caches.delete(key);
           }
-          return null;
         })
       )
     )
@@ -46,14 +46,17 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(
     caches.match(req).then((cached) => {
-      return (
-        cached ||
-        fetch(req).then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+      if (cached) return cached;
+
+      return fetch(req).then((response) => {
+        if (!response || response.status !== 200 || response.type !== "basic") {
           return response;
-        })
-      );
+        }
+
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
+        return response;
+      });
     })
   );
 });
