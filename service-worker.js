@@ -1,4 +1,4 @@
-const CACHE_NAME = "railops-pwa-v1";
+const CACHE_NAME = "railops-pwa-v2";
 
 const APP_SHELL = [
   "./",
@@ -49,10 +49,7 @@ self.addEventListener("fetch", (event) => {
       if (cached) return cached;
 
       return fetch(req).then((response) => {
-        if (!response || response.status !== 200 || response.type !== "basic") {
-          return response;
-        }
-
+        if (!response || response.status !== 200) return response;
         const copy = response.clone();
         caches.open(CACHE_NAME).then((cache) => cache.put(req, copy));
         return response;
