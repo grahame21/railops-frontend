@@ -12,8 +12,7 @@
 
 <link rel="manifest" href="./manifest.json" />
 <link rel="apple-touch-icon" href="./icons/icon-180.png" />
-
-<link rel="stylesheet" href="./ol/ol.css">
+<link rel="stylesheet" href="./ol/ol.css" />
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -55,7 +54,6 @@ body {
   background: #0a1a2a;
 }
 
-/* Shared glass look */
 .top-card,
 .toolbar,
 .status-bar,
@@ -66,7 +64,7 @@ body {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* MOBILE SINGLE TOP CARD */
+/* Mobile compact top panel */
 .top-card {
   position: absolute;
   top: calc(var(--safe-top) + 8px);
@@ -75,38 +73,40 @@ body {
   z-index: 1000;
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
-  border-radius: 24px;
+  border-radius: 18px;
   box-shadow: var(--shadow);
-  padding: 12px;
+  padding: 8px;
   display: none;
 }
 
 .mobile-brand {
   color: var(--accent);
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 900;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  line-height: 1.1;
 }
 
 .mobile-controls-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .mobile-controls-grid button,
 .mobile-controls-grid select {
   width: 100%;
   min-width: 0;
-  min-height: 48px;
-  border-radius: 18px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 14px;
   border: 1px solid var(--panel-btn-border);
   background: var(--panel-btn);
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
-  padding: 10px 12px;
+  padding: 6px 10px;
   outline: none;
 }
 
@@ -115,30 +115,73 @@ body {
 }
 
 .mobile-search-wrap {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+}
+
+.search-box {
+  background: var(--panel-bg);
+  border-radius: 16px;
+  border: 1px solid var(--panel-border);
+  display: flex;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  background: #15283f;
+  border: 0;
+  padding: 8px 12px;
+  color: white;
+  font-size: 15px;
+  outline: none;
+  height: 42px;
+}
+
+.search-box input::placeholder {
+  color: #9ab0d0;
+}
+
+.search-box button {
+  background: var(--blue);
+  border: 0;
+  padding: 8px 12px;
+  color: white;
+  font-weight: 900;
+  cursor: pointer;
+  min-width: 88px;
+  font-size: 14px;
+  height: 42px;
 }
 
 .mobile-status-row {
   display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 6px;
   align-items: center;
 }
 
 .mobile-last {
   min-width: 0;
   color: white;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
+}
+
+.mobile-status-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .mobile-note,
 .mobile-count {
   white-space: nowrap;
   border-radius: 999px;
-  padding: 8px 12px;
-  font-size: 14px;
+  padding: 6px 10px;
+  font-size: 13px;
   font-weight: 900;
 }
 
@@ -155,7 +198,7 @@ body {
   text-align: center;
 }
 
-/* DESKTOP FLOATING CONTROLS */
+/* Desktop controls */
 .toolbar {
   position: absolute;
   top: calc(var(--safe-top) + 12px);
@@ -200,41 +243,6 @@ body {
   transform: translateX(-50%);
   z-index: 1000;
   width: min(520px, calc(100vw - 390px));
-}
-
-.search-box {
-  background: var(--panel-bg);
-  border-radius: 24px;
-  border: 1px solid var(--panel-border);
-  display: flex;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
-
-.search-box input {
-  flex: 1;
-  min-width: 0;
-  background: #15283f;
-  border: 0;
-  padding: 12px 16px;
-  color: white;
-  font-size: 16px;
-  outline: none;
-}
-
-.search-box input::placeholder {
-  color: #9ab0d0;
-}
-
-.search-box button {
-  background: var(--blue);
-  border: 0;
-  padding: 12px 18px;
-  color: white;
-  font-weight: 900;
-  cursor: pointer;
-  min-width: 120px;
-  font-size: 15px;
 }
 
 .autocomplete-items {
@@ -356,14 +364,14 @@ body {
   position: absolute;
   background: rgba(9, 20, 38, 0.98);
   color: white;
-  padding: 14px;
-  border-radius: 16px;
+  padding: 12px;
+  border-radius: 14px;
   border: 1px solid var(--panel-border);
   box-shadow: 0 10px 36px rgba(0,0,0,0.85);
   pointer-events: none;
   transform: translate(-50%, -100%);
-  min-width: 300px;
-  max-width: 340px;
+  min-width: 260px;
+  max-width: min(320px, calc(100vw - 24px));
   z-index: 10000;
 }
 
@@ -379,7 +387,7 @@ body {
 }
 
 .popup-header {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 900;
   color: var(--accent);
   margin-bottom: 6px;
@@ -388,17 +396,17 @@ body {
 }
 
 .popup-subheader {
-  font-size: 13px;
+  font-size: 12px;
   color: #9ab0d0;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   font-style: italic;
 }
 
 .popup-grid {
   display: grid;
-  grid-template-columns: 100px 1fr;
-  gap: 6px;
-  font-size: 13px;
+  grid-template-columns: 1fr;
+  gap: 4px;
+  font-size: 12px;
   margin: 6px 0;
 }
 
@@ -424,7 +432,7 @@ body {
   margin-top:6px;
 }
 
-/* MOBILE MODE */
+/* Mobile */
 @media (max-width: 900px) {
   .top-card {
     display: block;
@@ -441,34 +449,36 @@ body {
     right: calc(var(--safe-right) + 10px);
     width: auto;
     bottom: calc(var(--safe-bottom) + 10px);
-    max-height: 48dvh;
-  }
-
-  .train-popup {
-    min-width: unset;
-    max-width: min(300px, calc(100vw - 24px));
-    padding: 12px;
-  }
-
-  .popup-grid {
-    grid-template-columns: 1fr;
-    gap: 4px;
+    max-height: 45dvh;
   }
 }
 
-@media (max-width: 520px) {
-  .mobile-controls-grid {
-    grid-template-columns: 1fr;
+/* Desktop */
+@media (min-width: 901px) {
+  .top-card {
+    display: none !important;
   }
 
-  .mobile-status-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
+  .popup-grid {
+    grid-template-columns: 100px 1fr;
+    gap: 6px;
+    font-size: 13px;
   }
 
-  .mobile-note,
-  .mobile-count {
-    width: fit-content;
+  .popup-header {
+    font-size: 16px;
+  }
+
+  .popup-subheader,
+  .popup-badge {
+    font-size: 13px;
+  }
+
+  .train-popup {
+    min-width: 300px;
+    max-width: 340px;
+    padding: 14px;
+    border-radius: 16px;
   }
 }
 </style>
@@ -505,8 +515,10 @@ body {
 
   <div class="mobile-status-row">
     <div class="mobile-last" id="mobileLastUpdate">Loading...</div>
-    <div class="mobile-note" id="mobileStatusNote">…</div>
-    <div class="mobile-count" id="mobileTrainCount">0</div>
+    <div class="mobile-status-pills">
+      <div class="mobile-note" id="mobileStatusNote">…</div>
+      <div class="mobile-count" id="mobileTrainCount">0</div>
+    </div>
   </div>
 </div>
 
@@ -559,12 +571,6 @@ body {
 <script>
 if (typeof window.ol === "undefined") {
   document.write('<script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"><\/script>');
-}
-</script>
-
-<script>
-if (typeof window.ol === "undefined") {
-  alert("OpenLayers failed to load. Upload ./ol/ol.js and ./ol/ol.css to your site.");
 }
 </script>
 
@@ -629,6 +635,7 @@ function formatLocal(dt){
 }
 
 if (typeof window.ol === "undefined") {
+  alert("OpenLayers failed to load. Upload ./ol/ol.js and ./ol/ol.css to your site.");
   throw new Error("OpenLayers still missing");
 }
 
@@ -646,7 +653,8 @@ map.getView().on('change:rotation', () => map.getView().setRotation(0));
 
 const railLayer = new ol.layer.Tile({
   source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
-  visible: true, zIndex: 1
+  visible: true,
+  zIndex: 1
 });
 
 railLayer.on('prerender', (e)=>{ if (e.context) e.context.filter='hue-rotate(200deg) brightness(0.95) saturate(1.6)'; });
@@ -654,20 +662,24 @@ railLayer.on('postrender', (e)=>{ if (e.context) e.context.filter='none'; });
 
 const stationsLayer = new ol.layer.Tile({
   source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png' }),
-  visible: true, zIndex: 2
+  visible: true,
+  zIndex: 2
 });
 
 map.addLayer(railLayer);
 map.addLayer(stationsLayer);
 
 const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
+
 function createAcccLayer(id) {
   return new ol.layer.Tile({
     source: new ol.source.TileArcGISRest({
       url: ACCC_URL,
       params: { layers: `show:${id}`, dpi: 96, transparent: true, format: 'png32' }
     }),
-    opacity: 0.45, visible: false, zIndex: 3
+    opacity: 0.45,
+    visible: false,
+    zIndex: 3
   });
 }
 
@@ -732,21 +744,13 @@ let desktopDebounceTimer;
 let mobileDebounceTimer;
 
 function setStatusUI(lastText, noteText, countText) {
-  const lastUpdateEl = document.getElementById('lastUpdate');
-  const statusNoteEl = document.getElementById('statusNote');
-  const trainCountEl = document.getElementById('trainCount');
+  document.getElementById('lastUpdate').textContent = lastText;
+  document.getElementById('statusNote').textContent = noteText;
+  document.getElementById('trainCount').textContent = countText;
 
-  const mobileLastUpdateEl = document.getElementById('mobileLastUpdate');
-  const mobileStatusNoteEl = document.getElementById('mobileStatusNote');
-  const mobileTrainCountEl = document.getElementById('mobileTrainCount');
-
-  if (lastUpdateEl) lastUpdateEl.textContent = lastText;
-  if (statusNoteEl) statusNoteEl.textContent = noteText;
-  if (trainCountEl) trainCountEl.textContent = countText;
-
-  if (mobileLastUpdateEl) mobileLastUpdateEl.textContent = lastText;
-  if (mobileStatusNoteEl) mobileStatusNoteEl.textContent = noteText;
-  if (mobileTrainCountEl) mobileTrainCountEl.textContent = countText;
+  document.getElementById('mobileLastUpdate').textContent = lastText;
+  document.getElementById('mobileStatusNote').textContent = noteText;
+  document.getElementById('mobileTrainCount').textContent = countText;
 }
 
 async function loadRealTrains() {
@@ -772,7 +776,7 @@ async function loadRealTrains() {
       if (lastGoodTrains.length > 0 && consecutiveEmpty < 3) {
         setStatusUI(
           localTs ? `Last: ${localTs}` : 'Last: (unknown)',
-          `empty payload (${consecutiveEmpty}) — keeping last good`,
+          `empty payload (${consecutiveEmpty})`,
           String(lastGoodTrains.length)
         );
         return;
@@ -814,15 +818,15 @@ async function loadRealTrains() {
     trainLayer.changed();
 
   } catch (err) {
-    console.error('❌ Failed to load trains:', err);
+    console.error('Failed to load trains:', err);
     if (lastGoodUpdatedISO) {
       setStatusUI(
         `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`,
-        'error (keeping last good)',
+        'error',
         String(lastGoodTrains.length)
       );
     } else {
-      setStatusUI('⚠️ Update failed', 'error', '0');
+      setStatusUI('Update failed', 'error', '0');
     }
   } finally {
     clearTimeout(timeoutId);
@@ -862,9 +866,9 @@ function showTrainPopup(feature) {
     <div class="popup-subheader">Updated: ${popupUpdated || 'Unknown'}</div>
     ${desc ? `<div class="popup-subheader">${desc}</div>` : ''}
     <div class="popup-grid">
-      <span class="popup-label">Origin:</span><span class="popup-value">${origin || 'Unknown'}</span>
-      <span class="popup-label">Destination:</span><span class="popup-value">${dest || 'Unknown'}</span>
-      <span class="popup-label">Current KM:</span><span class="popup-value">${km || 'Unknown'}</span>
+      <div><span class="popup-label">Origin:</span> <span class="popup-value">${origin || 'Unknown'}</span></div>
+      <div><span class="popup-label">Destination:</span> <span class="popup-value">${dest || 'Unknown'}</span></div>
+      <div><span class="popup-label">Current KM:</span> <span class="popup-value">${km || 'Unknown'}</span></div>
     </div>
     <div class="popup-footer">
       ${getLoco(train) ? `<span class="popup-badge">Loco: ${getLoco(train)}</span>` : ''}
@@ -882,35 +886,25 @@ function showTrainPopup(feature) {
   map.addOverlay(popupOverlay);
 }
 
-map.on('click', function(evt){
+map.on('singleclick', function(evt){
   const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
     return layer === trainLayer ? f : null;
   });
-  showTrainPopup(feature);
+
+  if (feature) showTrainPopup(feature);
+  else removePopup();
 });
 
 map.on('pointermove', function(evt){
   if ('ontouchstart' in window) return;
+
   const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
     return layer === trainLayer ? f : null;
   });
-  showTrainPopup(feature);
-});
 
-function getSearchElements() {
-  if (isMobileLayout()) {
-    return {
-      input: document.getElementById('mobileSearchInput'),
-      button: document.getElementById('mobileSearchBtn'),
-      list: document.getElementById('mobileAutocompleteList')
-    };
-  }
-  return {
-    input: document.getElementById('searchInput'),
-    button: document.getElementById('searchBtn'),
-    list: document.getElementById('autocompleteList')
-  };
-}
+  if (feature) showTrainPopup(feature);
+  else removePopup();
+});
 
 function displayId(train){
   return buildLabel(train);
