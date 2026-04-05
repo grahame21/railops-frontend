@@ -833,26 +833,44 @@ const trainLayer = new ol.layer.Vector({
     else if (speed > 30) dotColor = '#00cc00';
     else if (speed > 0) dotColor = '#44ff44';
 
+    let radius = 7;
+    if (zoom <= 5) radius = 5;
+    else if (zoom <= 7) radius = 6;
+
     const styles = [
       new ol.style.Style({
         image: new ol.style.Circle({
-          radius: isMobileLayout() ? 6 : 7,
+          radius: isMobileLayout() ? Math.max(4, radius - 1) : radius,
           fill: new ol.style.Fill({ color: dotColor }),
           stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
         })
       })
     ];
 
-    if (label && !isJunkId(label) && zoom >= 7) {
+    if (label && !isJunkId(label) && zoom >= 5) {
+      let fontSize = 11;
+      let offsetY = -18;
+      let padding = [2, 8, 2, 8];
+
+      if (zoom <= 5.5) {
+        fontSize = 9;
+        offsetY = -14;
+        padding = [1, 5, 1, 5];
+      } else if (zoom <= 7) {
+        fontSize = 10;
+        offsetY = -16;
+        padding = [2, 6, 2, 6];
+      }
+
       styles.push(new ol.style.Style({
         text: new ol.style.Text({
           text: label,
-          font: 'bold 11px monospace',
+          font: `bold ${fontSize}px monospace`,
           fill: new ol.style.Fill({ color: '#ffaa00' }),
           stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
-          offsetY: -18,
+          offsetY: offsetY,
           backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.92)' }),
-          padding: [2, 8, 2, 8]
+          padding: padding
         })
       }));
     }
