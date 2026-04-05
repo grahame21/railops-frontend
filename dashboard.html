@@ -64,7 +64,6 @@ body {
   -webkit-backdrop-filter: blur(10px);
 }
 
-/* Mobile compact top panel */
 .top-card {
   position: absolute;
   top: calc(var(--safe-top) + 8px);
@@ -198,7 +197,6 @@ body {
   text-align: center;
 }
 
-/* Desktop controls */
 .toolbar {
   position: absolute;
   top: calc(var(--safe-top) + 12px);
@@ -368,10 +366,10 @@ body {
   border-radius: 14px;
   border: 1px solid var(--panel-border);
   box-shadow: 0 10px 36px rgba(0,0,0,0.85);
-  pointer-events: none;
+  pointer-events: auto;
   transform: translate(-50%, -100%);
-  min-width: 260px;
-  max-width: min(320px, calc(100vw - 24px));
+  min-width: 280px;
+  max-width: min(360px, calc(100vw - 24px));
   z-index: 10000;
 }
 
@@ -387,7 +385,7 @@ body {
 }
 
 .popup-header {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 900;
   color: var(--accent);
   margin-bottom: 6px;
@@ -404,14 +402,21 @@ body {
 
 .popup-grid {
   display: grid;
-  grid-template-columns: 1fr;
-  gap: 4px;
+  grid-template-columns: 120px 1fr;
+  gap: 6px;
   font-size: 12px;
   margin: 6px 0;
 }
 
-.popup-label { color: #9ab0d0; font-weight: 800; }
-.popup-value { color: white; }
+.popup-label {
+  color: #9ab0d0;
+  font-weight: 800;
+}
+
+.popup-value {
+  color: white;
+  word-break: break-word;
+}
 
 .popup-badge {
   background: #15283f;
@@ -429,10 +434,23 @@ body {
   display:flex;
   gap:6px;
   flex-wrap:wrap;
-  margin-top:6px;
+  margin-top:8px;
 }
 
-/* Mobile */
+.popup-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #163456;
+  border: 1px solid #2b4f80;
+  color: white;
+  border-radius: 10px;
+  width: 28px;
+  height: 28px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
 @media (max-width: 900px) {
   .top-card {
     display: block;
@@ -451,34 +469,21 @@ body {
     bottom: calc(var(--safe-bottom) + 10px);
     max-height: 45dvh;
   }
-}
-
-/* Desktop */
-@media (min-width: 901px) {
-  .top-card {
-    display: none !important;
-  }
 
   .popup-grid {
-    grid-template-columns: 100px 1fr;
-    gap: 6px;
-    font-size: 13px;
-  }
-
-  .popup-header {
-    font-size: 16px;
-  }
-
-  .popup-subheader,
-  .popup-badge {
-    font-size: 13px;
+    grid-template-columns: 1fr;
+    gap: 4px;
   }
 
   .train-popup {
-    min-width: 300px;
-    max-width: 340px;
-    padding: 14px;
-    border-radius: 16px;
+    min-width: 260px;
+    max-width: calc(100vw - 20px);
+  }
+}
+
+@media (min-width: 901px) {
+  .top-card {
+    display: none !important;
   }
 }
 </style>
@@ -576,6 +581,17 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
+const REVERSE_GEOCODE_ENABLED = true;
+
+const reverseGeoCache = new Map();
+let popupOverlay = null;
+let popupRequestId = 0;
+let allTrains = [];
+let lastGoodTrains = [];
+let lastGoodUpdatedISO = null;
+let consecutiveEmpty = 0;
+let desktopDebounceTimer;
+let mobileDebounceTimer;
 
 function isMobileLayout() {
   return window.matchMedia("(max-width: 900px)").matches;
@@ -625,11 +641,123 @@ function formatLocal(dt){
     if (!dt) return "";
     const d = (dt instanceof Date) ? dt : new Date(dt);
     if (!isFinite(d.getTime())) return "";
-    return d.toLocaleString(undefined, {
-      year: "numeric", month: "2-digit", day: "2-digit",
-      hour: "2-digit", minute: "2-digit", second: "2-digit"
+    return d.toLocaleString("en-AU", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
     });
   } catch {
+    return "";
+  }
+}
+
+function esc(v){
+  return String(v ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+function getCurrentPlaceFromTrain(train){
+  const candidates = [
+    train.current_location,
+    train.currentLocation,
+    train.location,
+    train.place,
+    train.town,
+    train.suburb,
+    train.city,
+    train.locality,
+    train.closest_town,
+    train.closestTown,
+    train.nearest_town,
+    train.nearestTown,
+    train.place_name,
+    train.placeName,
+    train.area
+  ];
+
+  for (const c of candidates){
+    const s = String(c || "").trim();
+    if (s) return s;
+  }
+  return "";
+}
+
+function getSpeed(train){
+  const n = Number(train.speed || 0);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function getDescription(train){
+  return String(
+    train.vehicle_description ||
+    train.vehicleDescription ||
+    train.description ||
+    train.serviceDesc ||
+    ""
+  ).trim();
+}
+
+function getOperator(train){
+  return String(
+    train.current_operator ||
+    train.currentOperator ||
+    train.operator ||
+    ""
+  ).trim();
+}
+
+function setStatusUI(lastText, noteText, countText) {
+  document.getElementById('lastUpdate').textContent = lastText;
+  document.getElementById('statusNote').textContent = noteText;
+  document.getElementById('trainCount').textContent = countText;
+
+  document.getElementById('mobileLastUpdate').textContent = lastText;
+  document.getElementById('mobileStatusNote').textContent = noteText;
+  document.getElementById('mobileTrainCount').textContent = countText;
+}
+
+async function reverseGeocodeTown(lat, lon){
+  const key = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
+  if (reverseGeoCache.has(key)) return reverseGeoCache.get(key);
+
+  if (!REVERSE_GEOCODE_ENABLED || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
+    return "";
+  }
+
+  try {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=12&addressdetails=1`;
+    const res = await fetch(url, {
+      headers: { "Accept": "application/json" },
+      cache: "force-cache"
+    });
+
+    if (!res.ok) throw new Error(`Reverse geocode HTTP ${res.status}`);
+
+    const data = await res.json();
+    const a = data.address || {};
+    const place =
+      a.city ||
+      a.town ||
+      a.village ||
+      a.suburb ||
+      a.hamlet ||
+      a.municipality ||
+      a.county ||
+      a.state_district ||
+      data.name ||
+      "";
+
+    reverseGeoCache.set(key, place || "");
+    return place || "";
+  } catch (err) {
+    console.warn("Reverse geocode failed:", err);
+    reverseGeoCache.set(key, "");
     return "";
   }
 }
@@ -697,7 +825,7 @@ const trainLayer = new ol.layer.Vector({
   style: function(feature){
     const train = feature.get('train_data') || {};
     const label = buildLabel(train);
-    const speed = Number(train.speed || 0);
+    const speed = getSpeed(train);
     const zoom = map.getView().getZoom() || 4;
 
     let dotColor = '#ffaa00';
@@ -734,24 +862,6 @@ const trainLayer = new ol.layer.Vector({
 });
 
 map.addLayer(trainLayer);
-
-let allTrains = [];
-let lastGoodTrains = [];
-let lastGoodUpdatedISO = null;
-let consecutiveEmpty = 0;
-let popupOverlay = null;
-let desktopDebounceTimer;
-let mobileDebounceTimer;
-
-function setStatusUI(lastText, noteText, countText) {
-  document.getElementById('lastUpdate').textContent = lastText;
-  document.getElementById('statusNote').textContent = noteText;
-  document.getElementById('trainCount').textContent = countText;
-
-  document.getElementById('mobileLastUpdate').textContent = lastText;
-  document.getElementById('mobileStatusNote').textContent = noteText;
-  document.getElementById('mobileTrainCount').textContent = countText;
-}
 
 async function loadRealTrains() {
   const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
@@ -840,7 +950,44 @@ function removePopup() {
   }
 }
 
-function showTrainPopup(feature) {
+function renderPopupHTML(train, placeText, popupUpdated) {
+  const label = buildLabel(train);
+  const origin = train.origin || train.serviceFrom || '';
+  const dest = train.destination || train.serviceTo || '';
+  const speed = getSpeed(train);
+  const desc = getDescription(train);
+  const operator = getOperator(train);
+  const km = train.km || train.trainKM || train.km_post || train.kmPost || 'Unknown';
+  const lat = Number(train.lat);
+  const lon = Number(train.lon);
+  const locationText = placeText || "Looking up…";
+
+  return `
+    <button class="popup-close" id="popupCloseBtn" type="button">×</button>
+    <div class="popup-header">${esc(label || "Train")} — ${esc(speed)} km/h</div>
+    <div class="popup-subheader">Updated: ${esc(popupUpdated || 'Unknown')}</div>
+    ${desc ? `<div class="popup-subheader">${esc(desc)}</div>` : ''}
+
+    <div class="popup-grid">
+      <div class="popup-label">Current place</div><div class="popup-value" id="popupCurrentPlace">${esc(locationText)}</div>
+      <div class="popup-label">Origin</div><div class="popup-value">${esc(origin || 'Unknown')}</div>
+      <div class="popup-label">Destination</div><div class="popup-value">${esc(dest || 'Unknown')}</div>
+      <div class="popup-label">Current operator</div><div class="popup-value">${esc(operator || 'Unknown')}</div>
+      <div class="popup-label">Vehicle description</div><div class="popup-value">${esc(desc || 'Unknown')}</div>
+      <div class="popup-label">KM / post</div><div class="popup-value">${esc(km || 'Unknown')}</div>
+      <div class="popup-label">Latitude</div><div class="popup-value">${Number.isFinite(lat) ? esc(lat.toFixed(5)) : 'Unknown'}</div>
+      <div class="popup-label">Longitude</div><div class="popup-value">${Number.isFinite(lon) ? esc(lon.toFixed(5)) : 'Unknown'}</div>
+    </div>
+
+    <div class="popup-footer">
+      ${getLoco(train) ? `<span class="popup-badge">Loco: ${esc(getLoco(train))}</span>` : ''}
+      ${getTrainId(train) ? `<span class="popup-badge">Train: ${esc(getTrainId(train))}</span>` : ''}
+      ${operator ? `<span class="popup-badge">${esc(operator)}</span>` : ''}
+    </div>
+  `;
+}
+
+async function showTrainPopup(feature) {
   removePopup();
   if (!feature) return;
 
@@ -849,32 +996,17 @@ function showTrainPopup(feature) {
   if (!label || isJunkId(label)) return;
 
   const coords = feature.getGeometry().getCoordinates();
-  const origin = train.origin || train.serviceFrom || '';
-  const dest   = train.destination || train.serviceTo || '';
-  const speed  = Number(train.speed || 0);
-  const desc   = train.description || train.serviceDesc || '';
-  const km     = train.km || train.trainKM || 'Unknown';
-
   const popupUpdated = lastGoodUpdatedISO
     ? formatLocal(lastGoodUpdatedISO)
     : formatLocal(new Date());
 
+  const directPlace = getCurrentPlaceFromTrain(train);
+  const lat = Number(train.lat);
+  const lon = Number(train.lon);
+
   const popupDiv = document.createElement('div');
   popupDiv.className = 'train-popup';
-  popupDiv.innerHTML = `
-    <div class="popup-header">${label} — ${speed} km/h</div>
-    <div class="popup-subheader">Updated: ${popupUpdated || 'Unknown'}</div>
-    ${desc ? `<div class="popup-subheader">${desc}</div>` : ''}
-    <div class="popup-grid">
-      <div><span class="popup-label">Origin:</span> <span class="popup-value">${origin || 'Unknown'}</span></div>
-      <div><span class="popup-label">Destination:</span> <span class="popup-value">${dest || 'Unknown'}</span></div>
-      <div><span class="popup-label">Current KM:</span> <span class="popup-value">${km || 'Unknown'}</span></div>
-    </div>
-    <div class="popup-footer">
-      ${getLoco(train) ? `<span class="popup-badge">Loco: ${getLoco(train)}</span>` : ''}
-      ${getTrainId(train) ? `<span class="popup-badge">Train: ${getTrainId(train)}</span>` : ''}
-    </div>
-  `;
+  popupDiv.innerHTML = renderPopupHTML(train, directPlace || (REVERSE_GEOCODE_ENABLED ? "Looking up…" : "Unknown"), popupUpdated);
 
   popupOverlay = new ol.Overlay({
     element: popupDiv,
@@ -884,6 +1016,20 @@ function showTrainPopup(feature) {
   });
 
   map.addOverlay(popupOverlay);
+
+  const closeBtn = popupDiv.querySelector('#popupCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', removePopup);
+
+  if (!directPlace && REVERSE_GEOCODE_ENABLED && Number.isFinite(lat) && Number.isFinite(lon)) {
+    const reqId = ++popupRequestId;
+    const reversePlace = await reverseGeocodeTown(lat, lon);
+    if (!popupOverlay || reqId !== popupRequestId) return;
+
+    const placeEl = popupDiv.querySelector('#popupCurrentPlace');
+    if (placeEl) {
+      placeEl.textContent = reversePlace || 'Unknown';
+    }
+  }
 }
 
 map.on('singleclick', function(evt){
@@ -934,7 +1080,8 @@ function updateAutocompleteFor(inputEl, listEl){
       train.train_number, train.trainNumber,
       train.trKey, train.loco, train.train_name, train.trainName,
       train.origin, train.destination, train.serviceFrom, train.serviceTo,
-      train.description, train.serviceDesc
+      train.description, train.serviceDesc,
+      train.location, train.place, train.town, train.suburb, train.city
     ].filter(Boolean).map(s => String(s).toLowerCase());
 
     if (searchable.some(s => s.includes(query)) && !seen.has(id)){
@@ -959,7 +1106,7 @@ function updateAutocompleteFor(inputEl, listEl){
     item.className = 'autocomplete-item';
     const o = match.full.origin || match.full.serviceFrom || '';
     const d = match.full.destination || match.full.serviceTo || '';
-    item.innerHTML = `<span class="train-id">${match.id}</span><span class="train-loc">${o} → ${d}</span>`;
+    item.innerHTML = `<span class="train-id">${esc(match.id)}</span><span class="train-loc">${esc(o)} → ${esc(d)}</span>`;
     item.addEventListener('click', () => {
       inputEl.value = match.id;
       listEl.style.display = 'none';
@@ -1006,7 +1153,9 @@ function searchTrainsFromInput(inputEl){
     const searchable = [
       id,
       train.train_number, train.trainNumber,
-      train.trKey, train.loco, train.train_name, train.trainName
+      train.trKey, train.loco, train.train_name, train.trainName,
+      train.origin, train.destination,
+      train.location, train.place, train.town, train.suburb, train.city
     ].filter(Boolean).map(s => String(s).toLowerCase());
 
     if (searchable.some(s => s.includes(query))){
