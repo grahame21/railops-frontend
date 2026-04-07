@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailOps Admin</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="panel-body">
+  <div class="bg-photo"></div>
+  <div class="bg-overlay"></div>
+
+  <main class="panel-shell">
+    <header class="topbar glass">
+      <div>
+        <div class="brand-pill">Admin Control Centre</div>
+        <h1>RailOps Admin Panel</h1>
+        <p class="muted">Logged in as {{ session.get('display_name') }} · {{ session.get('username') }}</p>
+      </div>
+      <div class="topbar-actions">
+        <a class="btn btn-secondary" href="{{ url_for('dashboard_page') }}">Open train map</a>
+        <a class="btn btn-ghost" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-wrap panel-flashes">
+          {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="grid two-col">
+      <article class="glass card">
+        <h2>System shortcuts</h2>
+        <div class="link-grid">
+          <a class="quick-link" href="{{ url_for('dashboard_page') }}">Live Train Tracker</a>
+          <a class="quick-link" href="{{ url_for('flight_tracker_placeholder') }}">Flight Tracker</a>
+          <a class="quick-link" href="{{ url_for('locomotive_db_placeholder') }}">Locomotive Database</a>
+          {% for file in file_links %}
+            <a class="quick-link" href="{{ file.path }}" target="_blank">{{ file.name }}</a>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="glass card">
+        <h2>Fast scraper control</h2>
+        <p class="muted">Trigger your GitHub fast scraper manually from here.</p>
+        <div class="status-box">
+          <div><strong>Repo:</strong> {{ github_repo }}</div>
+          <div><strong>Workflow:</strong> {{ github_workflow }}</div>
+        </div>
+        <form method="post" action="{{ url_for('run_fast_scraper') }}">
+          <button class="btn btn-primary" type="submit">Run Fast Scraper Now</button>
+        </form>
+      </article>
+    </section>
+
+    <section class="grid three-col">
+      <article class="glass card">
+        <h2>Create guest account</h2>
+        <form method="post" action="{{ url_for('create_guest') }}" class="stack-form">
+          <label><span>Username</span><input type="text" name="username" required></label>
+          <label><span>Password</span><input type="text" name="password" required></label>
+          <label><span>Display name</span><input type="text" name="display_name"></label>
+          <label><span>Expires in days</span><input type="number" name="expires_days" min="1" placeholder="Optional"></label>
+          <label class="checkbox-row"><input type="checkbox" name="device_lock"> Lock to first device used</label>
+          <button class="btn btn-secondary" type="submit">Create guest</button>
+        </form>
+      </article>
+
+      <article class="glass card">
+        <h2>Generate guest token</h2>
+        <form method="post" action="{{ url_for('generate_token') }}" class="stack-form">
+          <label><span>Label</span><input type="text" name="label" placeholder="Paul 1-week link"></label>
+          <label><span>Expires in days</span><input type="number" name="expires_days" min="1" placeholder="Optional"></label>
+          <button class="btn btn-secondary" type="submit">Generate token</button>
+        </form>
+      </article>
+
+      <article class="glass card">
+        <h2>Recent access log</h2>
+        <div class="mini-list">
+          {% for item in logs %}
+            <div class="mini-item">
+              <strong>{{ item.action }}</strong>
+              <span>{{ item.user }} · {{ item.time }}</span>
+            </div>
+          {% else %}
+            <div class="mini-item">No recent log entries.</div>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+
+    <section class="grid two-col">
+      <article class="glass card">
+        <h2>Guest accounts</h2>
+        <div class="table-like">
+          {% for guest in guest_accounts %}
+            <div class="row-card">
+              <div>
+                <strong>{{ guest.display_name or guest.username }}</strong>
+                <div class="muted small">{{ guest.username }} · {% if guest.disabled %}Blocked{% else %}Active{% endif %}</div>
+                <div class="muted small">Expires: {{ guest.expires_at or 'Never' }}</div>
+              </div>
+              <form method="post" action="{{ url_for('toggle_guest', username=guest.username) }}">
+                <button class="btn btn-ghost" type="submit">{% if guest.disabled %}Unblock{% else %}Block{% endif %}</button>
+              </form>
+            </div>
+          {% else %}
+            <div class="row-card">No guest accounts yet.</div>
+          {% endfor %}
+        </div>
+      </article>
+
+      <article class="glass card">
+        <h2>Guest tokens</h2>
+        <div class="table-like">
+          {% for token in tokens %}
+            <div class="row-card column">
+              <strong>{{ token.label }}</strong>
+              <div class="token-text">{{ request.host_url.rstrip('/') }}/access?token={{ token.token }}</div>
+              <div class="muted small">Created {{ token.created_at }} · Expires {{ token.expires_at or 'Never' }}</div>
+            </div>
+          {% else %}
+            <div class="row-card">No tokens yet.</div>
+          {% endfor %}
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

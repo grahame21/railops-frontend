@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailOps Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="panel-body">
+  <div class="bg-photo"></div>
+  <div class="bg-overlay"></div>
+
+  <main class="panel-shell">
+    <header class="topbar glass">
+      <div>
+        <div class="brand-pill">Live Operations View</div>
+        <h1>RailOps Dashboard</h1>
+        <p class="muted">Welcome {{ session.get('display_name') }} · {{ session.get('role')|title }} access</p>
+      </div>
+      <div class="topbar-actions">
+        {% if session.get('role') == 'admin' %}
+          <a class="btn btn-secondary" href="{{ url_for('admin_page') }}">Admin panel</a>
+        {% endif %}
+        <a class="btn btn-ghost" href="{{ url_for('logout') }}">Logout</a>
+      </div>
+    </header>
+
+    <section class="grid two-col">
+      <article class="glass card hero-card">
+        <h2>Train Tracker</h2>
+        <p class="muted">Hook this page into your existing OpenLayers map or embed your current tracker here.</p>
+        <div class="placeholder-map">Your RailOps map goes here</div>
+      </article>
+
+      <article class="glass card stack-gap">
+        <div>
+          <h2>Quick links</h2>
+          <div class="link-grid compact">
+            <a class="quick-link" href="{{ url_for('flight_tracker_placeholder') }}">Flight Tracker</a>
+            <a class="quick-link" href="{{ url_for('locomotive_db_placeholder') }}">Locomotive Database</a>
+            <a class="quick-link" href="{{ url_for('static', filename='data/trains.json') }}" target="_blank">Open trains.json</a>
+          </div>
+        </div>
+
+        <div>
+          <h2>Status</h2>
+          <div class="status-box">
+            <div>Protected login enabled</div>
+            <div>Role-based access enabled</div>
+            <div>Guest token support enabled</div>
+          </div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

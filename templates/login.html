@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RailOps Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body class="auth-body">
+  <div class="bg-photo"></div>
+  <div class="bg-overlay"></div>
+
+  <main class="auth-shell">
+    <section class="auth-card glass">
+      <div class="brand-pill">RailOps Secure Access</div>
+      <h1>Welcome back</h1>
+      <p class="muted">Admin and guest access for your train tracker, databases, exports, and control panel.</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          <div class="flash-wrap">
+            {% for category, message in messages %}
+              <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+
+      <form method="post" action="{{ url_for('login_submit') }}" class="auth-form" id="loginForm">
+        <label>
+          <span>Username</span>
+          <input type="text" name="username" autocomplete="username" required>
+        </label>
+
+        <label>
+          <span>Password</span>
+          <input type="password" name="password" autocomplete="current-password" required>
+        </label>
+
+        <input type="hidden" name="device_id" id="device_id">
+
+        <button class="btn btn-primary" type="submit">Sign in</button>
+      </form>
+
+      <div class="auth-footer">
+        <div>
+          <strong>Guest links</strong>
+          <p class="muted small">Token access also works through <code>/access?token=...</code></p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
