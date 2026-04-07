@@ -222,7 +222,6 @@ body { overscroll-behavior: none; }
   font-weight: 800;
   cursor: pointer;
   outline: none;
-  min-height: 38px;
 }
 
 .toolbar select option {
@@ -635,6 +634,15 @@ function isMobileLayout() {
   return window.matchMedia("(max-width: 900px)").matches;
 }
 
+function normalizeSearchText(v) {
+  return String(v || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function isJunkId(s){
   if (!s) return true;
   const v = String(s).toLowerCase();
@@ -712,7 +720,7 @@ function getCurrentPlaceFromTrain(train){
     train.current_location, train.currentLocation, train.location, train.place,
     train.town, train.suburb, train.city, train.locality,
     train.closest_town, train.closestTown, train.nearest_town, train.nearestTown,
-    train.place_name, train.placeName, train.area
+    train.place_name, train.placeName, train.area, train.region, train.state
   ];
   for (const c of candidates){
     const s = String(c || "").trim();
@@ -773,29 +781,14 @@ function getOperator(train){
   return "";
 }
 
-function getZoomDetail(train) {
-  const place = getCurrentPlaceFromTrain(train);
-  const operator = getOperator(train);
-  const origin = getOrigin(train);
-  const destination = getDestination(train);
-
-  if (place && operator) return `${place} • ${operator}`;
-  if (place) return place;
-  if (origin || destination) return `${origin || "?"}→${destination || "?"}`;
-  if (operator) return operator;
-  return "";
-}
-
 function getHiddenCount() {
   return hiddenOperators.size;
 }
 
 function updateOperatorButtonLabels() {
   const text = `🚫 Hide Operators (${getHiddenCount()})`;
-  const desktopBtn = document.getElementById("operatorBtn");
-  const mobileBtn = document.getElementById("mobileOperatorBtn");
-  if (desktopBtn) desktopBtn.textContent = text;
-  if (mobileBtn) mobileBtn.textContent = text;
+  document.getElementById("operatorBtn").textContent = text;
+  document.getElementById("mobileOperatorBtn").textContent = text;
 }
 
 function trainPassesOperatorFilter(train) {
@@ -901,13 +894,11 @@ const trainLayer = new ol.layer.Vector({
   source: trainSource,
   visible: true,
   zIndex: 10,
-  declutter: true,
+  declutter: false,
   style: function(feature){
     const train = feature.get("train_data") || {};
     const label = buildLabel(train);
-    const detail = getZoomDetail(train);
     const speed = getSpeed(train);
-    const zoom = map.getView().getZoom() || 4;
     const isSelected = feature === selectedFeatureRef;
 
     let dotColor = "#ffaa00";
@@ -915,64 +906,39 @@ const trainLayer = new ol.layer.Vector({
     else if (speed > 30) dotColor = "#00cc00";
     else if (speed > 0) dotColor = "#44ff44";
 
-    let radius = 7;
-    if (zoom <= 5) radius = 5;
-    else if (zoom <= 7) radius = 6;
-    if (isSelected) radius += 2;
+    const radius = isSelected ? 8 : 6;
 
     const styles = [
       new ol.style.Style({
         image: new ol.style.Circle({
           radius: isMobileLayout() ? Math.max(5, radius - 1) : radius,
           fill: new ol.style.Fill({ color: dotColor }),
-          stroke: new ol.style.Stroke({ color: isSelected ? "#00d7ff" : "#ffffff", width: isSelected ? 3 : 2 })
+          stroke: new ol.style.Stroke({
+            color: isSelected ? "#00d7ff" : "#ffffff",
+            width: isSelected ? 3 : 2
+          })
         }),
         zIndex: isSelected ? 999 : 10
       })
     ];
 
-    if (!label || isJunkId(label)) return styles;
-
-    let text = "";
-    let fontSize = 10;
-    let offsetY = -16;
-    let padding = [2, 6, 2, 6];
-
-    if (zoom <= 4.8) {
-      text = detail ? `${label}\n${detail}` : label;
-      fontSize = 9;
-      offsetY = -15;
-      padding = [1, 5, 1, 5];
-    } else if (zoom <= 7.8) {
-      text = label;
-      fontSize = 10;
-      offsetY = -16;
-      padding = [2, 6, 2, 6];
-    } else {
-      text = label;
-      fontSize = 11;
-      offsetY = -18;
-      padding = [2, 7, 2, 7];
+    if (label && !isJunkId(label)) {
+      styles.push(new ol.style.Style({
+        text: new ol.style.Text({
+          text: label,
+          textAlign: "center",
+          justify: "center",
+          font: "bold 10px monospace",
+          fill: new ol.style.Fill({ color: "#ffaa00" }),
+          stroke: new ol.style.Stroke({ color: "#000000", width: 3 }),
+          offsetY: -16,
+          backgroundFill: new ol.style.Fill({ color: "rgba(0,0,0,0.92)" }),
+          padding: [2, 6, 2, 6],
+          overflow: true
+        }),
+        zIndex: isSelected ? 1000 : 11
+      }));
     }
-
-    if (isSelected && detail && zoom > 4.8) {
-      text = `${label}\n${detail}`;
-    }
-
-    styles.push(new ol.style.Style({
-      text: new ol.style.Text({
-        text,
-        textAlign: "center",
-        justify: "center",
-        font: `bold ${fontSize}px monospace`,
-        fill: new ol.style.Fill({ color: "#ffaa00" }),
-        stroke: new ol.style.Stroke({ color: "#000000", width: 3 }),
-        offsetY,
-        backgroundFill: new ol.style.Fill({ color: "rgba(0,0,0,0.92)" }),
-        padding
-      }),
-      zIndex: isSelected ? 1000 : 11
-    }));
 
     return styles;
   }
@@ -990,7 +956,6 @@ function buildOperatorList(trains) {
 function renderOperatorChecklist(filterText = "") {
   const wrap = document.getElementById("operatorChecklist");
   const q = String(filterText || "").trim().toLowerCase();
-
   wrap.innerHTML = "";
 
   operatorList
@@ -1173,7 +1138,6 @@ async function showTrainPopup(feature) {
 
   const coords = feature.getGeometry().getCoordinates();
   const popupUpdated = lastGoodUpdatedISO ? formatLocal(lastGoodUpdatedISO) : formatLocal(new Date());
-
   const directPlace = getCurrentPlaceFromTrain(train);
   const lat = Number(train.lat);
   const lon = Number(train.lon);
@@ -1207,8 +1171,10 @@ async function showTrainPopup(feature) {
 map.on("singleclick", function(evt){
   const feature = map.forEachFeatureAtPixel(
     evt.pixel,
-    function(f, layer){ return layer === trainLayer ? f : null; },
-    { hitTolerance: 16 }
+    function(f, layer){
+      return layer === trainLayer ? f : null;
+    },
+    { hitTolerance: 18 }
   );
 
   if (feature) showTrainPopup(feature);
@@ -1239,8 +1205,12 @@ function getSearchFields(train){
     train.nearest_town,
     train.nearestTown,
     train.area,
+    train.region,
+    train.state,
     getDescription(train)
-  ].filter(Boolean).map(s => String(s).toLowerCase());
+  ]
+  .filter(Boolean)
+  .map(v => normalizeSearchText(v));
 }
 
 function hideAutocomplete(){
@@ -1249,7 +1219,7 @@ function hideAutocomplete(){
 }
 
 function updateAutocompleteFor(inputEl, listEl){
-  const query = inputEl.value.trim().toLowerCase();
+  const query = normalizeSearchText(inputEl.value);
   if (query.length < 2) {
     listEl.style.display = "none";
     return;
@@ -1263,7 +1233,6 @@ function updateAutocompleteFor(inputEl, listEl){
     if (!id || isJunkId(id)) continue;
 
     const searchable = getSearchFields(train);
-
     if (searchable.some(s => s.includes(query)) && !seen.has(id)){
       seen.add(id);
       matches.push({
@@ -1281,21 +1250,26 @@ function updateAutocompleteFor(inputEl, listEl){
   }
 
   listEl.innerHTML = "";
-  matches.slice(0, 12).forEach(match => {
+  matches.slice(0, 15).forEach(match => {
     const place = getCurrentPlaceFromTrain(match.full);
     const o = getOrigin(match.full);
     const d = getDestination(match.full);
     const operator = getOperator(match.full);
-    const rightText = place || (o || d ? `${o} → ${d}` : operator);
+    const rightText = place || (o || d ? `${o || "?"} → ${d || "?"}` : "") || operator || "";
 
     const item = document.createElement("div");
     item.className = "autocomplete-item";
-    item.innerHTML = `<span class="train-id">${esc(match.id)}</span><span class="train-loc">${esc(rightText || "")}</span>`;
+    item.innerHTML = `
+      <span class="train-id">${esc(match.id)}</span>
+      <span class="train-loc">${esc(rightText)}</span>
+    `;
+
     item.addEventListener("click", () => {
       inputEl.value = match.id;
       listEl.style.display = "none";
       flyToMatches([match.full]);
     });
+
     listEl.appendChild(item);
   });
 
@@ -1328,7 +1302,11 @@ function flyToMatches(trains){
   if (valid.length === 1) {
     const train = valid[0];
     const center = ol.proj.fromLonLat([Number(train.lon), Number(train.lat)]);
-    map.getView().animate({ center, zoom: Math.max(map.getView().getZoom() || 4, 8), duration: 850 });
+    map.getView().animate({
+      center,
+      zoom: 11,
+      duration: 850
+    });
 
     setTimeout(() => {
       const target = trainSource.getFeatures().find(f => {
@@ -1345,17 +1323,24 @@ function flyToMatches(trains){
     const coord = ol.proj.fromLonLat([Number(train.lon), Number(train.lat)]);
     ol.extent.extend(extent, [coord[0], coord[1], coord[0], coord[1]]);
   });
-  map.getView().fit(extent, { duration: 850, padding: [80, 80, 80, 80], maxZoom: 9 });
+
+  map.getView().fit(extent, {
+    duration: 850,
+    padding: [90, 90, 90, 90],
+    maxZoom: 9
+  });
 }
 
 function searchTrainsFromInput(inputEl){
-  const query = inputEl.value.trim().toLowerCase();
+  const query = normalizeSearchText(inputEl.value);
   if (!query) return;
 
   const matches = [];
+
   for (const train of getVisibleTrains()){
     const id = displayId(train);
     if (!id || isJunkId(id)) continue;
+
     const searchable = getSearchFields(train);
     if (searchable.some(s => s.includes(query))) {
       matches.push(train);
@@ -1363,7 +1348,7 @@ function searchTrainsFromInput(inputEl){
   }
 
   if (matches.length === 0) {
-    alert("No trains or locations found matching: " + query);
+    alert("No trains or locations found matching: " + inputEl.value);
     return;
   }
 
