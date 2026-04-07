@@ -16,11 +16,11 @@
 
 <script src="./auth.js"></script>
 <script>
-  if (window.RailOpsAuth && typeof RailOpsAuth.requireRole === 'function') {
-    if (!RailOpsAuth.requireRole(['admin','guest'])) {
-      document.documentElement.innerHTML = '';
-    }
+if (window.RailOpsAuth && typeof RailOpsAuth.requireRole === "function") {
+  if (!RailOpsAuth.requireRole(["admin","guest"])) {
+    document.documentElement.innerHTML = "";
   }
+}
 </script>
 
 <style>
@@ -36,7 +36,6 @@
   --text: #ffffff;
   --muted: #b8c9e8;
   --shadow: 0 8px 28px rgba(0,0,0,0.55);
-
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -51,9 +50,7 @@ html, body {
   background: #071326;
 }
 
-body {
-  overscroll-behavior: none;
-}
+body { overscroll-behavior: none; }
 
 #map {
   position: fixed;
@@ -63,12 +60,7 @@ body {
   background: #0a1a2a;
 }
 
-.top-card,
-.toolbar,
-.status-bar,
-.search-box,
-.autocomplete-items,
-.layers-panel {
+.top-card, .toolbar, .status-bar, .search-box, .autocomplete-items, .layers-panel, .operator-panel {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -118,13 +110,10 @@ body {
   outline: none;
 }
 
-#mobileLayersBtn {
-  grid-column: 1 / -1;
-}
+#mobileLayersBtn { grid-column: 1 / -1; }
+#mobileOperatorBtn { grid-column: 1 / -1; }
 
-.mobile-search-wrap {
-  margin-bottom: 8px;
-}
+.mobile-search-wrap { margin-bottom: 8px; }
 
 .search-box {
   background: var(--panel-bg);
@@ -147,9 +136,7 @@ body {
   height: 38px;
 }
 
-.search-box input::placeholder {
-  color: #9ab0d0;
-}
+.search-box input::placeholder { color: #9ab0d0; }
 
 .search-box button {
   background: var(--blue);
@@ -277,19 +264,9 @@ body {
   gap: 10px;
 }
 
-.autocomplete-item:last-child {
-  border-bottom: none;
-}
-
-.autocomplete-item:hover {
-  background: #13243a;
-}
-
-.autocomplete-item .train-id {
-  font-weight: 900;
-  color: #cfe2ff;
-}
-
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover { background: #13243a; }
+.autocomplete-item .train-id { font-weight: 900; color: #cfe2ff; }
 .autocomplete-item .train-loc {
   color: var(--accent);
   white-space: nowrap;
@@ -332,23 +309,27 @@ body {
   color: #cfe2ff;
 }
 
-.layers-panel {
+.layers-panel,
+.operator-panel {
   position: absolute;
   left: calc(var(--safe-left) + 12px);
-  bottom: calc(var(--safe-bottom) + 12px);
   z-index: 1000;
   background: var(--panel-bg);
   color: white;
   border-radius: 18px;
   padding: 14px;
   border: 1px solid var(--panel-border);
-  width: 280px;
+  width: 300px;
   box-shadow: var(--shadow);
   max-height: 60dvh;
   overflow-y: auto;
 }
 
-.layer-row {
+.layers-panel { bottom: calc(var(--safe-bottom) + 12px); }
+.operator-panel { top: calc(var(--safe-top) + 64px); display: none; }
+
+.layer-row,
+.operator-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -357,14 +338,43 @@ body {
   font-size: 13px;
 }
 
-.layer-row:last-child {
-  border-bottom: none;
-}
+.layer-row:last-child,
+.operator-row:last-child { border-bottom: none; }
 
 .section-title {
   color: #9ab0d0;
   font-size: 12px;
   margin: 12px 0 4px 0;
+}
+
+.operator-actions {
+  display: flex;
+  gap: 8px;
+  margin: 8px 0 10px 0;
+  flex-wrap: wrap;
+}
+
+.operator-actions button {
+  background: #163456;
+  color: white;
+  border: 1px solid #2b4f80;
+  border-radius: 12px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.operator-search {
+  width: 100%;
+  border: 1px solid #2b4f80;
+  background: #15283f;
+  color: white;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 13px;
+  outline: none;
+  margin-bottom: 8px;
 }
 
 .train-popup {
@@ -417,15 +427,8 @@ body {
   margin: 6px 0;
 }
 
-.popup-label {
-  color: #9ab0d0;
-  font-weight: 800;
-}
-
-.popup-value {
-  color: white;
-  word-break: break-word;
-}
+.popup-label { color: #9ab0d0; font-weight: 800; }
+.popup-value { color: white; word-break: break-word; }
 
 .popup-badge {
   background: #15283f;
@@ -461,23 +464,19 @@ body {
 }
 
 @media (max-width: 900px) {
-  .top-card {
-    display: block;
-  }
+  .top-card { display: block; }
+  .toolbar, .search-container, .status-bar { display: none !important; }
 
-  .toolbar,
-  .search-container,
-  .status-bar {
-    display: none !important;
-  }
-
-  .layers-panel {
+  .layers-panel,
+  .operator-panel {
     left: calc(var(--safe-left) + 10px);
     right: calc(var(--safe-right) + 10px);
     width: auto;
-    bottom: calc(var(--safe-bottom) + 10px);
     max-height: 45dvh;
   }
+
+  .layers-panel { bottom: calc(var(--safe-bottom) + 10px); }
+  .operator-panel { top: calc(var(--safe-top) + 250px); }
 
   .popup-grid {
     grid-template-columns: 1fr;
@@ -491,9 +490,7 @@ body {
 }
 
 @media (min-width: 901px) {
-  .top-card {
-    display: none !important;
-  }
+  .top-card { display: none !important; }
 }
 </style>
 </head>
@@ -517,9 +514,7 @@ body {
 
     <button id="mobileLocateBtn">📍 My Location</button>
     <button id="mobileLayersBtn">🗺️ Layers</button>
-    <select id="mobileOperatorHideSelect" style="grid-column: 1 / -1;">
-      <option value="NONE">Hide No Operator</option>
-    </select>
+    <button id="mobileOperatorBtn">🚫 Hide Operators (0)</button>
   </div>
 
   <div class="mobile-search-wrap">
@@ -553,9 +548,7 @@ body {
   </select>
   <button id="locateBtn">📍 My Location</button>
   <button id="layersToggleBtn">🗺️ Layers</button>
-  <select id="operatorHideSelect">
-    <option value="NONE">Hide No Operator</option>
-  </select>
+  <button id="operatorBtn">🚫 Hide Operators (0)</button>
 </div>
 
 <div class="search-container" id="searchContainer">
@@ -585,6 +578,16 @@ body {
   <div class="layer-row"><label><input type="checkbox" id="covAllChk"> 📶 All Networks</label></div>
 </div>
 
+<div class="operator-panel" id="operatorPanel">
+  <h3 style="margin-bottom:8px;">🚫 Hide Operators</h3>
+  <input id="operatorSearchInput" class="operator-search" type="text" placeholder="Search operators...">
+  <div class="operator-actions">
+    <button id="operatorHideNoneBtn" type="button">Show All</button>
+    <button id="operatorHideAllBtn" type="button">Hide All Listed</button>
+  </div>
+  <div id="operatorChecklist"></div>
+</div>
+
 <div id="map"></div>
 
 <script src="./ol/ol.js"></script>
@@ -596,7 +599,6 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
-const REVERSE_GEOCODE_ENABLED = true;
 
 const FALLBACK_OPERATORS = [
   "707 Operations","Adelaide Metro","ALARC","ARHS ACT","ARTC","Aurizon","B Rail Pty Ltd","Brimble Rail",
@@ -625,6 +627,9 @@ let lastGoodUpdatedISO = null;
 let consecutiveEmpty = 0;
 let desktopDebounceTimer;
 let mobileDebounceTimer;
+let hiddenOperators = new Set();
+let operatorList = [];
+let selectedFeatureRef = null;
 
 function isMobileLayout() {
   return window.matchMedia("(max-width: 900px)").matches;
@@ -704,23 +709,11 @@ function esc(v){
 
 function getCurrentPlaceFromTrain(train){
   const candidates = [
-    train.current_location,
-    train.currentLocation,
-    train.location,
-    train.place,
-    train.town,
-    train.suburb,
-    train.city,
-    train.locality,
-    train.closest_town,
-    train.closestTown,
-    train.nearest_town,
-    train.nearestTown,
-    train.place_name,
-    train.placeName,
-    train.area
+    train.current_location, train.currentLocation, train.location, train.place,
+    train.town, train.suburb, train.city, train.locality,
+    train.closest_town, train.closestTown, train.nearest_town, train.nearestTown,
+    train.place_name, train.placeName, train.area
   ];
-
   for (const c of candidates){
     const s = String(c || "").trim();
     if (s) return s;
@@ -767,96 +760,48 @@ function getDestination(train){
 
 function getOperator(train){
   const candidates = [
-    train.current_operator,
-    train.currentOperator,
-    train.current_operator_name,
-    train.currentOperatorName,
-    train.operator,
-    train.Operator,
-    train.operator_name,
-    train.operatorName,
-    train.company,
-    train.Company,
-    train.owner,
-    train.Owner,
-    train.railway,
-    train.Railway,
-    train.network,
-    train.Network,
-    train.line_operator,
-    train.lineOperator,
-    train.service_operator,
-    train.serviceOperator
+    train.current_operator, train.currentOperator, train.current_operator_name, train.currentOperatorName,
+    train.operator, train.Operator, train.operator_name, train.operatorName,
+    train.company, train.Company, train.owner, train.Owner, train.railway, train.Railway,
+    train.network, train.Network, train.line_operator, train.lineOperator,
+    train.service_operator, train.serviceOperator
   ];
-
   for (const c of candidates) {
     const s = String(c || "").trim();
     if (s) return s;
   }
-
   return "";
 }
 
 function getZoomDetail(train) {
   const place = getCurrentPlaceFromTrain(train);
+  const operator = getOperator(train);
   const origin = getOrigin(train);
   const destination = getDestination(train);
-  const operator = getOperator(train);
-  const speed = getSpeed(train);
 
-  const bits = [];
-  if (place) bits.push(place);
-  else if (origin || destination) bits.push(`${origin || "?"}→${destination || "?"}`);
-  if (operator) bits.push(operator);
-  if (speed > 0) bits.push(`${speed} km/h`);
-
-  return bits.join(" • ");
+  if (place && operator) return `${place} • ${operator}`;
+  if (place) return place;
+  if (origin || destination) return `${origin || "?"}→${destination || "?"}`;
+  if (operator) return operator;
+  return "";
 }
 
-function getHiddenOperator() {
-  const desktop = document.getElementById('operatorHideSelect');
-  const mobile = document.getElementById('mobileOperatorHideSelect');
-  const value = (desktop && desktop.value) || (mobile && mobile.value) || 'NONE';
-  return String(value || 'NONE').trim();
+function getHiddenCount() {
+  return hiddenOperators.size;
 }
 
-function syncOperatorHideSelects(value) {
-  const desktop = document.getElementById('operatorHideSelect');
-  const mobile = document.getElementById('mobileOperatorHideSelect');
-  if (desktop) desktop.value = value;
-  if (mobile) mobile.value = value;
+function updateOperatorButtonLabels() {
+  const text = `🚫 Hide Operators (${getHiddenCount()})`;
+  const desktopBtn = document.getElementById("operatorBtn");
+  const mobileBtn = document.getElementById("mobileOperatorBtn");
+  if (desktopBtn) desktopBtn.textContent = text;
+  if (mobileBtn) mobileBtn.textContent = text;
 }
 
 function trainPassesOperatorFilter(train) {
-  const hidden = getHiddenOperator();
-  if (!hidden || hidden === 'NONE') return true;
-  return getOperator(train).toLowerCase() !== hidden.toLowerCase();
-}
-
-function refreshOperatorOptions(trains) {
-  const liveOperators = [...new Set(
-    trains.map(getOperator).filter(Boolean).map(v => String(v).trim()).filter(Boolean)
-  )];
-
-  const values = [...new Set([...FALLBACK_OPERATORS, ...liveOperators])].sort((a, b) => a.localeCompare(b));
-
-  const desktop = document.getElementById('operatorHideSelect');
-  const mobile = document.getElementById('mobileOperatorHideSelect');
-  const current = getHiddenOperator();
-
-  [desktop, mobile].forEach(sel => {
-    if (!sel) return;
-    sel.innerHTML = '<option value="NONE">Hide No Operator</option>';
-    values.forEach(op => {
-      const option = document.createElement('option');
-      option.value = op;
-      option.textContent = `Hide ${op}`;
-      sel.appendChild(option);
-    });
-  });
-
-  const keep = values.some(v => v.toLowerCase() === current.toLowerCase()) ? current : 'NONE';
-  syncOperatorHideSelects(keep);
+  const op = getOperator(train);
+  if (!op) return true;
+  return !hiddenOperators.has(op.toLowerCase());
 }
 
 function getVisibleTrains() {
@@ -867,7 +812,6 @@ function setStatusUI(lastText, noteText, countText) {
   document.getElementById('lastUpdate').textContent = lastText;
   document.getElementById('statusNote').textContent = noteText;
   document.getElementById('trainCount').textContent = countText;
-
   document.getElementById('mobileLastUpdate').textContent = lastText;
   document.getElementById('mobileStatusNote').textContent = noteText;
   document.getElementById('mobileTrainCount').textContent = countText;
@@ -877,37 +821,20 @@ async function reverseGeocodeTown(lat, lon){
   const key = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
   if (reverseGeoCache.has(key)) return reverseGeoCache.get(key);
 
-  if (!REVERSE_GEOCODE_ENABLED || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
-    return "";
-  }
-
   try {
     const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=12&addressdetails=1`;
-    const res = await fetch(url, {
-      headers: { "Accept": "application/json" },
-      cache: "force-cache"
-    });
-
+    const res = await fetch(url, { headers: { "Accept": "application/json" }, cache: "force-cache" });
     if (!res.ok) throw new Error(`Reverse geocode HTTP ${res.status}`);
 
     const data = await res.json();
     const a = data.address || {};
     const place =
-      a.city ||
-      a.town ||
-      a.village ||
-      a.suburb ||
-      a.hamlet ||
-      a.municipality ||
-      a.county ||
-      a.state_district ||
-      data.name ||
-      "";
+      a.city || a.town || a.village || a.suburb || a.hamlet ||
+      a.municipality || a.county || a.state_district || data.name || "";
 
     reverseGeoCache.set(key, place || "");
     return place || "";
-  } catch (err) {
-    console.warn("Reverse geocode failed:", err);
+  } catch {
     reverseGeoCache.set(key, "");
     return "";
   }
@@ -919,7 +846,7 @@ if (typeof window.ol === "undefined") {
 }
 
 const map = new ol.Map({
-  target: 'map',
+  target: "map",
   layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
   view: new ol.View({
     center: ol.proj.fromLonLat([133.7751, -25.2744]),
@@ -928,19 +855,19 @@ const map = new ol.Map({
   })
 });
 
-map.getView().on('change:rotation', () => map.getView().setRotation(0));
+map.getView().on("change:rotation", () => map.getView().setRotation(0));
 
 const railLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
+  source: new ol.source.XYZ({ url: "https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png" }),
   visible: true,
   zIndex: 1
 });
 
-railLayer.on('prerender', (e)=>{ if (e.context) e.context.filter='hue-rotate(200deg) brightness(0.95) saturate(1.6)'; });
-railLayer.on('postrender', (e)=>{ if (e.context) e.context.filter='none'; });
+railLayer.on("prerender", (e)=>{ if (e.context) e.context.filter="hue-rotate(200deg) brightness(0.95) saturate(1.6)"; });
+railLayer.on("postrender", (e)=>{ if (e.context) e.context.filter="none"; });
 
 const stationsLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png' }),
+  source: new ol.source.XYZ({ url: "https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png" }),
   visible: true,
   zIndex: 2
 });
@@ -948,13 +875,13 @@ const stationsLayer = new ol.layer.Tile({
 map.addLayer(railLayer);
 map.addLayer(stationsLayer);
 
-const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
+const ACCC_URL = "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer";
 
 function createAcccLayer(id) {
   return new ol.layer.Tile({
     source: new ol.source.TileArcGISRest({
       url: ACCC_URL,
-      params: { layers: `show:${id}`, dpi: 96, transparent: true, format: 'png32' }
+      params: { layers: `show:${id}`, dpi: 96, transparent: true, format: "png32" }
     }),
     opacity: 0.45,
     visible: false,
@@ -974,66 +901,78 @@ const trainLayer = new ol.layer.Vector({
   source: trainSource,
   visible: true,
   zIndex: 10,
+  declutter: true,
   style: function(feature){
-    const train = feature.get('train_data') || {};
+    const train = feature.get("train_data") || {};
     const label = buildLabel(train);
     const detail = getZoomDetail(train);
     const speed = getSpeed(train);
     const zoom = map.getView().getZoom() || 4;
+    const isSelected = feature === selectedFeatureRef;
 
-    let dotColor = '#ffaa00';
-    if (speed > 80) dotColor = '#ff4444';
-    else if (speed > 30) dotColor = '#00cc00';
-    else if (speed > 0) dotColor = '#44ff44';
+    let dotColor = "#ffaa00";
+    if (speed > 80) dotColor = "#ff4444";
+    else if (speed > 30) dotColor = "#00cc00";
+    else if (speed > 0) dotColor = "#44ff44";
 
-    let radius = 8;
-    if (zoom <= 5) radius = 6;
-    else if (zoom <= 7) radius = 7;
+    let radius = 7;
+    if (zoom <= 5) radius = 5;
+    else if (zoom <= 7) radius = 6;
+    if (isSelected) radius += 2;
 
     const styles = [
       new ol.style.Style({
         image: new ol.style.Circle({
           radius: isMobileLayout() ? Math.max(5, radius - 1) : radius,
           fill: new ol.style.Fill({ color: dotColor }),
-          stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
-        })
+          stroke: new ol.style.Stroke({ color: isSelected ? "#00d7ff" : "#ffffff", width: isSelected ? 3 : 2 })
+        }),
+        zIndex: isSelected ? 999 : 10
       })
     ];
 
-    if (label && !isJunkId(label) && zoom >= 4.1) {
-      let text = label;
-      let fontSize = 11;
-      let offsetY = -20;
-      let padding = [3, 8, 3, 8];
+    if (!label || isJunkId(label)) return styles;
 
-      if (detail) {
-        text = `${label}\n${detail}`;
-      }
+    let text = "";
+    let fontSize = 10;
+    let offsetY = -16;
+    let padding = [2, 6, 2, 6];
 
-      if (zoom <= 5.5) {
-        fontSize = 9;
-        offsetY = -18;
-        padding = [2, 6, 2, 6];
-      } else if (zoom <= 7) {
-        fontSize = 10;
-        offsetY = -19;
-        padding = [2, 7, 2, 7];
-      }
-
-      styles.push(new ol.style.Style({
-        text: new ol.style.Text({
-          text: text,
-          textAlign: 'center',
-          justify: 'center',
-          font: `bold ${fontSize}px monospace`,
-          fill: new ol.style.Fill({ color: '#ffaa00' }),
-          stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
-          offsetY: offsetY,
-          backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.92)' }),
-          padding: padding
-        })
-      }));
+    if (zoom <= 4.8) {
+      text = detail ? `${label}\n${detail}` : label;
+      fontSize = 9;
+      offsetY = -15;
+      padding = [1, 5, 1, 5];
+    } else if (zoom <= 7.8) {
+      text = label;
+      fontSize = 10;
+      offsetY = -16;
+      padding = [2, 6, 2, 6];
+    } else {
+      text = label;
+      fontSize = 11;
+      offsetY = -18;
+      padding = [2, 7, 2, 7];
     }
+
+    if (isSelected && detail && zoom > 4.8) {
+      text = `${label}\n${detail}`;
+    }
+
+    styles.push(new ol.style.Style({
+      text: new ol.style.Text({
+        text,
+        textAlign: "center",
+        justify: "center",
+        font: `bold ${fontSize}px monospace`,
+        fill: new ol.style.Fill({ color: "#ffaa00" }),
+        stroke: new ol.style.Stroke({ color: "#000000", width: 3 }),
+        offsetY,
+        backgroundFill: new ol.style.Fill({ color: "rgba(0,0,0,0.92)" }),
+        padding
+      }),
+      zIndex: isSelected ? 1000 : 11
+    }));
 
     return styles;
   }
@@ -1041,15 +980,62 @@ const trainLayer = new ol.layer.Vector({
 
 map.addLayer(trainLayer);
 
+function buildOperatorList(trains) {
+  operatorList = [...new Set([
+    ...FALLBACK_OPERATORS,
+    ...trains.map(getOperator).filter(Boolean).map(v => String(v).trim()).filter(Boolean)
+  ])].sort((a, b) => a.localeCompare(b));
+}
+
+function renderOperatorChecklist(filterText = "") {
+  const wrap = document.getElementById("operatorChecklist");
+  const q = String(filterText || "").trim().toLowerCase();
+
+  wrap.innerHTML = "";
+
+  operatorList
+    .filter(op => !q || op.toLowerCase().includes(q))
+    .forEach(op => {
+      const row = document.createElement("div");
+      row.className = "operator-row";
+
+      const label = document.createElement("label");
+      label.style.display = "flex";
+      label.style.alignItems = "center";
+      label.style.gap = "10px";
+      label.style.width = "100%";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = hiddenOperators.has(op.toLowerCase());
+
+      cb.addEventListener("change", () => {
+        if (cb.checked) hiddenOperators.add(op.toLowerCase());
+        else hiddenOperators.delete(op.toLowerCase());
+        updateOperatorButtonLabels();
+        removePopup();
+        loadRealTrains();
+      });
+
+      const span = document.createElement("span");
+      span.textContent = op;
+
+      label.appendChild(cb);
+      label.appendChild(span);
+      row.appendChild(label);
+      wrap.appendChild(row);
+    });
+}
+
 async function loadRealTrains() {
   const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
-  setStatusUI('Loading...', '…', '0');
+  setStatusUI("Loading...", "…", "0");
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12000);
 
   try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
+    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
@@ -1057,13 +1043,13 @@ async function loadRealTrains() {
     const updatedISO = data.lastUpdated || null;
 
     const localTs = updatedISO ? formatLocal(updatedISO) : formatLocal(new Date());
-    const statusText = (data.note || 'ok').toString();
+    const statusText = String(data.note || "ok");
 
     if (trains.length === 0) {
       consecutiveEmpty += 1;
       if (lastGoodTrains.length > 0 && consecutiveEmpty < 3) {
         setStatusUI(
-          localTs ? `Last: ${localTs}` : 'Last: (unknown)',
+          localTs ? `Last: ${localTs}` : "Last: (unknown)",
           `empty payload (${consecutiveEmpty})`,
           String(lastGoodTrains.filter(trainPassesOperatorFilter).length)
         );
@@ -1079,11 +1065,14 @@ async function loadRealTrains() {
       lastGoodUpdatedISO = updatedISO;
     }
 
-    refreshOperatorOptions(allTrains);
+    buildOperatorList(allTrains);
+    renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
+    updateOperatorButtonLabels();
+
     const visibleTrains = getVisibleTrains();
 
     setStatusUI(
-      localTs ? `Last: ${localTs}` : 'Last: (unknown)',
+      localTs ? `Last: ${localTs}` : "Last: (unknown)",
       statusText,
       String(visibleTrains.length)
     );
@@ -1102,22 +1091,22 @@ async function loadRealTrains() {
       const feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
       });
-      feature.set('train_data', train);
+      feature.set("train_data", train);
       trainSource.addFeature(feature);
     });
 
     trainLayer.changed();
 
   } catch (err) {
-    console.error('Failed to load trains:', err);
+    console.error("Failed to load trains:", err);
     if (lastGoodUpdatedISO) {
       setStatusUI(
         `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`,
-        'error',
+        "error",
         String(lastGoodTrains.filter(trainPassesOperatorFilter).length)
       );
     } else {
-      setStatusUI('Update failed', 'error', '0');
+      setStatusUI("Update failed", "error", "0");
     }
   } finally {
     clearTimeout(timeoutId);
@@ -1129,6 +1118,8 @@ function removePopup() {
     map.removeOverlay(popupOverlay);
     popupOverlay = null;
   }
+  selectedFeatureRef = null;
+  trainLayer.changed();
 }
 
 function renderPopupHTML(train, placeText, popupUpdated) {
@@ -1138,7 +1129,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
   const speed = getSpeed(train);
   const desc = getDescription(train);
   const operator = getOperator(train);
-  const km = train.km || train.trainKM || train.km_post || train.kmPost || 'Unknown';
+  const km = train.km || train.trainKM || train.km_post || train.kmPost || "Unknown";
   const lat = Number(train.lat);
   const lon = Number(train.lon);
   const locationText = placeText || "Looking up…";
@@ -1146,96 +1137,78 @@ function renderPopupHTML(train, placeText, popupUpdated) {
   return `
     <button class="popup-close" id="popupCloseBtn" type="button">×</button>
     <div class="popup-header">${esc(label || "Train")} — ${esc(speed)} km/h</div>
-    <div class="popup-subheader">Updated: ${esc(popupUpdated || 'Unknown')}</div>
-    ${desc ? `<div class="popup-subheader">${esc(desc)}</div>` : ''}
+    <div class="popup-subheader">Updated: ${esc(popupUpdated || "Unknown")}</div>
+    ${desc ? `<div class="popup-subheader">${esc(desc)}</div>` : ""}
 
     <div class="popup-grid">
       <div class="popup-label">Current place</div><div class="popup-value" id="popupCurrentPlace">${esc(locationText)}</div>
-      <div class="popup-label">Origin</div><div class="popup-value">${esc(origin || 'Unknown')}</div>
-      <div class="popup-label">Destination</div><div class="popup-value">${esc(dest || 'Unknown')}</div>
-      <div class="popup-label">Current operator</div><div class="popup-value">${esc(operator || 'Unknown')}</div>
-      <div class="popup-label">Vehicle description</div><div class="popup-value">${esc(desc || 'Unknown')}</div>
-      <div class="popup-label">KM / post</div><div class="popup-value">${esc(km || 'Unknown')}</div>
-      <div class="popup-label">Latitude</div><div class="popup-value">${Number.isFinite(lat) ? esc(lat.toFixed(5)) : 'Unknown'}</div>
-      <div class="popup-label">Longitude</div><div class="popup-value">${Number.isFinite(lon) ? esc(lon.toFixed(5)) : 'Unknown'}</div>
+      <div class="popup-label">Origin</div><div class="popup-value">${esc(origin || "Unknown")}</div>
+      <div class="popup-label">Destination</div><div class="popup-value">${esc(dest || "Unknown")}</div>
+      <div class="popup-label">Current operator</div><div class="popup-value">${esc(operator || "Unknown")}</div>
+      <div class="popup-label">Vehicle description</div><div class="popup-value">${esc(desc || "Unknown")}</div>
+      <div class="popup-label">KM / post</div><div class="popup-value">${esc(km || "Unknown")}</div>
+      <div class="popup-label">Latitude</div><div class="popup-value">${Number.isFinite(lat) ? esc(lat.toFixed(5)) : "Unknown"}</div>
+      <div class="popup-label">Longitude</div><div class="popup-value">${Number.isFinite(lon) ? esc(lon.toFixed(5)) : "Unknown"}</div>
     </div>
 
     <div class="popup-footer">
-      ${getLoco(train) ? `<span class="popup-badge">Loco: ${esc(getLoco(train))}</span>` : ''}
-      ${getTrainId(train) ? `<span class="popup-badge">Train: ${esc(getTrainId(train))}</span>` : ''}
-      ${operator ? `<span class="popup-badge">${esc(operator)}</span>` : ''}
-      ${locationText ? `<span class="popup-badge">${esc(locationText)}</span>` : ''}
+      ${getLoco(train) ? `<span class="popup-badge">Loco: ${esc(getLoco(train))}</span>` : ""}
+      ${getTrainId(train) ? `<span class="popup-badge">Train: ${esc(getTrainId(train))}</span>` : ""}
+      ${operator ? `<span class="popup-badge">${esc(operator)}</span>` : ""}
+      ${locationText ? `<span class="popup-badge">${esc(locationText)}</span>` : ""}
     </div>
   `;
 }
 
 async function showTrainPopup(feature) {
-  removePopup();
   if (!feature) return;
 
-  const train = feature.get('train_data') || {};
+  removePopup();
+  selectedFeatureRef = feature;
+  trainLayer.changed();
+
+  const train = feature.get("train_data") || {};
   const label = buildLabel(train);
   if (!label || isJunkId(label)) return;
 
   const coords = feature.getGeometry().getCoordinates();
-  const popupUpdated = lastGoodUpdatedISO
-    ? formatLocal(lastGoodUpdatedISO)
-    : formatLocal(new Date());
+  const popupUpdated = lastGoodUpdatedISO ? formatLocal(lastGoodUpdatedISO) : formatLocal(new Date());
 
   const directPlace = getCurrentPlaceFromTrain(train);
   const lat = Number(train.lat);
   const lon = Number(train.lon);
 
-  const popupDiv = document.createElement('div');
-  popupDiv.className = 'train-popup';
-  popupDiv.innerHTML = renderPopupHTML(train, directPlace || (REVERSE_GEOCODE_ENABLED ? "Looking up…" : "Unknown"), popupUpdated);
+  const popupDiv = document.createElement("div");
+  popupDiv.className = "train-popup";
+  popupDiv.innerHTML = renderPopupHTML(train, directPlace || "Looking up…", popupUpdated);
 
   popupOverlay = new ol.Overlay({
     element: popupDiv,
     position: coords,
-    positioning: 'bottom-center',
+    positioning: "bottom-center",
     offset: [0, -12]
   });
 
   map.addOverlay(popupOverlay);
 
-  const closeBtn = popupDiv.querySelector('#popupCloseBtn');
-  if (closeBtn) closeBtn.addEventListener('click', removePopup);
+  const closeBtn = popupDiv.querySelector("#popupCloseBtn");
+  if (closeBtn) closeBtn.addEventListener("click", removePopup);
 
-  if (!directPlace && REVERSE_GEOCODE_ENABLED && Number.isFinite(lat) && Number.isFinite(lon)) {
+  if (!directPlace && Number.isFinite(lat) && Number.isFinite(lon)) {
     const reqId = ++popupRequestId;
     const reversePlace = await reverseGeocodeTown(lat, lon);
     if (!popupOverlay || reqId !== popupRequestId) return;
 
-    const placeEl = popupDiv.querySelector('#popupCurrentPlace');
-    if (placeEl) {
-      placeEl.textContent = reversePlace || 'Unknown';
-    }
+    const placeEl = popupDiv.querySelector("#popupCurrentPlace");
+    if (placeEl) placeEl.textContent = reversePlace || "Unknown";
   }
 }
 
-map.on('singleclick', function(evt){
+map.on("singleclick", function(evt){
   const feature = map.forEachFeatureAtPixel(
     evt.pixel,
-    function(f, layer){
-      return layer === trainLayer ? f : null;
-    },
-    { hitTolerance: 10 }
-  );
-
-  if (feature) showTrainPopup(feature);
-  else removePopup();
-});
-
-map.on('pointermove', function(evt){
-  if ('ontouchstart' in window) return;
-
-  const feature = map.forEachFeatureAtPixel(
-    evt.pixel,
-    function(f, layer){
-      return layer === trainLayer ? f : null;
-    },
-    { hitTolerance: 10 }
+    function(f, layer){ return layer === trainLayer ? f : null; },
+    { hitTolerance: 16 }
   );
 
   if (feature) showTrainPopup(feature);
@@ -1271,14 +1244,14 @@ function getSearchFields(train){
 }
 
 function hideAutocomplete(){
-  document.getElementById('autocompleteList').style.display = 'none';
-  document.getElementById('mobileAutocompleteList').style.display = 'none';
+  document.getElementById("autocompleteList").style.display = "none";
+  document.getElementById("mobileAutocompleteList").style.display = "none";
 }
 
 function updateAutocompleteFor(inputEl, listEl){
   const query = inputEl.value.trim().toLowerCase();
   if (query.length < 2) {
-    listEl.style.display = 'none';
+    listEl.style.display = "none";
     return;
   }
 
@@ -1303,11 +1276,11 @@ function updateAutocompleteFor(inputEl, listEl){
   }
 
   if (matches.length === 0) {
-    listEl.style.display = 'none';
+    listEl.style.display = "none";
     return;
   }
 
-  listEl.innerHTML = '';
+  listEl.innerHTML = "";
   matches.slice(0, 12).forEach(match => {
     const place = getCurrentPlaceFromTrain(match.full);
     const o = getOrigin(match.full);
@@ -1315,18 +1288,18 @@ function updateAutocompleteFor(inputEl, listEl){
     const operator = getOperator(match.full);
     const rightText = place || (o || d ? `${o} → ${d}` : operator);
 
-    const item = document.createElement('div');
-    item.className = 'autocomplete-item';
-    item.innerHTML = `<span class="train-id">${esc(match.id)}</span><span class="train-loc">${esc(rightText || '')}</span>`;
-    item.addEventListener('click', () => {
+    const item = document.createElement("div");
+    item.className = "autocomplete-item";
+    item.innerHTML = `<span class="train-id">${esc(match.id)}</span><span class="train-loc">${esc(rightText || "")}</span>`;
+    item.addEventListener("click", () => {
       inputEl.value = match.id;
-      listEl.style.display = 'none';
-      flyToTrain(match.lat, match.lon);
+      listEl.style.display = "none";
+      flyToMatches([match.full]);
     });
     listEl.appendChild(item);
   });
 
-  listEl.style.display = 'block';
+  listEl.style.display = "block";
 }
 
 function wireSearchBox(inputId, buttonId, listId, isMobile) {
@@ -1334,43 +1307,68 @@ function wireSearchBox(inputId, buttonId, listId, isMobile) {
   const button = document.getElementById(buttonId);
   const list = document.getElementById(listId);
 
-  input.addEventListener('input', () => {
+  input.addEventListener("input", () => {
     clearTimeout(isMobile ? mobileDebounceTimer : desktopDebounceTimer);
     const timer = setTimeout(() => updateAutocompleteFor(input, list), 180);
     if (isMobile) mobileDebounceTimer = timer;
     else desktopDebounceTimer = timer;
   });
 
-  input.addEventListener('keypress', e => {
-    if (e.key === 'Enter') searchTrainsFromInput(input);
+  input.addEventListener("keypress", e => {
+    if (e.key === "Enter") searchTrainsFromInput(input);
   });
 
-  button.addEventListener('click', () => searchTrainsFromInput(input));
+  button.addEventListener("click", () => searchTrainsFromInput(input));
 }
 
-function flyToTrain(lat, lon){
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-  map.getView().animate({ center: ol.proj.fromLonLat([lon, lat]), zoom: 12, duration: 850 });
+function flyToMatches(trains){
+  const valid = trains.filter(t => Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lon)));
+  if (valid.length === 0) return;
+
+  if (valid.length === 1) {
+    const train = valid[0];
+    const center = ol.proj.fromLonLat([Number(train.lon), Number(train.lat)]);
+    map.getView().animate({ center, zoom: Math.max(map.getView().getZoom() || 4, 8), duration: 850 });
+
+    setTimeout(() => {
+      const target = trainSource.getFeatures().find(f => {
+        const td = f.get("train_data") || {};
+        return buildLabel(td) === buildLabel(train);
+      });
+      if (target) showTrainPopup(target);
+    }, 900);
+    return;
+  }
+
+  let extent = ol.extent.createEmpty();
+  valid.forEach(train => {
+    const coord = ol.proj.fromLonLat([Number(train.lon), Number(train.lat)]);
+    ol.extent.extend(extent, [coord[0], coord[1], coord[0], coord[1]]);
+  });
+  map.getView().fit(extent, { duration: 850, padding: [80, 80, 80, 80], maxZoom: 9 });
 }
 
 function searchTrainsFromInput(inputEl){
   const query = inputEl.value.trim().toLowerCase();
   if (!query) return;
 
+  const matches = [];
   for (const train of getVisibleTrains()){
     const id = displayId(train);
     if (!id || isJunkId(id)) continue;
-
     const searchable = getSearchFields(train);
-
-    if (searchable.some(s => s.includes(query))){
-      flyToTrain(Number(train.lat), Number(train.lon));
-      hideAutocomplete();
-      return;
+    if (searchable.some(s => s.includes(query))) {
+      matches.push(train);
     }
   }
 
-  alert('No trains or locations found matching: ' + query);
+  if (matches.length === 0) {
+    alert("No trains or locations found matching: " + query);
+    return;
+  }
+
+  hideAutocomplete();
+  flyToMatches(matches);
 }
 
 const stateBounds = {
@@ -1386,7 +1384,7 @@ const stateBounds = {
 
 function zoomTo(region){
   const bounds = stateBounds[region] || stateBounds.au;
-  const extent = ol.proj.transformExtent(bounds, 'EPSG:4326', 'EPSG:3857');
+  const extent = ol.proj.transformExtent(bounds, "EPSG:4326", "EPSG:3857");
   map.getView().fit(extent, { duration: 900, maxZoom: 10 });
 }
 
@@ -1399,101 +1397,144 @@ function zoomToCurrent(){
 }
 
 function syncStateSelect(value) {
-  document.getElementById('stateSelect').value = value;
-  document.getElementById('mobileStateSelect').value = value;
+  document.getElementById("stateSelect").value = value;
+  document.getElementById("mobileStateSelect").value = value;
 }
 
-document.getElementById('stateSelect').addEventListener('change', e => {
+document.getElementById("stateSelect").addEventListener("change", e => {
   syncStateSelect(e.target.value);
   zoomTo(e.target.value);
 });
 
-document.getElementById('mobileStateSelect').addEventListener('change', e => {
+document.getElementById("mobileStateSelect").addEventListener("change", e => {
   syncStateSelect(e.target.value);
   zoomTo(e.target.value);
 });
 
-document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
-document.getElementById('mobileLocateBtn').addEventListener('click', zoomToCurrent);
+document.getElementById("locateBtn").addEventListener("click", zoomToCurrent);
+document.getElementById("mobileLocateBtn").addEventListener("click", zoomToCurrent);
 
 function toggleLayersPanel(){
-  const panel = document.getElementById('layersPanel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  const panel = document.getElementById("layersPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
 function hideLayersPanel(){
-  document.getElementById('layersPanel').style.display = 'none';
+  document.getElementById("layersPanel").style.display = "none";
 }
 
-document.getElementById('layersToggleBtn').addEventListener('click', (e) => {
+function toggleOperatorPanel(){
+  const panel = document.getElementById("operatorPanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+
+function hideOperatorPanel(){
+  document.getElementById("operatorPanel").style.display = "none";
+}
+
+document.getElementById("layersToggleBtn").addEventListener("click", (e) => {
   e.stopPropagation();
+  hideOperatorPanel();
   toggleLayersPanel();
 });
 
-document.getElementById('mobileLayersBtn').addEventListener('click', (e) => {
+document.getElementById("mobileLayersBtn").addEventListener("click", (e) => {
   e.stopPropagation();
+  hideOperatorPanel();
   toggleLayersPanel();
 });
 
-document.getElementById('trainLayerChk').addEventListener('change', e => trainLayer.setVisible(e.target.checked));
-document.getElementById('railLayerChk').addEventListener('change', e => railLayer.setVisible(e.target.checked));
-document.getElementById('stationsLayerChk').addEventListener('change', e => stationsLayer.setVisible(e.target.checked));
-document.getElementById('covTelstraChk').addEventListener('change', e => covTelstra.setVisible(e.target.checked));
-document.getElementById('covOptusChk').addEventListener('change', e => covOptus.setVisible(e.target.checked));
-document.getElementById('covTPGChk').addEventListener('change', e => covTPG.setVisible(e.target.checked));
-document.getElementById('covAllChk').addEventListener('change', e => covAll.setVisible(e.target.checked));
+document.getElementById("operatorBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  hideLayersPanel();
+  toggleOperatorPanel();
+});
 
-document.addEventListener('click', (e) => {
-  const layersPanel = document.getElementById('layersPanel');
-  const layersBtn = document.getElementById('layersToggleBtn');
-  const mobileLayersBtn = document.getElementById('mobileLayersBtn');
-  const searchContainer = document.getElementById('searchContainer');
-  const topCard = document.getElementById('topCard');
+document.getElementById("mobileOperatorBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  hideLayersPanel();
+  toggleOperatorPanel();
+});
 
-  if (layersPanel.style.display !== 'none') {
+document.getElementById("operatorHideNoneBtn").addEventListener("click", () => {
+  hiddenOperators.clear();
+  renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
+  updateOperatorButtonLabels();
+  removePopup();
+  loadRealTrains();
+});
+
+document.getElementById("operatorHideAllBtn").addEventListener("click", () => {
+  const filterText = (document.getElementById("operatorSearchInput").value || "").trim().toLowerCase();
+  operatorList
+    .filter(op => !filterText || op.toLowerCase().includes(filterText))
+    .forEach(op => hiddenOperators.add(op.toLowerCase()));
+  renderOperatorChecklist(filterText);
+  updateOperatorButtonLabels();
+  removePopup();
+  loadRealTrains();
+});
+
+document.getElementById("operatorSearchInput").addEventListener("input", (e) => {
+  renderOperatorChecklist(e.target.value || "");
+});
+
+document.getElementById("trainLayerChk").addEventListener("change", e => trainLayer.setVisible(e.target.checked));
+document.getElementById("railLayerChk").addEventListener("change", e => railLayer.setVisible(e.target.checked));
+document.getElementById("stationsLayerChk").addEventListener("change", e => stationsLayer.setVisible(e.target.checked));
+document.getElementById("covTelstraChk").addEventListener("change", e => covTelstra.setVisible(e.target.checked));
+document.getElementById("covOptusChk").addEventListener("change", e => covOptus.setVisible(e.target.checked));
+document.getElementById("covTPGChk").addEventListener("change", e => covTPG.setVisible(e.target.checked));
+document.getElementById("covAllChk").addEventListener("change", e => covAll.setVisible(e.target.checked));
+
+document.addEventListener("click", (e) => {
+  const layersPanel = document.getElementById("layersPanel");
+  const operatorPanel = document.getElementById("operatorPanel");
+  const layersBtn = document.getElementById("layersToggleBtn");
+  const mobileLayersBtn = document.getElementById("mobileLayersBtn");
+  const operatorBtn = document.getElementById("operatorBtn");
+  const mobileOperatorBtn = document.getElementById("mobileOperatorBtn");
+  const searchContainer = document.getElementById("searchContainer");
+  const topCard = document.getElementById("topCard");
+
+  if (layersPanel.style.display !== "none") {
     const clickedInsidePanel = layersPanel.contains(e.target);
     const clickedDesktopBtn = layersBtn.contains(e.target);
     const clickedMobileBtn = mobileLayersBtn.contains(e.target);
     if (!clickedInsidePanel && !clickedDesktopBtn && !clickedMobileBtn) hideLayersPanel();
   }
 
-  if (document.getElementById('autocompleteList').style.display !== 'none') {
-    const clickedInsideDesktopSearch = searchContainer.contains(e.target);
-    if (!clickedInsideDesktopSearch) document.getElementById('autocompleteList').style.display = 'none';
+  if (operatorPanel.style.display !== "none") {
+    const clickedInsidePanel = operatorPanel.contains(e.target);
+    const clickedDesktopBtn = operatorBtn.contains(e.target);
+    const clickedMobileBtn = mobileOperatorBtn.contains(e.target);
+    if (!clickedInsidePanel && !clickedDesktopBtn && !clickedMobileBtn) hideOperatorPanel();
   }
 
-  if (document.getElementById('mobileAutocompleteList').style.display !== 'none') {
+  if (document.getElementById("autocompleteList").style.display !== "none") {
+    const clickedInsideDesktopSearch = searchContainer.contains(e.target);
+    if (!clickedInsideDesktopSearch) document.getElementById("autocompleteList").style.display = "none";
+  }
+
+  if (document.getElementById("mobileAutocompleteList").style.display !== "none") {
     const clickedInsideMobileSearch = topCard.contains(e.target);
-    if (!clickedInsideMobileSearch) document.getElementById('mobileAutocompleteList').style.display = 'none';
+    if (!clickedInsideMobileSearch) document.getElementById("mobileAutocompleteList").style.display = "none";
   }
 });
 
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
     hideAutocomplete();
     hideLayersPanel();
+    hideOperatorPanel();
     removePopup();
   }
 });
 
-document.getElementById('operatorHideSelect').addEventListener('change', (e) => {
-  syncOperatorHideSelects(e.target.value);
-  hideAutocomplete();
-  removePopup();
-  loadRealTrains();
-});
+wireSearchBox("searchInput", "searchBtn", "autocompleteList", false);
+wireSearchBox("mobileSearchInput", "mobileSearchBtn", "mobileAutocompleteList", true);
 
-document.getElementById('mobileOperatorHideSelect').addEventListener('change', (e) => {
-  syncOperatorHideSelects(e.target.value);
-  hideAutocomplete();
-  removePopup();
-  loadRealTrains();
-});
-
-wireSearchBox('searchInput', 'searchBtn', 'autocompleteList', false);
-wireSearchBox('mobileSearchInput', 'mobileSearchBtn', 'mobileAutocompleteList', true);
-
-window.addEventListener('resize', () => {
+window.addEventListener("resize", () => {
   trainLayer.changed();
   hideAutocomplete();
   removePopup();
@@ -1501,7 +1542,7 @@ window.addEventListener('resize', () => {
 
 loadRealTrains();
 setInterval(loadRealTrains, 30000);
-zoomTo('au');
+zoomTo("au");
 </script>
 
 <script>
@@ -1516,9 +1557,10 @@ if ("serviceWorker" in navigator) {
 
 <button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid #2a4a7a;background:rgba(8,20,38,.92);color:#fff;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.45);cursor:pointer;">Logout</button>
 <script>
-  if (window.RailOpsAuth && typeof RailOpsAuth.wireLogout === 'function') {
-    RailOpsAuth.wireLogout('#logoutBtn');
-  }
+if (window.RailOpsAuth && typeof RailOpsAuth.wireLogout === "function") {
+  RailOpsAuth.wireLogout("#logoutBtn");
+}
 </script>
+
 </body>
 </html>
