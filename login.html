@@ -2,105 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>RailOps Login</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    html,body{margin:0;height:100%;font:16px system-ui,-apple-system,Segoe UI,Roboto,Arial;background:#0b1220;color:#e8eefc}
-    .box{max-width:380px;margin:10vh auto;background:#121a2b;border:1px solid #31405e;border-radius:12px;padding:24px}
-    h1{margin:0 0 16px;font-size:20px}
-    label{display:block;font-size:13px;margin-top:10px;margin-bottom:6px;opacity:.9}
-    input{width:100%;margin:0 0 10px;padding:10px;border-radius:8px;border:1px solid #2a3b5a;background:#0e1526;color:#e8eefc}
-    .row{display:flex;align-items:center;gap:8px}
-    button{padding:10px 12px;border-radius:8px;border:1px solid #2a3b5a;background:#1d2a44;color:#e8eefc;cursor:pointer}
-    .full{width:100%}
-    .err{margin-top:10px;color:#ffb3b3;min-height:1.2em}
-    .hint{opacity:.8;font-size:13px;margin-top:10px}
-    .dbg{opacity:.7;font:12px ui-monospace,Menlo,Consolas;margin-top:6px}
-  </style>
+  <title>RailOps — Login</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="box">
-    <h1>RailOps Login</h1>
+  <div class="login-wrap">
+    <div class="login">
+      <h1>Grahame’s RailOps Login</h1>
+      <div class="sub">Admins go to the control panel. Guests go to the live dashboard.</div>
 
-    <form id="login-form" novalidate>
-      <label for="u">Username</label>
-      <input id="u" name="u" placeholder="admin or guest" autocomplete="username" autocapitalize="off" />
+      <label for="user">Username</label>
+      <input id="user" placeholder="admin or guest" autocomplete="username" autocapitalize="off" />
 
-      <label for="p">Password</label>
+      <label for="pass">Password</label>
+      <input id="pass" type="password" placeholder="Password" autocomplete="current-password" />
+
       <div class="row">
-        <input id="p" name="p" placeholder="Password" type="password" class="full" autocomplete="current-password" />
-        <label class="row" style="font-size:12px;"><input type="checkbox" id="show"> Show</label>
+        <button class="ghost" id="guestBtn" type="button">Continue as Guest</button>
+        <button class="primary" id="loginBtn" type="button">Log In</button>
       </div>
 
-      <button type="submit" class="full">Login</button>
-      <div class="row" style="margin-top:8px;justify-content:space-between">
-        <button type="button" id="quick-admin">Login as Admin</button>
-        <button type="button" id="quick-guest">Login as Guest</button>
-      </div>
-
-      <div class="dbg" id="dbg"></div>
-      <div class="err" id="e"></div>
-    </form>
-
-    <div class="hint">Demo creds — <code>admin / railops</code> or <code>guest / guestpass</code> (any casing)</div>
+      <div class="small">Current demo logins: <b>admin / railops</b> and <b>guest / guestpass</b></div>
+      <div class="small" id="errorText" style="color:#ffb4b4;min-height:20px;margin-top:10px"></div>
+    </div>
   </div>
 
   <script>
-    // If already logged in, skip
     (function(){
       try {
-        const sess = JSON.parse(localStorage.getItem('railops_session') || "null");
+        const sess = JSON.parse(localStorage.getItem('railops_session') || 'null');
         if (sess?.role === 'admin') location.replace('/admin.html');
         if (sess?.role === 'guest') location.replace('/dashboard.html');
       } catch {}
     })();
 
-    const $ = (id)=>document.getElementById(id);
-    const form = $('login-form'), err = $('e'), dbg = $('dbg');
+    const userEl = document.getElementById('user');
+    const passEl = document.getElementById('pass');
+    const errEl = document.getElementById('errorText');
 
-    // Show/hide password
-    $('show').addEventListener('change', (e)=>{
-      $('p').type = e.target.checked ? 'text' : 'password';
-    });
-
-    // Quick buttons
-    $('quick-admin').onclick = () => { $('u').value = 'admin'; $('p').value = 'railops'; form.requestSubmit(); };
-    $('quick-guest').onclick  = () => { $('u').value = 'guest'; $('p').value = 'guestpass'; form.requestSubmit(); };
-
-    function normalize(s){
-      return (s ?? '')
-        .normalize('NFKC')               // fix odd Unicode forms
-        .replace(/[\u200B-\u200D\uFEFF]/g, '') // strip zero-width spaces
-        .trim();
-    }
-
-    form.addEventListener('submit', function(ev){
-      ev.preventDefault();
-      err.textContent = '';
-
-      // Normalize + lower-case username; normalize password (and lower-case for demo)
-      const uRaw = normalize($('u').value);
-      const pRaw = normalize($('p').value);
-
-      const u = uRaw.toLowerCase();
-      const p = pRaw.toLowerCase(); // demo: accept any casing to avoid iOS auto-cap issues
-
-      // Debug line (doesn't show password, only its length)
-      dbg.textContent = `Seen → user="${u}" (len ${u.length}), pass length=${pRaw.length}`;
+    function doLogin(user, pass) {
+      const u = String(user || '').trim().toLowerCase();
+      const p = String(pass || '').trim().toLowerCase();
+      errEl.textContent = '';
 
       if (u === 'admin' && p === 'railops') {
         localStorage.setItem('railops_session', JSON.stringify({ role: 'admin', ts: Date.now() }));
-        location.href = '/admin.html';
+        location.replace('/admin.html');
         return;
       }
       if (u === 'guest' && p === 'guestpass') {
         localStorage.setItem('railops_session', JSON.stringify({ role: 'guest', ts: Date.now() }));
-        location.href = '/dashboard.html';
+        location.replace('/dashboard.html');
         return;
       }
+      errEl.textContent = 'Invalid username or password.';
+    }
 
-      err.textContent = 'Invalid username or password.';
-    });
+    document.getElementById('loginBtn').addEventListener('click', () => doLogin(userEl.value, passEl.value));
+    document.getElementById('guestBtn').addEventListener('click', () => doLogin('guest', 'guestpass'));
+    passEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(userEl.value, passEl.value); });
+    userEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(userEl.value, passEl.value); });
   </script>
 </body>
 </html>

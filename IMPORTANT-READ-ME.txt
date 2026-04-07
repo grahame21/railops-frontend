@@ -1,0 +1,13 @@
+This corrected frontend ZIP now puts the login IN FRONT of the dashboard pages.
+
+What is fixed:
+- login.html now creates a session in localStorage
+- index.html now redirects to login.html
+- dashboard.html now checks login before showing the map
+- admin.html now checks for admin login before showing the panel
+- extra pages also check for login
+
+Important limitation:
+This is still a static frontend lock.
+It hides the site pages unless logged in, but it does NOT make raw files like trains.json truly private.
+For true private protection, trains.json and admin actions must be served by a backend/API with real session checks.

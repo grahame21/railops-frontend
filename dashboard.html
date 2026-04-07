@@ -13,6 +13,8 @@
 <link rel="manifest" href="./manifest.json" />
 <link rel="apple-touch-icon" href="./icons/icon-180.png" />
 <link rel="stylesheet" href="./ol/ol.css" />
+<script src="./auth.js"></script>
+<script>if(!window.RailOpsAuth || !RailOpsAuth.requireRole(['admin','guest'])){document.documentElement.innerHTML='';}</script>
 
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -1313,5 +1315,7 @@ if ("serviceWorker" in navigator) {
 }
 </script>
 
+<button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid #2a4a7a;background:rgba(8,20,38,.92);color:#fff;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.45);cursor:pointer;">Logout</button>
+<script>RailOpsAuth && RailOpsAuth.wireLogout('#logoutBtn');</script>
 </body>
 </html>

@@ -5,65 +5,73 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>RailOps — Admin</title>
   <link rel="stylesheet" href="styles.css" />
+  <script src="auth.js"></script>
+  <script>if(!window.RailOpsAuth || !RailOpsAuth.requireRole(['admin'])){document.documentElement.innerHTML='';}</script>
   <style>
-    .nav-links{
-      display:flex;
-      gap:10px;
-      flex-wrap:wrap;
-      margin:16px 0;
-    }
-    .nav-links a{
-      display:inline-block;
-      padding:10px 14px;
-      border-radius:8px;
-      border:1px solid #073;
-      background:#001b12;
-      color:#00ff9c;
-      text-decoration:none;
-      font-weight:600;
-    }
-    .nav-links a:hover{
-      background:#003322;
-    }
+    .admin-shell{max-width:1200px;margin:0 auto;padding:28px 20px 40px}
+    .hero{background:rgba(8,18,34,.76);border:1px solid rgba(255,255,255,.14);border-radius:24px;padding:24px;backdrop-filter:blur(10px);box-shadow:0 10px 36px rgba(0,0,0,.34)}
+    .hero h1{margin:0 0 8px;font-size:32px;color:#fff}
+    .hero p{margin:0;color:#c8d6f0}
+    .top-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+    .top-actions button,.card a{padding:12px 16px;border-radius:14px;border:1px solid rgba(255,255,255,.14);background:rgba(15,30,56,.92);color:#fff;text-decoration:none;font-weight:700;cursor:pointer}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:16px;margin-top:20px}
+    .card{background:rgba(8,18,34,.76);border:1px solid rgba(255,255,255,.12);border-radius:22px;padding:18px;backdrop-filter:blur(10px);box-shadow:0 10px 36px rgba(0,0,0,.24)}
+    .card h2{margin:0 0 10px;font-size:20px;color:#fff}
+    .card p{margin:0 0 16px;color:#c8d6f0;line-height:1.45}
+    .status{margin-top:16px;padding:14px 16px;border-radius:16px;background:rgba(8,18,34,.76);border:1px solid rgba(255,255,255,.12);color:#dfe8fa}
   </style>
 </head>
 <body>
-  <div class="console" id="console">
-    <h1>RailOps Admin Console</h1>
-
-    <div class="nav-links">
-      <a href="dashboard.html">Train Tracker</a>
-      <a href="flight-tracker.html">Flight Tracker</a>
+  <div class="admin-shell">
+    <div class="hero">
+      <h1>RailOps Admin Panel</h1>
+      <p>Main control centre for your trackers, downloads, and scraper tools.</p>
+      <div class="top-actions">
+        <a href="dashboard.html">Open Train Tracker</a>
+        <a href="flight-tracker.html">Open Flight Tracker</a>
+        <button id="runScraperBtn" type="button">Run Fast Scraper</button>
+        <button id="logoutBtn" type="button">Logout</button>
+      </div>
     </div>
 
-    <div class="line">> status: OK</div>
-    <div class="line">> sessions: auto-refresh every 60s</div>
-    <div class="line">> backend: trains.json via GitHub Actions</div>
-    <div class="line">> tips: type 'help' below</div>
+    <div class="grid">
+      <div class="card">
+        <h2>Live Trackers</h2>
+        <p>Jump straight into the live train map and flight tracker pages.</p>
+        <a href="dashboard.html">Train Dashboard</a>
+        <a href="flight-tracker.html" style="margin-left:8px">Flight Tracker</a>
+      </div>
 
-    <div style="margin-top:16px">
-      <input id="cmd" placeholder="enter command…" style="width:100%;padding:10px;border-radius:8px;border:1px solid #073;outline:0;background:#001b12;color:#00ff9c">
+      <div class="card">
+        <h2>Database Files</h2>
+        <p>Quick access to your locomotive database and export views.</p>
+        <a href="downloads/loco_database.html">Loco Database</a>
+        <a href="downloads/recently_added.html" style="margin-left:8px">Recently Added</a>
+      </div>
+
+      <div class="card">
+        <h2>Numbers Only</h2>
+        <p>Open the numbers-only views and workbook exports.</p>
+        <a href="downloads/loco_numbers_only.html">Numbers Only HTML</a>
+        <a href="downloads/loco_numbers_only.xlsx" style="margin-left:8px">Numbers Only XLSX</a>
+      </div>
+
+      <div class="card">
+        <h2>Raw Files</h2>
+        <p>Open the current live train JSON feed used by the site.</p>
+        <a href="trains.json">trains.json</a>
+      </div>
     </div>
+
+    <div class="status" id="statusBox">Status: ready.</div>
   </div>
 
   <script>
-    const log = (t)=>{
-      const d=document.createElement('div');
-      d.className='line';
-      d.textContent=t;
-      document.getElementById('console').appendChild(d);
-      window.scrollTo(0,document.body.scrollHeight);
-    };
-
-    document.getElementById('cmd').addEventListener('keydown',e=>{
-      if(e.key==='Enter'){
-        const v=e.target.value.trim();
-        e.target.value='';
-        if(!v) return;
-        if(v==='help'){ log('help: users, tokens, purge, version'); }
-        else if(v==='version'){ log('RailOps Admin v2.0'); }
-        else { log('unknown command: '+v); }
-      }
+    RailOpsAuth.wireLogout('#logoutBtn');
+    const statusBox = document.getElementById('statusBox');
+    document.getElementById('runScraperBtn').addEventListener('click', async () => {
+      statusBox.textContent = 'Status: scraper trigger button pressed.';
+      alert('This button is wired into the admin panel now, but your current frontend is static-only. To truly run the GitHub fast scraper from here, it needs a backend/API endpoint or serverless function connected to GitHub.');
     });
   </script>
 </body>

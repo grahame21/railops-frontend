@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<script src="/auth.js"></script>
+<script>if(!window.RailOpsAuth || !RailOpsAuth.requireRole(['admin','guest'])){document.documentElement.innerHTML='';}</script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RailOps - Flight Tracker</title>
@@ -242,5 +244,7 @@
   </div>
 
   <script src="static/js/flight-tracker.js"></script>
+<button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(8,20,38,.92);color:#fff;font-weight:700;cursor:pointer;">Logout</button>
+<script>window.RailOpsAuth&&RailOpsAuth.wireLogout('#logoutBtn');</script>
 </body>
 </html>
