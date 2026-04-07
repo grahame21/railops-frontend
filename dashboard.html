@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RailOps — Live Dashboard</title>
+  <title>RailOps Dashboard</title>
 
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
   <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
@@ -18,20 +18,22 @@
       height: 100%;
       overflow: hidden;
       font-family: "Segoe UI", Arial, sans-serif;
-      background: #09111d;
+      background: #0b1a2a;
     }
 
     #map {
+      position: absolute;
+      inset: 0;
       width: 100%;
       height: 100%;
-      background: #cfe3f1;
+      background: #d8e8f3;
     }
 
     .topbar {
       position: absolute;
-      top: 12px;
-      left: 12px;
-      right: 12px;
+      top: 14px;
+      left: 14px;
+      right: 14px;
       z-index: 1000;
       display: flex;
       justify-content: space-between;
@@ -64,38 +66,37 @@
     .status-pill,
     .count-pill,
     .logout-btn {
-      height: 54px;
-      border-radius: 18px;
-      border: 1px solid rgba(255,255,255,0.14);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+      height: 44px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.22);
     }
 
     .brand {
       display: flex;
       align-items: center;
-      padding: 0 18px;
-      font-weight: 800;
-      font-size: 28px;
+      padding: 0 16px;
+      background: rgba(5, 16, 37, 0.96);
       color: #ffb11a;
-      background: rgba(6,16,39,0.97);
+      font-weight: 800;
+      font-size: 24px;
       white-space: nowrap;
     }
 
     .top-control {
-      padding: 0 16px;
-      background: rgba(14,40,82,0.97);
+      padding: 0 14px;
+      background: rgba(14, 46, 96, 0.94);
       color: #fff;
-      font-size: 17px;
+      font-size: 14px;
       font-weight: 700;
       outline: none;
-      min-width: 110px;
+      min-width: 90px;
     }
 
-    select.top-control {
-      cursor: pointer;
-    }
-
-    button.top-control {
+    select.top-control,
+    button.top-control,
+    .logout-btn,
+    .search-btn {
       cursor: pointer;
     }
 
@@ -103,21 +104,21 @@
       display: flex;
       align-items: stretch;
       overflow: hidden;
-      background: rgba(14,40,82,0.97);
-      min-width: 420px;
-      max-width: 700px;
-      flex: 1 1 560px;
+      background: rgba(14, 46, 96, 0.94);
+      min-width: 320px;
+      max-width: 520px;
+      flex: 1 1 420px;
     }
 
     .search-input {
       flex: 1;
-      min-width: 140px;
+      min-width: 120px;
       border: 0;
       outline: none;
       background: transparent;
       color: #fff;
-      font-size: 18px;
-      padding: 0 18px;
+      font-size: 14px;
+      padding: 0 14px;
     }
 
     .search-input::placeholder {
@@ -126,61 +127,56 @@
 
     .search-btn {
       border: 0;
-      padding: 0 22px;
-      font-size: 18px;
+      padding: 0 18px;
+      font-size: 14px;
       font-weight: 800;
       color: #fff;
-      cursor: pointer;
-      background: linear-gradient(180deg, #1574ff, #0a55d4);
+      background: linear-gradient(180deg, #2581ff, #0c5bdd);
     }
 
     .status-pill,
-    .count-pill {
+    .count-pill,
+    .logout-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 18px;
-      background: rgba(6,16,39,0.97);
+      padding: 0 14px;
       color: #fff;
-      font-size: 17px;
+      font-size: 14px;
       font-weight: 800;
       white-space: nowrap;
+      background: rgba(5, 16, 37, 0.96);
     }
 
     .count-pill {
-      min-width: 76px;
-      background: linear-gradient(180deg, #1574ff, #0a55d4);
+      min-width: 56px;
+      background: linear-gradient(180deg, #2581ff, #0c5bdd);
     }
 
     .logout-btn {
       border: 0;
-      padding: 0 20px;
-      color: #fff;
-      font-size: 17px;
-      font-weight: 800;
-      cursor: pointer;
-      background: linear-gradient(180deg, #213253, #12213d);
+      background: linear-gradient(180deg, #23395f, #152743);
     }
 
     .panel {
       position: absolute;
-      top: 78px;
-      left: 12px;
+      top: 64px;
+      left: 14px;
       z-index: 1001;
-      width: 320px;
-      max-width: calc(100vw - 24px);
-      background: rgba(9,17,31,0.96);
+      width: 280px;
+      max-width: calc(100vw - 28px);
+      background: rgba(9, 19, 35, 0.96);
       color: #fff;
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 18px;
-      padding: 14px;
-      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 14px;
+      padding: 12px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
       display: none;
     }
 
     .panel h3 {
-      margin: 0 0 12px 0;
-      font-size: 18px;
+      margin: 0 0 10px 0;
+      font-size: 16px;
       color: #8ec5ff;
     }
 
@@ -188,223 +184,144 @@
       display: flex;
       align-items: center;
       gap: 10px;
-      margin: 9px 0;
-      font-size: 15px;
+      margin: 8px 0;
+      font-size: 14px;
       font-weight: 600;
     }
 
     .layer-item input {
-      transform: scale(1.15);
-      cursor: pointer;
+      transform: scale(1.05);
     }
 
     #popup {
       position: absolute;
-      min-width: 320px;
-      max-width: 520px;
+      min-width: 280px;
+      max-width: 420px;
       background: rgba(18, 22, 29, 0.98);
       color: #fff;
       border: 1px solid rgba(255,255,255,0.15);
-      border-radius: 14px;
+      border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 14px 34px rgba(0,0,0,0.42);
+      box-shadow: 0 12px 28px rgba(0,0,0,0.4);
+      font-size: 13px;
     }
 
-    .tf-header {
+    .popup-header {
       background: #0d67ad;
-      padding: 10px 14px;
+      padding: 10px 12px;
       font-weight: 800;
-      font-size: 15px;
       line-height: 1.25;
     }
 
-    .tf-header .main {
+    .popup-header .main {
       font-size: 17px;
-      font-weight: 800;
     }
 
-    .tf-header .sub {
+    .popup-header .sub {
       margin-top: 2px;
-      font-size: 14px;
-      opacity: 0.98;
-    }
-
-    .tf-tabs {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      background: #0a5b99;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-    }
-
-    .tf-tab {
-      padding: 7px 8px;
-      text-align: center;
-      font-weight: 700;
       font-size: 13px;
-      color: #fff;
-      border-right: 1px solid rgba(255,255,255,0.12);
     }
 
-    .tf-tab:last-child {
-      border-right: 0;
-    }
-
-    .tf-tab.active {
-      background: #2196f3;
-    }
-
-    .tf-body {
+    .popup-body {
       display: grid;
-      grid-template-columns: 108px 1fr;
-      min-height: 210px;
+      grid-template-columns: 90px 1fr;
+      min-height: 180px;
     }
 
-    .tf-left {
-      background: #1f2227;
+    .popup-left {
+      background: #20242a;
+      padding: 10px 8px;
       border-right: 1px solid rgba(255,255,255,0.08);
-      padding: 12px 10px;
       text-align: center;
     }
 
     .status-dot {
-      width: 40px;
-      height: 40px;
+      width: 34px;
+      height: 34px;
       border-radius: 50%;
-      margin: 0 auto 10px auto;
-      background: #444;
+      margin: 0 auto 8px auto;
+      background: #666;
     }
 
-    .status-dot.green { background: #26c95b; }
-    .status-dot.orange { background: #ff9b21; }
-    .status-dot.red { background: #f04545; }
-    .status-dot.gray { background: #666; }
+    .status-dot.green { background: #24c85b; }
+    .status-dot.orange { background: #ff9a1f; }
+    .status-dot.red { background: #ef4747; }
+    .status-dot.gray { background: #777; }
 
-    .tf-left .big {
-      font-size: 14px;
+    .popup-left .big {
+      font-size: 13px;
       font-weight: 800;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
 
-    .tf-left .small-label {
-      font-size: 11px;
+    .popup-left .label {
+      font-size: 10px;
       font-weight: 800;
-      color: #fff;
-      margin-top: 12px;
+      margin-top: 10px;
       opacity: 0.95;
     }
 
-    .tf-left .small-value {
-      font-size: 15px;
+    .popup-left .value {
+      font-size: 14px;
       font-weight: 700;
       margin-top: 2px;
     }
 
-    .tf-right {
-      background: #1b1b1d;
+    .popup-right {
+      background: #1a1a1c;
     }
 
-    .tf-row {
-      border-bottom: 1px solid rgba(255,255,255,0.10);
-      padding: 8px 10px;
+    .row {
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 7px 10px;
     }
 
-    .tf-row .label {
-      font-size: 11px;
+    .row .label {
+      font-size: 10px;
       font-weight: 800;
-      color: #fff;
       opacity: 0.95;
     }
 
-    .tf-row .value {
-      font-size: 17px;
-      line-height: 1.25;
+    .row .value {
+      font-size: 15px;
       margin-top: 2px;
+      line-height: 1.25;
     }
 
-    .tf-two-col {
+    .two-col {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      border-bottom: 1px solid rgba(255,255,255,0.10);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
 
-    .tf-cell {
-      padding: 8px 10px;
-      border-right: 1px solid rgba(255,255,255,0.10);
+    .cell {
+      padding: 7px 10px;
+      border-right: 1px solid rgba(255,255,255,0.08);
     }
 
-    .tf-cell:last-child {
+    .cell:last-child {
       border-right: 0;
     }
 
-    .tf-buttons {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      padding: 8px 10px;
-    }
-
-    .tf-btn {
-      border: 1px solid rgba(255,255,255,0.20);
-      background: linear-gradient(180deg, #5ba7e9, #2e6ea5);
-      color: #fff;
-      padding: 8px 10px;
-      border-radius: 4px;
-      font-weight: 800;
-      font-size: 13px;
-      text-align: center;
-    }
-
-    .tf-alerts {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      padding: 0 10px 10px 10px;
-    }
-
-    .tf-alert {
-      border: 1px solid rgba(255,255,255,0.18);
-      background: linear-gradient(180deg, #72dc65, #3dad39);
-      color: #fff;
-      padding: 7px 10px;
-      border-radius: 4px;
-      font-weight: 800;
-      font-size: 13px;
-      text-align: center;
-    }
-
-    .train-label {
-      color: #ffffff;
-      font-weight: 800;
-      text-shadow:
-        0 0 2px rgba(0,0,0,1),
-        0 0 4px rgba(0,0,0,1),
-        0 0 6px rgba(0,0,0,1);
-    }
-
-    .ol-popup-closer {
-      display: none;
-    }
-
-    @media (max-width: 1400px) {
-      .brand { font-size: 23px; }
-      .top-control, .search-input, .search-btn, .status-pill, .count-pill, .logout-btn { font-size: 15px; }
-      .search-wrap { min-width: 300px; }
-    }
-
-    @media (max-width: 1080px) {
+    @media (max-width: 1200px) {
       .topbar {
         flex-direction: column;
         align-items: stretch;
       }
 
-      .topbar-right {
-        justify-content: flex-end;
-      }
-
       .search-wrap {
-        flex: 1 1 100%;
-        min-width: 240px;
+        max-width: 100%;
       }
+    }
+
+    @media (max-width: 800px) {
+      .brand { font-size: 20px; }
+      .top-control,
+      .search-input,
+      .search-btn,
+      .status-pill,
+      .count-pill,
+      .logout-btn { font-size: 13px; }
     }
   </style>
 </head>
@@ -431,8 +348,8 @@
       <button id="myLocationBtn" class="top-control">📍 My Location</button>
       <button id="layersBtn" class="top-control">🗺️ Layers</button>
 
-      <select id="operatorFilter" class="top-control">
-        <option value="ALL" selected>All Operators</option>
+      <select id="operatorExclude" class="top-control">
+        <option value="NONE" selected>Hide No Operator</option>
         <option>707 Operations</option>
         <option>Adelaide Metro</option>
         <option>ALARC</option>
@@ -515,7 +432,7 @@
 
       <div class="search-wrap">
         <input id="searchInput" class="search-input" type="text" placeholder="Search train number, loco, origin, destination..." />
-        <button id="searchBtn" class="search-btn">🔍 Search</button>
+        <button id="searchBtn" class="search-btn">🔎 Search</button>
       </div>
     </div>
 
@@ -530,59 +447,27 @@
   <div id="layersPanel" class="panel">
     <h3>Layers</h3>
 
-    <label class="layer-item">
-      <input type="checkbox" id="toggleTrains" checked />
-      <span>Live Trains</span>
-    </label>
-
-    <label class="layer-item">
-      <input type="checkbox" id="toggleRailLines" checked />
-      <span>Rail Lines (Blue)</span>
-    </label>
-
-    <label class="layer-item">
-      <input type="checkbox" id="toggleStations" />
-      <span>Stations</span>
-    </label>
-
-    <label class="layer-item">
-      <input type="checkbox" id="toggleTelstra" />
-      <span>Telstra Coverage</span>
-    </label>
-
-    <label class="layer-item">
-      <input type="checkbox" id="toggleOptus" />
-      <span>Optus Coverage</span>
-    </label>
-
-    <label class="layer-item">
-      <input type="checkbox" id="toggleVodafone" />
-      <span>Vodafone / TPG Coverage</span>
-    </label>
-
-    <label class="layer-item">
-      <input type="checkbox" id="toggleAllCoverage" />
-      <span>All Networks</span>
-    </label>
+    <label class="layer-item"><input type="checkbox" id="toggleTrains" checked> <span>Live Trains</span></label>
+    <label class="layer-item"><input type="checkbox" id="toggleRailLines"> <span>Rail Lines</span></label>
+    <label class="layer-item"><input type="checkbox" id="toggleStations"> <span>Stations</span></label>
+    <label class="layer-item"><input type="checkbox" id="toggleTelstra"> <span>Telstra Coverage</span></label>
+    <label class="layer-item"><input type="checkbox" id="toggleOptus"> <span>Optus Coverage</span></label>
+    <label class="layer-item"><input type="checkbox" id="toggleVodafone"> <span>Vodafone / TPG Coverage</span></label>
+    <label class="layer-item"><input type="checkbox" id="toggleAllCoverage"> <span>All Networks</span></label>
   </div>
 
   <div id="popup"></div>
 
   <script>
-    // ========= CONFIG =========
-    // Change this if your trains.json is hosted somewhere else
     const TRAINS_URL = "./trains.json";
-
-    // Optional local geojson files if you have them
     const RAIL_LINES_URL = "./railways.geojson";
     const STATIONS_URL = "./stations.geojson";
 
-    // ========= DOM =========
     const stateSelect = document.getElementById("stateSelect");
     const myLocationBtn = document.getElementById("myLocationBtn");
     const layersBtn = document.getElementById("layersBtn");
     const layersPanel = document.getElementById("layersPanel");
-    const operatorFilter = document.getElementById("operatorFilter");
+    const operatorExclude = document.getElementById("operatorExclude");
     const searchInput = document.getElementById("searchInput");
     const searchBtn = document.getElementById("searchBtn");
     const lastUpdatedPill = document.getElementById("lastUpdatedPill");
@@ -598,123 +483,16 @@
     const toggleVodafone = document.getElementById("toggleVodafone");
     const toggleAllCoverage = document.getElementById("toggleAllCoverage");
 
-    // ========= STATE =========
     let allTrains = [];
     let visibleTrains = [];
     let selectedTrainFeature = null;
     let lastGoodTrains = [];
     let lastGoodUpdatedISO = null;
 
-    // ========= MAP =========
-    const osmLayer = new ol.layer.Tile({
-      source: new ol.source.OSM()
-    });
+    function normalise(v) {
+      return String(v ?? "").trim().toLowerCase();
+    }
 
-    const railLinesLayer = new ol.layer.Vector({
-      source: new ol.source.Vector(),
-      visible: true,
-      style: new ol.style.Style({
-        stroke: new ol.style.Stroke({
-          color: "#1d6fff",
-          width: 2
-        })
-      })
-    });
-
-    const stationsLayer = new ol.layer.Vector({
-      source: new ol.source.Vector(),
-      visible: false,
-      style: new ol.style.Style({
-        image: new ol.style.Circle({
-          radius: 4,
-          fill: new ol.style.Fill({ color: "#ffbf00" }),
-          stroke: new ol.style.Stroke({ color: "#fff", width: 1.2 })
-        })
-      })
-    });
-
-    const telstraLayer = new ol.layer.Tile({
-      visible: false,
-      source: new ol.source.TileArcGISRest({
-        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
-        params: { layers: "show:25" }
-      }),
-      opacity: 0.45
-    });
-
-    const optusLayer = new ol.layer.Tile({
-      visible: false,
-      source: new ol.source.TileArcGISRest({
-        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
-        params: { layers: "show:15" }
-      }),
-      opacity: 0.45
-    });
-
-    const vodafoneLayer = new ol.layer.Tile({
-      visible: false,
-      source: new ol.source.TileArcGISRest({
-        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
-        params: { layers: "show:33" }
-      }),
-      opacity: 0.45
-    });
-
-    const allCoverageLayer = new ol.layer.Tile({
-      visible: false,
-      source: new ol.source.TileArcGISRest({
-        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
-        params: { layers: "show:4" }
-      }),
-      opacity: 0.38
-    });
-
-    const trainSource = new ol.source.Vector();
-
-    const trainLayer = new ol.layer.Vector({
-      source: trainSource,
-      visible: true,
-      style: feature => getTrainStyle(feature)
-    });
-
-    const map = new ol.Map({
-      target: "map",
-      layers: [
-        osmLayer,
-        telstraLayer,
-        optusLayer,
-        vodafoneLayer,
-        allCoverageLayer,
-        railLinesLayer,
-        stationsLayer,
-        trainLayer
-      ],
-      view: new ol.View({
-        center: ol.proj.fromLonLat([134.5, -25.7]),
-        zoom: 4.4,
-        minZoom: 3,
-        maxZoom: 18
-      }),
-      controls: ol.control.defaults({
-        attribution: true,
-        rotate: false,
-        zoom: true
-      })
-    });
-
-    // ========= POPUP =========
-    const popupEl = document.getElementById("popup");
-
-    const popupOverlay = new ol.Overlay({
-      element: popupEl,
-      positioning: "bottom-center",
-      stopEvent: true,
-      offset: [0, -18]
-    });
-
-    map.addOverlay(popupOverlay);
-
-    // ========= HELPERS =========
     function escapeHtml(value) {
       return String(value ?? "")
         .replace(/&/g, "&amp;")
@@ -740,10 +518,6 @@
       }
     }
 
-    function normalise(v) {
-      return String(v ?? "").trim().toLowerCase();
-    }
-
     function getValue(obj, keys) {
       for (const key of keys) {
         if (obj && obj[key] !== undefined && obj[key] !== null && String(obj[key]).trim() !== "") {
@@ -754,163 +528,67 @@
     }
 
     function getLat(train) {
-      const v = getValue(train, ["lat", "latitude", "y"]);
-      const n = Number(v);
+      const n = Number(getValue(train, ["lat", "latitude", "y"]));
       return Number.isFinite(n) ? n : null;
     }
 
     function getLon(train) {
-      const v = getValue(train, ["lon", "lng", "longitude", "x"]);
-      const n = Number(v);
+      const n = Number(getValue(train, ["lon", "lng", "longitude", "x"]));
       return Number.isFinite(n) ? n : null;
     }
 
     function getLoco(train) {
-      return getValue(train, [
-        "loco",
-        "loco_number",
-        "locoNumber",
-        "vehicle_number",
-        "vehicleNumber",
-        "unit",
-        "unit_number",
-        "vehicle",
-        "name"
-      ]) || "Unknown";
+      return getValue(train, ["loco", "loco_number", "locoNumber", "vehicle_number", "vehicleNumber", "unit", "vehicle", "name"]) || "Unknown";
     }
 
     function getTrainNumber(train) {
-      return getValue(train, [
-        "train_number",
-        "trainNumber",
-        "train_id",
-        "trainId",
-        "service_number",
-        "serviceNumber",
-        "id",
-        "ID"
-      ]);
+      return getValue(train, ["train_number", "trainNumber", "train_id", "trainId", "service_number", "serviceNumber", "id", "ID"]);
     }
 
     function getVehicleDescription(train) {
-      return getValue(train, [
-        "vehicle_description",
-        "vehicleDescription",
-        "description",
-        "loco_class",
-        "class"
-      ]);
+      return getValue(train, ["vehicle_description", "vehicleDescription", "description", "loco_class", "class"]);
     }
 
     function getServiceDescription(train) {
-      return getValue(train, [
-        "service_description",
-        "serviceDescription",
-        "service_name",
-        "serviceName",
-        "service",
-        "trip_name",
-        "tripName"
-      ]);
+      return getValue(train, ["service_description", "serviceDescription", "service_name", "serviceName", "service"]);
     }
 
     function getCurrentOperator(train) {
-      return getValue(train, [
-        "current_operator",
-        "currentOperator",
-        "operator",
-        "Operator",
-        "company",
-        "Company",
-        "owner",
-        "Owner",
-        "railway",
-        "Railway",
-        "network",
-        "Network"
-      ]) || "Unknown";
+      return getValue(train, ["current_operator", "currentOperator", "operator", "Operator", "company", "Company", "owner", "Owner", "railway", "Railway", "network", "Network"]) || "Unknown";
     }
 
     function getOrigin(train) {
-      return getValue(train, [
-        "origin",
-        "from",
-        "start",
-        "departure",
-        "origin_name"
-      ]);
+      return getValue(train, ["origin", "from", "start", "departure", "origin_name"]);
     }
 
     function getDestination(train) {
-      return getValue(train, [
-        "destination",
-        "to",
-        "end",
-        "arrival",
-        "destination_name"
-      ]);
+      return getValue(train, ["destination", "to", "end", "arrival", "destination_name"]);
     }
 
     function getSpeed(train) {
-      return getValue(train, [
-        "speed",
-        "speed_kmh",
-        "kph",
-        "kmh",
-        "velocity"
-      ]);
+      return getValue(train, ["speed", "speed_kmh", "kph", "kmh", "velocity"]);
     }
 
     function getStatus(train) {
-      return getValue(train, [
-        "status",
-        "running_status",
-        "movement_status"
-      ]) || "Unknown";
+      return getValue(train, ["status", "running_status", "movement_status"]) || "Unknown";
     }
 
     function getTimetabling(train) {
-      return getValue(train, [
-        "timetabling",
-        "eta_text",
-        "expected_text",
-        "running_text"
-      ]);
+      return getValue(train, ["timetabling", "eta_text", "expected_text", "running_text"]);
     }
 
     function getUpdated(train) {
-      return getValue(train, [
-        "updated",
-        "lastUpdated",
-        "last_updated",
-        "timestamp",
-        "time"
-      ]);
+      return getValue(train, ["updated", "lastUpdated", "last_updated", "timestamp", "time"]);
     }
 
     function getKmPost(train) {
-      return getValue(train, [
-        "km_post",
-        "kmPost",
-        "kilometre_post",
-        "kilometer_post"
-      ]);
-    }
-
-    function getHeading(train) {
-      return getValue(train, [
-        "heading",
-        "bearing",
-        "direction"
-      ]);
+      return getValue(train, ["km_post", "kmPost", "kilometre_post", "kilometer_post"]);
     }
 
     function makeLabel(train) {
       const loco = getLoco(train);
       const trainNum = getTrainNumber(train);
-      if (trainNum && normalise(trainNum) !== normalise(loco)) {
-        return `${loco} • ${trainNum}`;
-      }
+      if (trainNum && normalise(trainNum) !== normalise(loco)) return `${loco} • ${trainNum}`;
       return loco;
     }
 
@@ -930,141 +608,171 @@
     function getDotClass(train) {
       const status = normalise(getStatus(train));
       const speed = Number(getSpeed(train));
-
-      if (status.includes("stop") || speed === 0) return "gray";
       if (status.includes("late") || status.includes("delay")) return "red";
+      if (status.includes("stop") || speed === 0) return "orange";
       if (status.includes("run") || status.includes("move") || speed > 0) return "green";
-      return "orange";
+      return "gray";
     }
 
-    // ========= POPUP HTML =========
     function buildPopupHtml(train) {
-      const label = makeLabel(train);
-      const serviceDesc = getServiceDescription(train) || label;
-      const vehicleDesc = getVehicleDescription(train) || "-";
-      const currentOperator = getCurrentOperator(train) || "-";
-      const origin = getOrigin(train) || "-";
-      const destination = getDestination(train) || "-";
-      const status = getStatus(train) || "-";
-      const timetabling = getTimetabling(train) || "-";
-      const kmPost = getKmPost(train) || "-";
-      const updated = formatLocalTime(getUpdated(train));
-      const dotClass = getDotClass(train);
-
       return `
-        <div class="tf-header">
+        <div class="popup-header">
           <div class="main">${escapeHtml(getLoco(train))}${getTrainNumber(train) ? " - " + escapeHtml(getTrainNumber(train)) : ""}</div>
-          <div class="sub">${escapeHtml(serviceDesc)}</div>
+          <div class="sub">${escapeHtml(getServiceDescription(train) || makeLabel(train))}</div>
         </div>
 
-        <div class="tf-tabs">
-          <div class="tf-tab active">Current Data</div>
-          <div class="tf-tab">History</div>
-          <div class="tf-tab">Timetable</div>
-          <div class="tf-tab">Notes</div>
-        </div>
+        <div class="popup-body">
+          <div class="popup-left">
+            <div class="status-dot ${getDotClass(train)}"></div>
+            <div class="big">${escapeHtml(getStatus(train))}</div>
 
-        <div class="tf-body">
-          <div class="tf-left">
-            <div class="status-dot ${dotClass}"></div>
-            <div class="big">${escapeHtml(status)}</div>
+            <div class="label">KM Post</div>
+            <div class="value">${escapeHtml(getKmPost(train) || "-")}</div>
 
-            <div class="small-label">KM Post</div>
-            <div class="small-value">${escapeHtml(kmPost)}</div>
-
-            <div class="small-label">Last Updated</div>
-            <div class="small-value">${escapeHtml(updated)}</div>
+            <div class="label">Last Updated</div>
+            <div class="value">${escapeHtml(formatLocalTime(getUpdated(train)))}</div>
           </div>
 
-          <div class="tf-right">
-            <div class="tf-row">
+          <div class="popup-right">
+            <div class="row">
               <div class="label">Vehicle Description</div>
-              <div class="value">${escapeHtml(vehicleDesc)}</div>
+              <div class="value">${escapeHtml(getVehicleDescription(train) || "-")}</div>
             </div>
 
-            <div class="tf-row">
+            <div class="row">
               <div class="label">Timetabling</div>
-              <div class="value">${escapeHtml(timetabling)}</div>
+              <div class="value">${escapeHtml(getTimetabling(train) || "-")}</div>
             </div>
 
-            <div class="tf-row">
+            <div class="row">
               <div class="label">Current Operator</div>
-              <div class="value">${escapeHtml(currentOperator)}</div>
+              <div class="value">${escapeHtml(getCurrentOperator(train) || "-")}</div>
             </div>
 
-            <div class="tf-row">
+            <div class="row">
               <div class="label">Service Description</div>
-              <div class="value">${escapeHtml(serviceDesc)}</div>
+              <div class="value">${escapeHtml(getServiceDescription(train) || "-")}</div>
             </div>
 
-            <div class="tf-two-col">
-              <div class="tf-cell">
+            <div class="two-col">
+              <div class="cell">
                 <div class="label">Origin</div>
-                <div class="value">${escapeHtml(origin)}</div>
+                <div class="value">${escapeHtml(getOrigin(train) || "-")}</div>
               </div>
-              <div class="tf-cell">
+              <div class="cell">
                 <div class="label">Destination</div>
-                <div class="value">${escapeHtml(destination)}</div>
+                <div class="value">${escapeHtml(getDestination(train) || "-")}</div>
               </div>
-            </div>
-
-            <div class="tf-buttons">
-              <div class="tf-btn">View Service Operational History</div>
-              <div class="tf-btn">View Service Change History</div>
-            </div>
-
-            <div class="tf-alerts">
-              <div class="tf-alert">🔔 Enable Vehicle Alert</div>
-              <div class="tf-alert">🔔 Enable Service Alert</div>
             </div>
           </div>
         </div>
       `;
     }
 
-    // ========= TRAIN STYLE =========
+    const osmLayer = new ol.layer.Tile({
+      source: new ol.source.OSM()
+    });
+
+    const railLinesLayer = new ol.layer.Vector({
+      source: new ol.source.Vector(),
+      visible: false,
+      style: new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color: "#2f7cff",
+          width: 2
+        })
+      })
+    });
+
+    const stationsLayer = new ol.layer.Vector({
+      source: new ol.source.Vector(),
+      visible: false,
+      style: new ol.style.Style({
+        image: new ol.style.Circle({
+          radius: 4,
+          fill: new ol.style.Fill({ color: "#ffbf00" }),
+          stroke: new ol.style.Stroke({ color: "#fff", width: 1.2 })
+        })
+      })
+    });
+
+    const telstraLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:25" }
+      }),
+      opacity: 0.4
+    });
+
+    const optusLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:15" }
+      }),
+      opacity: 0.4
+    });
+
+    const vodafoneLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:33" }
+      }),
+      opacity: 0.4
+    });
+
+    const allCoverageLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:4" }
+      }),
+      opacity: 0.35
+    });
+
+    const trainSource = new ol.source.Vector();
+
+    let map;
+
     function getTrainStyle(feature) {
-      const zoom = map.getView().getZoom() || 4;
-      const label = feature.get("label") || "";
       const train = feature.get("trainData") || {};
+      const label = feature.get("label") || "";
+      const zoom = map ? (map.getView().getZoom() || 4) : 4;
       const isSelected = feature === selectedTrainFeature;
 
-      let radius = 5;
+      let radius = 4;
       let fontSize = 10;
       let offsetY = -14;
 
       if (zoom >= 10) {
-        radius = 8;
-        fontSize = 13;
-        offsetY = -18;
-      } else if (zoom >= 8) {
         radius = 7;
         fontSize = 12;
         offsetY = -17;
-      } else if (zoom >= 6) {
+      } else if (zoom >= 8) {
         radius = 6;
         fontSize = 11;
+        offsetY = -16;
+      } else if (zoom >= 6) {
+        radius = 5;
+        fontSize = 10;
         offsetY = -15;
       }
 
-      let fillColor = "#35d35b";
+      let fillColor = "#33d65b";
       const status = normalise(getStatus(train));
       const speed = Number(getSpeed(train));
 
-      if (status.includes("late") || status.includes("delay")) fillColor = "#f04646";
-      else if (status.includes("stop") || speed === 0) fillColor = "#f0a020";
-      else if (status.includes("run") || status.includes("move") || speed > 0) fillColor = "#35d35b";
-
-      if (isSelected) {
-        radius += 2;
-      }
+      if (status.includes("late") || status.includes("delay")) fillColor = "#ef4747";
+      else if (status.includes("stop") || speed === 0) fillColor = "#f39b21";
 
       return new ol.style.Style({
         image: new ol.style.Circle({
-          radius,
+          radius: isSelected ? radius + 2 : radius,
           fill: new ol.style.Fill({ color: fillColor }),
           stroke: new ol.style.Stroke({
-            color: isSelected ? "#00d7ff" : "#ffffff",
+            color: isSelected ? "#00d8ff" : "#fff",
             width: isSelected ? 3 : 2
           })
         }),
@@ -1072,45 +780,83 @@
           text: label,
           offsetY,
           font: `800 ${fontSize}px Segoe UI`,
-          fill: new ol.style.Fill({ color: "#ffffff" }),
+          fill: new ol.style.Fill({ color: "#fff" }),
           stroke: new ol.style.Stroke({ color: "rgba(0,0,0,0.95)", width: 4 }),
           overflow: true
-        }),
-        zIndex: isSelected ? 999 : 10
+        })
       });
     }
+
+    const trainLayer = new ol.layer.Vector({
+      source: trainSource,
+      visible: true,
+      style: feature => getTrainStyle(feature)
+    });
+
+    map = new ol.Map({
+      target: "map",
+      layers: [
+        osmLayer,
+        telstraLayer,
+        optusLayer,
+        vodafoneLayer,
+        allCoverageLayer,
+        railLinesLayer,
+        stationsLayer,
+        trainLayer
+      ],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([134.5, -25.7]),
+        zoom: 4.4,
+        minZoom: 3,
+        maxZoom: 18
+      }),
+      controls: ol.control.defaults({
+        attribution: true,
+        rotate: false
+      })
+    });
+
+    const popupEl = document.getElementById("popup");
+    const popupOverlay = new ol.Overlay({
+      element: popupEl,
+      positioning: "bottom-center",
+      stopEvent: true,
+      offset: [0, -15]
+    });
+    map.addOverlay(popupOverlay);
 
     function createTrainFeature(train) {
       const lat = getLat(train);
       const lon = getLon(train);
       if (lat === null || lon === null) return null;
 
-      const feature = new ol.Feature({
+      return new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat])),
         trainData: train,
         label: makeLabel(train)
       });
-
-      return feature;
     }
 
-    function refreshOperatorDropdownFromData(trains) {
+    function refreshOperatorListFromData(trains) {
       const existing = new Set(
-        Array.from(operatorFilter.options).map(opt => normalise(opt.value))
+        Array.from(operatorExclude.options).map(opt => normalise(opt.value))
       );
 
-      const ops = [...new Set(
+      const found = [...new Set(
         trains
           .map(t => getCurrentOperator(t))
+          .filter(Boolean)
+          .map(v => String(v).trim())
           .filter(v => v && normalise(v) !== "unknown")
       )].sort((a, b) => a.localeCompare(b));
 
-      for (const op of ops) {
+      for (const op of found) {
         if (!existing.has(normalise(op))) {
           const option = document.createElement("option");
           option.value = op;
           option.textContent = op;
-          operatorFilter.appendChild(option);
+          operatorExclude.appendChild(option);
         }
       }
     }
@@ -1129,13 +875,12 @@
       statusPill.textContent = `ok - ${features.length} trains`;
 
       if (selectedTrainFeature) {
-        const selectedTrain = selectedTrainFeature.get("trainData");
-        const selectedId = makeLabel(selectedTrain);
-        const newSelected = features.find(f => makeLabel(f.get("trainData")) === selectedId);
-        if (newSelected) {
-          selectedTrainFeature = newSelected;
-          popupEl.innerHTML = buildPopupHtml(newSelected.get("trainData"));
-          popupOverlay.setPosition(newSelected.getGeometry().getCoordinates());
+        const oldLabel = makeLabel(selectedTrainFeature.get("trainData"));
+        const replacement = features.find(f => makeLabel(f.get("trainData")) === oldLabel);
+        if (replacement) {
+          selectedTrainFeature = replacement;
+          popupEl.innerHTML = buildPopupHtml(replacement.get("trainData"));
+          popupOverlay.setPosition(replacement.getGeometry().getCoordinates());
         } else {
           selectedTrainFeature = null;
           popupOverlay.setPosition(undefined);
@@ -1144,13 +889,15 @@
     }
 
     function applyFilters() {
-      const selectedOperator = operatorFilter.value;
+      const hiddenOperator = operatorExclude.value;
       const query = normalise(searchInput.value);
 
       visibleTrains = allTrains.filter(train => {
+        const op = getCurrentOperator(train);
+
         const operatorOk =
-          selectedOperator === "ALL" ||
-          normalise(getCurrentOperator(train)) === normalise(selectedOperator);
+          hiddenOperator === "NONE" ||
+          normalise(op) !== normalise(hiddenOperator);
 
         const searchOk =
           !query || getSearchText(train).includes(query);
@@ -1163,7 +910,7 @@
 
     async function loadGeoJsonToLayer(url, layer) {
       try {
-        const res = await fetch(url);
+        const res = await fetch(url, { cache: "no-store" });
         if (!res.ok) return;
         const data = await res.json();
 
@@ -1190,16 +937,14 @@
           allTrains = trains;
           lastGoodTrains = trains;
           lastGoodUpdatedISO = data.lastUpdated || data.last_updated || new Date().toISOString();
-          statusPill.textContent = `ok - ${trains.length} trains`;
         } else if (lastGoodTrains.length > 0) {
           allTrains = lastGoodTrains;
-          statusPill.textContent = "empty payload — keeping last good";
+          statusPill.textContent = "empty payload - keeping last good";
         } else {
           allTrains = [];
-          statusPill.textContent = "empty payload";
         }
 
-        refreshOperatorDropdownFromData(allTrains);
+        refreshOperatorListFromData(allTrains);
 
         const updated = data.lastUpdated || data.last_updated || lastGoodUpdatedISO;
         lastUpdatedPill.textContent = `Last: ${formatLocalTime(updated)}`;
@@ -1211,17 +956,16 @@
         if (lastGoodTrains.length > 0) {
           allTrains = lastGoodTrains;
           lastUpdatedPill.textContent = `Last: ${formatLocalTime(lastGoodUpdatedISO)}`;
-          statusPill.textContent = "error — keeping last good";
+          statusPill.textContent = "error - keeping last good";
           applyFilters();
         } else {
           statusPill.textContent = "error loading trains";
-          trainSource.clear();
           trainCountPill.textContent = "0";
+          trainSource.clear();
         }
       }
     }
 
-    // ========= STATE ZOOMS =========
     const stateExtents = {
       AU: [112.5, -44.8, 154.0, -9.0],
       NSW: [140.8, -37.7, 153.8, -28.0],
@@ -1235,29 +979,23 @@
     };
 
     function zoomToState(code) {
-      const extentLonLat = stateExtents[code];
-      if (!extentLonLat) return;
-
-      const extent = ol.proj.transformExtent(extentLonLat, "EPSG:4326", "EPSG:3857");
+      const e = stateExtents[code];
+      if (!e) return;
+      const extent = ol.proj.transformExtent(e, "EPSG:4326", "EPSG:3857");
       map.getView().fit(extent, {
-        padding: [90, 40, 40, 40],
-        duration: 700
+        padding: [80, 40, 40, 40],
+        duration: 600
       });
     }
 
-    // ========= EVENTS =========
-    stateSelect.addEventListener("change", () => {
-      zoomToState(stateSelect.value);
-    });
+    stateSelect.addEventListener("change", () => zoomToState(stateSelect.value));
 
     myLocationBtn.addEventListener("click", () => {
-      if (!navigator.geolocation) return alert("Geolocation not supported on this device.");
+      if (!navigator.geolocation) return alert("Geolocation not supported.");
       navigator.geolocation.getCurrentPosition(
         pos => {
-          const lon = pos.coords.longitude;
-          const lat = pos.coords.latitude;
           map.getView().animate({
-            center: ol.proj.fromLonLat([lon, lat]),
+            center: ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]),
             zoom: 11,
             duration: 700
           });
@@ -1271,9 +1009,7 @@
     });
 
     document.addEventListener("click", e => {
-      const withinPanel = layersPanel.contains(e.target);
-      const clickedLayersBtn = layersBtn.contains(e.target);
-      if (!withinPanel && !clickedLayersBtn) {
+      if (!layersPanel.contains(e.target) && !layersBtn.contains(e.target)) {
         layersPanel.style.display = "none";
       }
     });
@@ -1286,11 +1022,41 @@
     toggleVodafone.addEventListener("change", () => vodafoneLayer.setVisible(toggleVodafone.checked));
     toggleAllCoverage.addEventListener("change", () => allCoverageLayer.setVisible(toggleAllCoverage.checked));
 
-    operatorFilter.addEventListener("change", applyFilters);
-    searchBtn.addEventListener("click", applyFilters);
+    operatorExclude.addEventListener("change", applyFilters);
     searchInput.addEventListener("keydown", e => {
-      if (e.key === "Enter") applyFilters();
+      if (e.key === "Enter") runSearch();
     });
+    searchBtn.addEventListener("click", runSearch);
+
+    function runSearch() {
+      applyFilters();
+
+      const q = normalise(searchInput.value);
+      if (!q) return;
+
+      const firstMatch = visibleTrains.find(t => getSearchText(t).includes(q));
+      if (!firstMatch) return;
+
+      const lon = getLon(firstMatch);
+      const lat = getLat(firstMatch);
+      if (lon === null || lat === null) return;
+
+      map.getView().animate({
+        center: ol.proj.fromLonLat([lon, lat]),
+        zoom: Math.max(map.getView().getZoom() || 4, 8),
+        duration: 700
+      });
+
+      setTimeout(() => {
+        const feature = trainSource.getFeatures().find(f => makeLabel(f.get("trainData")) === makeLabel(firstMatch));
+        if (feature) {
+          selectedTrainFeature = feature;
+          trainLayer.changed();
+          popupEl.innerHTML = buildPopupHtml(feature.get("trainData"));
+          popupOverlay.setPosition(feature.getGeometry().getCoordinates());
+        }
+      }, 750);
+    }
 
     logoutBtn.addEventListener("click", () => {
       localStorage.removeItem("railops_logged_in");
@@ -1314,43 +1080,9 @@
       }
     });
 
-    searchBtn.addEventListener("click", () => {
-      const q = normalise(searchInput.value);
-      if (!q) return;
-
-      const firstMatch = visibleTrains.find(train => getSearchText(train).includes(q));
-      if (!firstMatch) return;
-
-      const lon = getLon(firstMatch);
-      const lat = getLat(firstMatch);
-      if (lon === null || lat === null) return;
-
-      map.getView().animate({
-        center: ol.proj.fromLonLat([lon, lat]),
-        zoom: Math.max(map.getView().getZoom() || 8, 8),
-        duration: 700
-      });
-
-      setTimeout(() => {
-        const matchFeature = trainSource.getFeatures().find(f => {
-          return makeLabel(f.get("trainData")) === makeLabel(firstMatch);
-        });
-
-        if (matchFeature) {
-          selectedTrainFeature = matchFeature;
-          trainLayer.changed();
-          popupEl.innerHTML = buildPopupHtml(matchFeature.get("trainData"));
-          popupOverlay.setPosition(matchFeature.getGeometry().getCoordinates());
-        }
-      }, 750);
-    });
-
-    // ========= STARTUP =========
     loadGeoJsonToLayer(RAIL_LINES_URL, railLinesLayer);
     loadGeoJsonToLayer(STATIONS_URL, stationsLayer);
     loadTrains();
-
-    // refresh every 60s
     setInterval(loadTrains, 60000);
   </script>
 </body>
