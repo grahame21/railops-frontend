@@ -13,6 +13,7 @@
 <link rel="manifest" href="./manifest.json" />
 <link rel="apple-touch-icon" href="./icons/icon-180.png" />
 <link rel="stylesheet" href="./ol/ol.css" />
+
 <script src="./auth.js"></script>
 <script>
   if (window.RailOpsAuth && typeof RailOpsAuth.requireRole === 'function') {
@@ -248,7 +249,7 @@ body {
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  width: min(430px, calc(100vw - 430px));
+  width: min(460px, calc(100vw - 430px));
 }
 
 .autocomplete-items {
@@ -259,7 +260,7 @@ body {
   background: var(--panel-bg);
   border: 1px solid var(--panel-border);
   border-radius: 16px;
-  max-height: 280px;
+  max-height: 320px;
   overflow-y: auto;
   z-index: 1001;
   box-shadow: var(--shadow);
@@ -376,8 +377,8 @@ body {
   box-shadow: 0 10px 36px rgba(0,0,0,0.85);
   pointer-events: auto;
   transform: translate(-50%, -100%);
-  min-width: 280px;
-  max-width: min(360px, calc(100vw - 24px));
+  min-width: 300px;
+  max-width: min(390px, calc(100vw - 24px));
   z-index: 10000;
 }
 
@@ -523,7 +524,7 @@ body {
 
   <div class="mobile-search-wrap">
     <div class="search-box">
-      <input type="text" id="mobileSearchInput" placeholder="Search train, loco, origin, destination...">
+      <input type="text" id="mobileSearchInput" placeholder="Search train, loco, operator, town, origin, destination...">
       <button id="mobileSearchBtn">🔍 Search</button>
     </div>
     <div id="mobileAutocompleteList" class="autocomplete-items" style="display:none;"></div>
@@ -559,7 +560,7 @@ body {
 
 <div class="search-container" id="searchContainer">
   <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Search train number, loco, origin, destination...">
+    <input type="text" id="searchInput" placeholder="Search train number, loco, operator, town, origin, destination...">
     <button id="searchBtn">🔍 Search</button>
   </div>
   <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
@@ -597,6 +598,24 @@ if (typeof window.ol === "undefined") {
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
 const REVERSE_GEOCODE_ENABLED = true;
 
+const FALLBACK_OPERATORS = [
+  "707 Operations","Adelaide Metro","ALARC","ARHS ACT","ARTC","Aurizon","B Rail Pty Ltd","Brimble Rail",
+  "Byron Bay Railroad","Capital Region Heritage Rail","CBH Group","Chumrail","CMET","Crawfords","CRL",
+  "DERMPAV","East Coast Heritage Rail","GemCo","Glencore","Goodwin Alco","GrainCorp",
+  "Hunter Valley Railway Trust","John Holland Rail","Junee Railway Workshops","Knox Kershaw",
+  "Lachlan Alco Locomotive Group","Lachlan Valley Railway","Laing O'Rourke","Linfox",
+  "Lithgow State Mine Railway","Loram","Manildra Group","Metro Trains Melbourne","Mineral Resources",
+  "Newcastle Transport","NSW TrainLink","NSW TrainLink Intercity","One Rail Australia","Pacific National",
+  "Privately Owned","QUBE Logistics","Queensland Rail","Rail Motor Society Paterson","RailCorp",
+  "RailFirst Asset Management","RailPower","Regional Connect","Retired Aus Locos","Rhomberg Rail",
+  "Rollingstock","SCT Logistics","SETS","Seymour Railway Heritage Centre","Simoco Group",
+  "Southern Shorthaul Railroad","Speno Rail Maintenance","Steamrail Victoria","Swietelski",
+  "Swift Transport","Sydney Metro","Sydney Rail Services","Sydney Trains","Sydney Trains DMUs",
+  "Sydney Trains Interurban","TasRail","Transdev Sydney","TransLink","Transport for NSW",
+  "Transport Heritage NSW","Transport Sydney Trains","Transwa","UGL","V/Line","V/Line SG",
+  "VicTrack","Watco Australia","Whitehaven","Yarra Trams"
+];
+
 const reverseGeoCache = new Map();
 let popupOverlay = null;
 let popupRequestId = 0;
@@ -623,7 +642,11 @@ function isJunkId(s){
 }
 
 function getLoco(train){
-  const candidates = [train.trKey, train.loco, train.train_name, train.trainName];
+  const candidates = [
+    train.trKey, train.loco, train.loco_number, train.locoNumber,
+    train.train_name, train.trainName, train.vehicle_number, train.vehicleNumber,
+    train.name
+  ];
   for (const c of candidates){
     if (!c) continue;
     const s = String(c).trim();
@@ -633,7 +656,10 @@ function getLoco(train){
 }
 
 function getTrainId(train){
-  const candidates = [train.train_number, train.trainNumber, train.id, train.ID];
+  const candidates = [
+    train.train_number, train.trainNumber, train.train_id, train.trainId,
+    train.service_number, train.serviceNumber, train.id, train.ID
+  ];
   for (const c of candidates){
     if (!c) continue;
     const s = String(c).trim();
@@ -703,7 +729,7 @@ function getCurrentPlaceFromTrain(train){
 }
 
 function getSpeed(train){
-  const n = Number(train.speed || 0);
+  const n = Number(train.speed || train.kph || train.kmh || 0);
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -713,17 +739,78 @@ function getDescription(train){
     train.vehicleDescription ||
     train.description ||
     train.serviceDesc ||
+    train.service_description ||
+    train.serviceDescription ||
+    ""
+  ).trim();
+}
+
+function getOrigin(train){
+  return String(
+    train.origin ||
+    train.serviceFrom ||
+    train.from ||
+    train.departure ||
+    ""
+  ).trim();
+}
+
+function getDestination(train){
+  return String(
+    train.destination ||
+    train.serviceTo ||
+    train.to ||
+    train.arrival ||
     ""
   ).trim();
 }
 
 function getOperator(train){
-  return String(
-    train.current_operator ||
-    train.currentOperator ||
-    train.operator ||
-    ""
-  ).trim();
+  const candidates = [
+    train.current_operator,
+    train.currentOperator,
+    train.current_operator_name,
+    train.currentOperatorName,
+    train.operator,
+    train.Operator,
+    train.operator_name,
+    train.operatorName,
+    train.company,
+    train.Company,
+    train.owner,
+    train.Owner,
+    train.railway,
+    train.Railway,
+    train.network,
+    train.Network,
+    train.line_operator,
+    train.lineOperator,
+    train.service_operator,
+    train.serviceOperator
+  ];
+
+  for (const c of candidates) {
+    const s = String(c || "").trim();
+    if (s) return s;
+  }
+
+  return "";
+}
+
+function getZoomDetail(train) {
+  const place = getCurrentPlaceFromTrain(train);
+  const origin = getOrigin(train);
+  const destination = getDestination(train);
+  const operator = getOperator(train);
+  const speed = getSpeed(train);
+
+  const bits = [];
+  if (place) bits.push(place);
+  else if (origin || destination) bits.push(`${origin || "?"}→${destination || "?"}`);
+  if (operator) bits.push(operator);
+  if (speed > 0) bits.push(`${speed} km/h`);
+
+  return bits.join(" • ");
 }
 
 function getHiddenOperator() {
@@ -747,9 +834,11 @@ function trainPassesOperatorFilter(train) {
 }
 
 function refreshOperatorOptions(trains) {
-  const values = [...new Set(
+  const liveOperators = [...new Set(
     trains.map(getOperator).filter(Boolean).map(v => String(v).trim()).filter(Boolean)
-  )].sort((a, b) => a.localeCompare(b));
+  )];
+
+  const values = [...new Set([...FALLBACK_OPERATORS, ...liveOperators])].sort((a, b) => a.localeCompare(b));
 
   const desktop = document.getElementById('operatorHideSelect');
   const mobile = document.getElementById('mobileOperatorHideSelect');
@@ -880,6 +969,7 @@ const covAll     = createAcccLayer(4);
 [covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
 
 const trainSource = new ol.source.Vector();
+
 const trainLayer = new ol.layer.Vector({
   source: trainSource,
   visible: true,
@@ -887,6 +977,7 @@ const trainLayer = new ol.layer.Vector({
   style: function(feature){
     const train = feature.get('train_data') || {};
     const label = buildLabel(train);
+    const detail = getZoomDetail(train);
     const speed = getSpeed(train);
     const zoom = map.getView().getZoom() || 4;
 
@@ -895,38 +986,45 @@ const trainLayer = new ol.layer.Vector({
     else if (speed > 30) dotColor = '#00cc00';
     else if (speed > 0) dotColor = '#44ff44';
 
-    let radius = 7;
-    if (zoom <= 5) radius = 5;
-    else if (zoom <= 7) radius = 6;
+    let radius = 8;
+    if (zoom <= 5) radius = 6;
+    else if (zoom <= 7) radius = 7;
 
     const styles = [
       new ol.style.Style({
         image: new ol.style.Circle({
-          radius: isMobileLayout() ? Math.max(4, radius - 1) : radius,
+          radius: isMobileLayout() ? Math.max(5, radius - 1) : radius,
           fill: new ol.style.Fill({ color: dotColor }),
           stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
         })
       })
     ];
 
-    if (label && !isJunkId(label) && zoom >= 4.35) {
+    if (label && !isJunkId(label) && zoom >= 4.1) {
+      let text = label;
       let fontSize = 11;
-      let offsetY = -18;
-      let padding = [2, 8, 2, 8];
+      let offsetY = -20;
+      let padding = [3, 8, 3, 8];
+
+      if (detail) {
+        text = `${label}\n${detail}`;
+      }
 
       if (zoom <= 5.5) {
         fontSize = 9;
-        offsetY = -14;
-        padding = [1, 5, 1, 5];
+        offsetY = -18;
+        padding = [2, 6, 2, 6];
       } else if (zoom <= 7) {
         fontSize = 10;
-        offsetY = -16;
-        padding = [2, 6, 2, 6];
+        offsetY = -19;
+        padding = [2, 7, 2, 7];
       }
 
       styles.push(new ol.style.Style({
         text: new ol.style.Text({
-          text: label,
+          text: text,
+          textAlign: 'center',
+          justify: 'center',
           font: `bold ${fontSize}px monospace`,
           fill: new ol.style.Fill({ color: '#ffaa00' }),
           stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
@@ -1035,8 +1133,8 @@ function removePopup() {
 
 function renderPopupHTML(train, placeText, popupUpdated) {
   const label = buildLabel(train);
-  const origin = train.origin || train.serviceFrom || '';
-  const dest = train.destination || train.serviceTo || '';
+  const origin = getOrigin(train);
+  const dest = getDestination(train);
   const speed = getSpeed(train);
   const desc = getDescription(train);
   const operator = getOperator(train);
@@ -1066,6 +1164,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
       ${getLoco(train) ? `<span class="popup-badge">Loco: ${esc(getLoco(train))}</span>` : ''}
       ${getTrainId(train) ? `<span class="popup-badge">Train: ${esc(getTrainId(train))}</span>` : ''}
       ${operator ? `<span class="popup-badge">${esc(operator)}</span>` : ''}
+      ${locationText ? `<span class="popup-badge">${esc(locationText)}</span>` : ''}
     </div>
   `;
 }
@@ -1116,9 +1215,13 @@ async function showTrainPopup(feature) {
 }
 
 map.on('singleclick', function(evt){
-  const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
-    return layer === trainLayer ? f : null;
-  });
+  const feature = map.forEachFeatureAtPixel(
+    evt.pixel,
+    function(f, layer){
+      return layer === trainLayer ? f : null;
+    },
+    { hitTolerance: 10 }
+  );
 
   if (feature) showTrainPopup(feature);
   else removePopup();
@@ -1127,9 +1230,13 @@ map.on('singleclick', function(evt){
 map.on('pointermove', function(evt){
   if ('ontouchstart' in window) return;
 
-  const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
-    return layer === trainLayer ? f : null;
-  });
+  const feature = map.forEachFeatureAtPixel(
+    evt.pixel,
+    function(f, layer){
+      return layer === trainLayer ? f : null;
+    },
+    { hitTolerance: 10 }
+  );
 
   if (feature) showTrainPopup(feature);
   else removePopup();
@@ -1137,6 +1244,30 @@ map.on('pointermove', function(evt){
 
 function displayId(train){
   return buildLabel(train);
+}
+
+function getSearchFields(train){
+  return [
+    displayId(train),
+    getLoco(train),
+    getTrainId(train),
+    getOperator(train),
+    getOrigin(train),
+    getDestination(train),
+    getCurrentPlaceFromTrain(train),
+    train.location,
+    train.place,
+    train.town,
+    train.suburb,
+    train.city,
+    train.locality,
+    train.closest_town,
+    train.closestTown,
+    train.nearest_town,
+    train.nearestTown,
+    train.area,
+    getDescription(train)
+  ].filter(Boolean).map(s => String(s).toLowerCase());
 }
 
 function hideAutocomplete(){
@@ -1158,14 +1289,7 @@ function updateAutocompleteFor(inputEl, listEl){
     const id = displayId(train);
     if (!id || isJunkId(id)) continue;
 
-    const searchable = [
-      displayId(train),
-      train.train_number, train.trainNumber,
-      train.trKey, train.loco, train.train_name, train.trainName,
-      train.origin, train.destination, train.serviceFrom, train.serviceTo,
-      train.description, train.serviceDesc,
-      train.location, train.place, train.town, train.suburb, train.city
-    ].filter(Boolean).map(s => String(s).toLowerCase());
+    const searchable = getSearchFields(train);
 
     if (searchable.some(s => s.includes(query)) && !seen.has(id)){
       seen.add(id);
@@ -1184,12 +1308,16 @@ function updateAutocompleteFor(inputEl, listEl){
   }
 
   listEl.innerHTML = '';
-  matches.slice(0, 10).forEach(match => {
+  matches.slice(0, 12).forEach(match => {
+    const place = getCurrentPlaceFromTrain(match.full);
+    const o = getOrigin(match.full);
+    const d = getDestination(match.full);
+    const operator = getOperator(match.full);
+    const rightText = place || (o || d ? `${o} → ${d}` : operator);
+
     const item = document.createElement('div');
     item.className = 'autocomplete-item';
-    const o = match.full.origin || match.full.serviceFrom || '';
-    const d = match.full.destination || match.full.serviceTo || '';
-    item.innerHTML = `<span class="train-id">${esc(match.id)}</span><span class="train-loc">${esc(o)} → ${esc(d)}</span>`;
+    item.innerHTML = `<span class="train-id">${esc(match.id)}</span><span class="train-loc">${esc(rightText || '')}</span>`;
     item.addEventListener('click', () => {
       inputEl.value = match.id;
       listEl.style.display = 'none';
@@ -1233,13 +1361,7 @@ function searchTrainsFromInput(inputEl){
     const id = displayId(train);
     if (!id || isJunkId(id)) continue;
 
-    const searchable = [
-      id,
-      train.train_number, train.trainNumber,
-      train.trKey, train.loco, train.train_name, train.trainName,
-      train.origin, train.destination,
-      train.location, train.place, train.town, train.suburb, train.city
-    ].filter(Boolean).map(s => String(s).toLowerCase());
+    const searchable = getSearchFields(train);
 
     if (searchable.some(s => s.includes(query))){
       flyToTrain(Number(train.lat), Number(train.lon));
@@ -1248,7 +1370,7 @@ function searchTrainsFromInput(inputEl){
     }
   }
 
-  alert('No trains found matching: ' + query);
+  alert('No trains or locations found matching: ' + query);
 }
 
 const stateBounds = {
