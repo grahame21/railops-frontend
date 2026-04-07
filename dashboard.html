@@ -1,1321 +1,1357 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<meta name="theme-color" content="#071326" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="RailOps" />
-<meta name="mobile-web-app-capable" content="yes" />
-<title>RailOps — AU Live Map</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RailOps — Live Dashboard</title>
 
-<link rel="manifest" href="./manifest.json" />
-<link rel="apple-touch-icon" href="./icons/icon-180.png" />
-<link rel="stylesheet" href="./ol/ol.css" />
-<script src="./auth.js"></script>
-<script>if(!window.RailOpsAuth || !RailOpsAuth.requireRole(['admin','guest'])){document.documentElement.innerHTML='';}</script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@7.5.2/ol.css">
+  <script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"></script>
 
-<style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+  <style>
+    * { box-sizing: border-box; }
 
-:root{
-  --panel-bg: rgba(8, 20, 38, 0.96);
-  --panel-border: #2a4a7a;
-  --panel-btn: #1e3a5f;
-  --panel-btn-border: #3a6a9a;
-  --accent: #ffaa00;
-  --blue: #0b57cf;
-  --text: #ffffff;
-  --muted: #b8c9e8;
-  --shadow: 0 8px 28px rgba(0,0,0,0.55);
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #09111d;
+    }
 
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-right: env(safe-area-inset-right, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
-  --safe-left: env(safe-area-inset-left, 0px);
-}
+    #map {
+      width: 100%;
+      height: 100%;
+      background: #cfe3f1;
+    }
 
-html, body {
-  height: 100%;
-  width: 100%;
-  overflow: hidden;
-  font-family: "Segoe UI", system-ui, sans-serif;
-  background: #071326;
-}
+    .topbar {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 1000;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      pointer-events: none;
+    }
 
-body {
-  overscroll-behavior: none;
-}
+    .topbar-left,
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      pointer-events: auto;
+    }
 
-#map {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100dvh;
-  background: #0a1a2a;
-}
+    .topbar-left {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
 
-.top-card,
-.toolbar,
-.status-bar,
-.search-box,
-.autocomplete-items,
-.layers-panel {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
+    .topbar-right {
+      flex: 0 0 auto;
+    }
 
-.top-card {
-  position: absolute;
-  top: calc(var(--safe-top) + 8px);
-  left: calc(var(--safe-left) + 10px);
-  right: calc(var(--safe-right) + 10px);
-  z-index: 1000;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 18px;
-  box-shadow: var(--shadow);
-  padding: 8px;
-  display: none;
-}
+    .brand,
+    .top-control,
+    .search-wrap,
+    .status-pill,
+    .count-pill,
+    .logout-btn {
+      height: 54px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,0.14);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+    }
 
-.mobile-brand {
-  color: var(--accent);
-  font-size: 16px;
-  font-weight: 900;
-  margin-bottom: 8px;
-  line-height: 1.1;
-}
+    .brand {
+      display: flex;
+      align-items: center;
+      padding: 0 18px;
+      font-weight: 800;
+      font-size: 28px;
+      color: #ffb11a;
+      background: rgba(6,16,39,0.97);
+      white-space: nowrap;
+    }
 
-.mobile-controls-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
-}
+    .top-control {
+      padding: 0 16px;
+      background: rgba(14,40,82,0.97);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 700;
+      outline: none;
+      min-width: 110px;
+    }
 
-.mobile-controls-grid button,
-.mobile-controls-grid select {
-  width: 100%;
-  min-width: 0;
-  height: 40px;
-  min-height: 40px;
-  border-radius: 14px;
-  border: 1px solid var(--panel-btn-border);
-  background: var(--panel-btn);
-  color: white;
-  font-size: 13px;
-  font-weight: 800;
-  padding: 6px 10px;
-  outline: none;
-}
+    select.top-control {
+      cursor: pointer;
+    }
 
-#mobileLayersBtn {
-  grid-column: 1 / -1;
-}
+    button.top-control {
+      cursor: pointer;
+    }
 
-.mobile-search-wrap {
-  margin-bottom: 8px;
-}
+    .search-wrap {
+      display: flex;
+      align-items: stretch;
+      overflow: hidden;
+      background: rgba(14,40,82,0.97);
+      min-width: 420px;
+      max-width: 700px;
+      flex: 1 1 560px;
+    }
 
-.search-box {
-  background: var(--panel-bg);
-  border-radius: 16px;
-  border: 1px solid var(--panel-border);
-  display: flex;
-  box-shadow: var(--shadow);
-  overflow: hidden;
-}
+    .search-input {
+      flex: 1;
+      min-width: 140px;
+      border: 0;
+      outline: none;
+      background: transparent;
+      color: #fff;
+      font-size: 18px;
+      padding: 0 18px;
+    }
 
-.search-box input {
-  flex: 1;
-  min-width: 0;
-  background: #15283f;
-  border: 0;
-  padding: 8px 12px;
-  color: white;
-  font-size: 15px;
-  outline: none;
-  height: 42px;
-}
+    .search-input::placeholder {
+      color: rgba(255,255,255,0.72);
+    }
 
-.search-box input::placeholder {
-  color: #9ab0d0;
-}
+    .search-btn {
+      border: 0;
+      padding: 0 22px;
+      font-size: 18px;
+      font-weight: 800;
+      color: #fff;
+      cursor: pointer;
+      background: linear-gradient(180deg, #1574ff, #0a55d4);
+    }
 
-.search-box button {
-  background: var(--blue);
-  border: 0;
-  padding: 8px 12px;
-  color: white;
-  font-weight: 900;
-  cursor: pointer;
-  min-width: 88px;
-  font-size: 14px;
-  height: 42px;
-}
+    .status-pill,
+    .count-pill {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 18px;
+      background: rgba(6,16,39,0.97);
+      color: #fff;
+      font-size: 17px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
 
-.mobile-status-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 6px;
-  align-items: center;
-}
+    .count-pill {
+      min-width: 76px;
+      background: linear-gradient(180deg, #1574ff, #0a55d4);
+    }
 
-.mobile-last {
-  min-width: 0;
-  color: white;
-  font-size: 13px;
-  font-weight: 700;
-  line-height: 1.2;
-}
+    .logout-btn {
+      border: 0;
+      padding: 0 20px;
+      color: #fff;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+      background: linear-gradient(180deg, #213253, #12213d);
+    }
 
-.mobile-status-pills {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+    .panel {
+      position: absolute;
+      top: 78px;
+      left: 12px;
+      z-index: 1001;
+      width: 320px;
+      max-width: calc(100vw - 24px);
+      background: rgba(9,17,31,0.96);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 12px 28px rgba(0,0,0,0.35);
+      display: none;
+    }
 
-.mobile-note,
-.mobile-count {
-  white-space: nowrap;
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 13px;
-  font-weight: 900;
-}
+    .panel h3 {
+      margin: 0 0 12px 0;
+      font-size: 18px;
+      color: #8ec5ff;
+    }
 
-.mobile-note {
-  background: #15283f;
-  border: 1px solid #2b4f80;
-  color: #cfe2ff;
-}
+    .layer-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 9px 0;
+      font-size: 15px;
+      font-weight: 600;
+    }
 
-.mobile-count {
-  background: var(--blue);
-  color: white;
-  min-width: 58px;
-  text-align: center;
-}
+    .layer-item input {
+      transform: scale(1.15);
+      cursor: pointer;
+    }
 
-.toolbar {
-  position: absolute;
-  top: calc(var(--safe-top) + 12px);
-  left: calc(var(--safe-left) + 12px);
-  z-index: 1000;
-  background: var(--panel-bg);
-  color: var(--text);
-  padding: 10px 16px;
-  border-radius: 26px;
-  box-shadow: var(--shadow);
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  border: 1px solid var(--panel-border);
-  font-size: 14px;
-  font-weight: 700;
-}
+    #popup {
+      position: absolute;
+      min-width: 320px;
+      max-width: 520px;
+      background: rgba(18, 22, 29, 0.98);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 14px 34px rgba(0,0,0,0.42);
+    }
 
-.toolbar button,
-.toolbar select {
-  background: var(--panel-btn);
-  color: white;
-  border: 1px solid var(--panel-btn-border);
-  border-radius: 18px;
-  padding: 10px 14px;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  outline: none;
-  min-height: 44px;
-}
+    .tf-header {
+      background: #0d67ad;
+      padding: 10px 14px;
+      font-weight: 800;
+      font-size: 15px;
+      line-height: 1.25;
+    }
 
-.toolbar select option {
-  background: #0b1522;
-  color: #ffffff;
-}
+    .tf-header .main {
+      font-size: 17px;
+      font-weight: 800;
+    }
 
-.search-container {
-  position: absolute;
-  top: calc(var(--safe-top) + 12px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  width: min(520px, calc(100vw - 390px));
-}
+    .tf-header .sub {
+      margin-top: 2px;
+      font-size: 14px;
+      opacity: 0.98;
+    }
 
-.autocomplete-items {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  right: 0;
-  background: var(--panel-bg);
-  border: 1px solid var(--panel-border);
-  border-radius: 16px;
-  max-height: 280px;
-  overflow-y: auto;
-  z-index: 1001;
-  box-shadow: var(--shadow);
-}
+    .tf-tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      background: #0a5b99;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
 
-.autocomplete-item {
-  padding: 12px 14px;
-  color: white;
-  cursor: pointer;
-  border-bottom: 1px solid #1e3a5f;
-  font-size: 13px;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
+    .tf-tab {
+      padding: 7px 8px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 13px;
+      color: #fff;
+      border-right: 1px solid rgba(255,255,255,0.12);
+    }
 
-.autocomplete-item:last-child {
-  border-bottom: none;
-}
+    .tf-tab:last-child {
+      border-right: 0;
+    }
 
-.autocomplete-item:hover {
-  background: #13243a;
-}
+    .tf-tab.active {
+      background: #2196f3;
+    }
 
-.autocomplete-item .train-id {
-  font-weight: 900;
-  color: #cfe2ff;
-}
+    .tf-body {
+      display: grid;
+      grid-template-columns: 108px 1fr;
+      min-height: 210px;
+    }
 
-.autocomplete-item .train-loc {
-  color: var(--accent);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+    .tf-left {
+      background: #1f2227;
+      border-right: 1px solid rgba(255,255,255,0.08);
+      padding: 12px 10px;
+      text-align: center;
+    }
 
-.status-bar {
-  position: absolute;
-  top: calc(var(--safe-top) + 12px);
-  right: calc(var(--safe-right) + 12px);
-  z-index: 1000;
-  background: var(--panel-bg);
-  color: white;
-  padding: 10px 14px;
-  border-radius: 24px;
-  font-size: 13px;
-  border: 1px solid var(--panel-border);
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  box-shadow: var(--shadow);
-}
+    .status-dot {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin: 0 auto 10px auto;
+      background: #444;
+    }
 
-.train-count {
-  background: var(--blue);
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-weight: 900;
-  min-width: 56px;
-  text-align: center;
-}
+    .status-dot.green { background: #26c95b; }
+    .status-dot.orange { background: #ff9b21; }
+    .status-dot.red { background: #f04545; }
+    .status-dot.gray { background: #666; }
 
-.note-pill {
-  background: #15283f;
-  border: 1px solid #2b4f80;
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 800;
-  color: #cfe2ff;
-}
+    .tf-left .big {
+      font-size: 14px;
+      font-weight: 800;
+      margin-bottom: 12px;
+    }
 
-.layers-panel {
-  position: absolute;
-  left: calc(var(--safe-left) + 12px);
-  bottom: calc(var(--safe-bottom) + 12px);
-  z-index: 1000;
-  background: var(--panel-bg);
-  color: white;
-  border-radius: 18px;
-  padding: 14px;
-  border: 1px solid var(--panel-border);
-  width: 280px;
-  box-shadow: var(--shadow);
-  max-height: 60dvh;
-  overflow-y: auto;
-}
+    .tf-left .small-label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      margin-top: 12px;
+      opacity: 0.95;
+    }
 
-.layer-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 0;
-  border-bottom: 1px solid #1e3a5f;
-  font-size: 13px;
-}
+    .tf-left .small-value {
+      font-size: 15px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
 
-.layer-row:last-child {
-  border-bottom: none;
-}
+    .tf-right {
+      background: #1b1b1d;
+    }
 
-.section-title {
-  color: #9ab0d0;
-  font-size: 12px;
-  margin: 12px 0 4px 0;
-}
+    .tf-row {
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+      padding: 8px 10px;
+    }
 
-.train-popup {
-  position: absolute;
-  background: rgba(9, 20, 38, 0.98);
-  color: white;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--panel-border);
-  box-shadow: 0 10px 36px rgba(0,0,0,0.85);
-  pointer-events: auto;
-  transform: translate(-50%, -100%);
-  min-width: 280px;
-  max-width: min(360px, calc(100vw - 24px));
-  z-index: 10000;
-}
+    .tf-row .label {
+      font-size: 11px;
+      font-weight: 800;
+      color: #fff;
+      opacity: 0.95;
+    }
 
-.train-popup::after {
-  content: '';
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border-width: 9px;
-  border-style: solid;
-  border-color: var(--panel-border) transparent transparent transparent;
-}
+    .tf-row .value {
+      font-size: 17px;
+      line-height: 1.25;
+      margin-top: 2px;
+    }
 
-.popup-header {
-  font-size: 15px;
-  font-weight: 900;
-  color: var(--accent);
-  margin-bottom: 6px;
-  border-bottom: 1px solid var(--panel-border);
-  padding-bottom: 4px;
-}
+    .tf-two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border-bottom: 1px solid rgba(255,255,255,0.10);
+    }
 
-.popup-subheader {
-  font-size: 12px;
-  color: #9ab0d0;
-  margin-bottom: 8px;
-  font-style: italic;
-}
+    .tf-cell {
+      padding: 8px 10px;
+      border-right: 1px solid rgba(255,255,255,0.10);
+    }
 
-.popup-grid {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 6px;
-  font-size: 12px;
-  margin: 6px 0;
-}
+    .tf-cell:last-child {
+      border-right: 0;
+    }
 
-.popup-label {
-  color: #9ab0d0;
-  font-weight: 800;
-}
+    .tf-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 8px 10px;
+    }
 
-.popup-value {
-  color: white;
-  word-break: break-word;
-}
+    .tf-btn {
+      border: 1px solid rgba(255,255,255,0.20);
+      background: linear-gradient(180deg, #5ba7e9, #2e6ea5);
+      color: #fff;
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-weight: 800;
+      font-size: 13px;
+      text-align: center;
+    }
 
-.popup-badge {
-  background: #15283f;
-  border: 1px solid #2b4f80;
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  display: inline-block;
-  margin-right: 6px;
-  margin-top: 6px;
-  color: #cfe2ff;
-}
+    .tf-alerts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 0 10px 10px 10px;
+    }
 
-.popup-footer {
-  display:flex;
-  gap:6px;
-  flex-wrap:wrap;
-  margin-top:8px;
-}
+    .tf-alert {
+      border: 1px solid rgba(255,255,255,0.18);
+      background: linear-gradient(180deg, #72dc65, #3dad39);
+      color: #fff;
+      padding: 7px 10px;
+      border-radius: 4px;
+      font-weight: 800;
+      font-size: 13px;
+      text-align: center;
+    }
 
-.popup-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: #163456;
-  border: 1px solid #2b4f80;
-  color: white;
-  border-radius: 10px;
-  width: 28px;
-  height: 28px;
-  font-weight: 900;
-  cursor: pointer;
-}
+    .train-label {
+      color: #ffffff;
+      font-weight: 800;
+      text-shadow:
+        0 0 2px rgba(0,0,0,1),
+        0 0 4px rgba(0,0,0,1),
+        0 0 6px rgba(0,0,0,1);
+    }
 
-@media (max-width: 900px) {
-  .top-card {
-    display: block;
-  }
+    .ol-popup-closer {
+      display: none;
+    }
 
-  .toolbar,
-  .search-container,
-  .status-bar {
-    display: none !important;
-  }
+    @media (max-width: 1400px) {
+      .brand { font-size: 23px; }
+      .top-control, .search-input, .search-btn, .status-pill, .count-pill, .logout-btn { font-size: 15px; }
+      .search-wrap { min-width: 300px; }
+    }
 
-  .layers-panel {
-    left: calc(var(--safe-left) + 10px);
-    right: calc(var(--safe-right) + 10px);
-    width: auto;
-    bottom: calc(var(--safe-bottom) + 10px);
-    max-height: 45dvh;
-  }
+    @media (max-width: 1080px) {
+      .topbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
 
-  .popup-grid {
-    grid-template-columns: 1fr;
-    gap: 4px;
-  }
+      .topbar-right {
+        justify-content: flex-end;
+      }
 
-  .train-popup {
-    min-width: 260px;
-    max-width: calc(100vw - 20px);
-  }
-}
-
-@media (min-width: 901px) {
-  .top-card {
-    display: none !important;
-  }
-}
-</style>
+      .search-wrap {
+        flex: 1 1 100%;
+        min-width: 240px;
+      }
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="top-card" id="topCard">
-  <div class="mobile-brand">🚂 RailOps</div>
+  <div id="map"></div>
 
-  <div class="mobile-controls-grid">
-    <select id="mobileStateSelect">
-      <option value="au">🇦🇺 Australia</option>
-      <option value="nsw">📍 NSW</option>
-      <option value="vic">📍 VIC</option>
-      <option value="qld">📍 QLD</option>
-      <option value="sa">📍 SA</option>
-      <option value="wa">📍 WA</option>
-      <option value="tas">📍 TAS</option>
-      <option value="nt">📍 NT</option>
-    </select>
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="brand">🚂 RailOps</div>
 
-    <button id="mobileLocateBtn">📍 My Location</button>
-    <button id="mobileLayersBtn">🗺️ Layers</button>
-  </div>
+      <select id="stateSelect" class="top-control">
+        <option value="AU" selected>AU Australia</option>
+        <option value="NSW">NSW</option>
+        <option value="VIC">VIC</option>
+        <option value="QLD">QLD</option>
+        <option value="SA">SA</option>
+        <option value="WA">WA</option>
+        <option value="TAS">TAS</option>
+        <option value="NT">NT</option>
+        <option value="ACT">ACT</option>
+      </select>
 
-  <div class="mobile-search-wrap">
-    <div class="search-box">
-      <input type="text" id="mobileSearchInput" placeholder="Search train, loco, origin, destination...">
-      <button id="mobileSearchBtn">🔍 Search</button>
+      <button id="myLocationBtn" class="top-control">📍 My Location</button>
+      <button id="layersBtn" class="top-control">🗺️ Layers</button>
+
+      <select id="operatorFilter" class="top-control">
+        <option value="ALL" selected>All Operators</option>
+        <option>707 Operations</option>
+        <option>Adelaide Metro</option>
+        <option>ALARC</option>
+        <option>ARHS ACT</option>
+        <option>ARTC</option>
+        <option>Aurizon</option>
+        <option>B Rail Pty Ltd</option>
+        <option>Brimble Rail</option>
+        <option>Byron Bay Railroad</option>
+        <option>Capital Region Heritage Rail</option>
+        <option>CBH Group</option>
+        <option>Chumrail</option>
+        <option>CMET</option>
+        <option>Crawfords</option>
+        <option>CRL</option>
+        <option>DERMPAV</option>
+        <option>East Coast Heritage Rail</option>
+        <option>GemCo</option>
+        <option>Glencore</option>
+        <option>Goodwin Alco</option>
+        <option>GrainCorp</option>
+        <option>Hunter Valley Railway Trust</option>
+        <option>John Holland Rail</option>
+        <option>Junee Railway Workshops</option>
+        <option>Knox Kershaw</option>
+        <option>Lachlan Alco Locomotive Group</option>
+        <option>Lachlan Valley Railway</option>
+        <option>Laing O'Rourke</option>
+        <option>Linfox</option>
+        <option>Lithgow State Mine Railway</option>
+        <option>Loram</option>
+        <option>Manildra Group</option>
+        <option>Metro Trains Melbourne</option>
+        <option>Mineral Resources</option>
+        <option>Newcastle Transport</option>
+        <option>NSW TrainLink</option>
+        <option>NSW TrainLink Intercity</option>
+        <option>One Rail Australia</option>
+        <option>Pacific National</option>
+        <option>Privately Owned</option>
+        <option>QUBE Logistics</option>
+        <option>Queensland Rail</option>
+        <option>Rail Motor Society Paterson</option>
+        <option>RailCorp</option>
+        <option>RailFirst Asset Management</option>
+        <option>RailPower</option>
+        <option>Regional Connect</option>
+        <option>Retired Aus Locos</option>
+        <option>Rhomberg Rail</option>
+        <option>Rollingstock</option>
+        <option>SCT Logistics</option>
+        <option>SETS</option>
+        <option>Seymour Railway Heritage Centre</option>
+        <option>Simoco Group</option>
+        <option>Southern Shorthaul Railroad</option>
+        <option>Speno Rail Maintenance</option>
+        <option>Steamrail Victoria</option>
+        <option>Swietelski</option>
+        <option>Swift Transport</option>
+        <option>Sydney Metro</option>
+        <option>Sydney Rail Services</option>
+        <option>Sydney Trains</option>
+        <option>Sydney Trains DMUs</option>
+        <option>Sydney Trains Interurban</option>
+        <option>TasRail</option>
+        <option>Transdev Sydney</option>
+        <option>TransLink</option>
+        <option>Transport for NSW</option>
+        <option>Transport Heritage NSW</option>
+        <option>Transport Sydney Trains</option>
+        <option>Transwa</option>
+        <option>UGL</option>
+        <option>V/Line</option>
+        <option>V/Line SG</option>
+        <option>VicTrack</option>
+        <option>Watco Australia</option>
+        <option>Whitehaven</option>
+        <option>Yarra Trams</option>
+      </select>
+
+      <div class="search-wrap">
+        <input id="searchInput" class="search-input" type="text" placeholder="Search train number, loco, origin, destination..." />
+        <button id="searchBtn" class="search-btn">🔍 Search</button>
+      </div>
     </div>
-    <div id="mobileAutocompleteList" class="autocomplete-items" style="display:none;"></div>
-  </div>
 
-  <div class="mobile-status-row">
-    <div class="mobile-last" id="mobileLastUpdate">Loading...</div>
-    <div class="mobile-status-pills">
-      <div class="mobile-note" id="mobileStatusNote">…</div>
-      <div class="mobile-count" id="mobileTrainCount">0</div>
+    <div class="topbar-right">
+      <div id="lastUpdatedPill" class="status-pill">Last: --</div>
+      <div id="statusPill" class="status-pill">ok - 0 trains</div>
+      <div id="trainCountPill" class="count-pill">0</div>
+      <button id="logoutBtn" class="logout-btn">Logout</button>
     </div>
   </div>
-</div>
 
-<div class="toolbar" id="toolbar">
-  <span style="font-weight:900; color:var(--accent)">🚂 RailOps</span>
-  <select id="stateSelect">
-    <option value="au">🇦🇺 Australia</option>
-    <option value="nsw">📍 NSW</option>
-    <option value="vic">📍 VIC</option>
-    <option value="qld">📍 QLD</option>
-    <option value="sa">📍 SA</option>
-    <option value="wa">📍 WA</option>
-    <option value="tas">📍 TAS</option>
-    <option value="nt">📍 NT</option>
-  </select>
-  <button id="locateBtn">📍 My Location</button>
-  <button id="layersToggleBtn">🗺️ Layers</button>
-</div>
+  <div id="layersPanel" class="panel">
+    <h3>Layers</h3>
 
-<div class="search-container" id="searchContainer">
-  <div class="search-box">
-    <input type="text" id="searchInput" placeholder="Search train number, loco, origin, destination...">
-    <button id="searchBtn">🔍 Search</button>
+    <label class="layer-item">
+      <input type="checkbox" id="toggleTrains" checked />
+      <span>Live Trains</span>
+    </label>
+
+    <label class="layer-item">
+      <input type="checkbox" id="toggleRailLines" checked />
+      <span>Rail Lines (Blue)</span>
+    </label>
+
+    <label class="layer-item">
+      <input type="checkbox" id="toggleStations" />
+      <span>Stations</span>
+    </label>
+
+    <label class="layer-item">
+      <input type="checkbox" id="toggleTelstra" />
+      <span>Telstra Coverage</span>
+    </label>
+
+    <label class="layer-item">
+      <input type="checkbox" id="toggleOptus" />
+      <span>Optus Coverage</span>
+    </label>
+
+    <label class="layer-item">
+      <input type="checkbox" id="toggleVodafone" />
+      <span>Vodafone / TPG Coverage</span>
+    </label>
+
+    <label class="layer-item">
+      <input type="checkbox" id="toggleAllCoverage" />
+      <span>All Networks</span>
+    </label>
   </div>
-  <div id="autocompleteList" class="autocomplete-items" style="display:none;"></div>
-</div>
 
-<div class="status-bar" id="statusBar">
-  <span id="lastUpdate">Loading...</span>
-  <span class="note-pill" id="statusNote">…</span>
-  <span class="train-count" id="trainCount">0</span>
-</div>
+  <div id="popup"></div>
 
-<div class="layers-panel" id="layersPanel" style="display:none;">
-  <h3 style="margin-bottom:8px;">🗺️ MAP LAYERS</h3>
-  <div class="layer-row"><label><input type="checkbox" id="trainLayerChk" checked> 🚆 Live Trains</label></div>
-  <div class="layer-row"><label><input type="checkbox" id="railLayerChk" checked> 🛤️ Rail Lines (Blue)</label></div>
-  <div class="layer-row"><label><input type="checkbox" id="stationsLayerChk" checked> 🏢 Stations</label></div>
+  <script>
+    // ========= CONFIG =========
+    // Change this if your trains.json is hosted somewhere else
+    const TRAINS_URL = "./trains.json";
 
-  <div class="section-title">📱 MOBILE COVERAGE</div>
-  <div class="layer-row"><label><input type="checkbox" id="covTelstraChk"> 📶 Telstra</label></div>
-  <div class="layer-row"><label><input type="checkbox" id="covOptusChk"> 📶 Optus</label></div>
-  <div class="layer-row"><label><input type="checkbox" id="covTPGChk"> 📶 Vodafone/TPG</label></div>
-  <div class="layer-row"><label><input type="checkbox" id="covAllChk"> 📶 All Networks</label></div>
-</div>
+    // Optional local geojson files if you have them
+    const RAIL_LINES_URL = "./railways.geojson";
+    const STATIONS_URL = "./stations.geojson";
 
-<div id="map"></div>
+    // ========= DOM =========
+    const stateSelect = document.getElementById("stateSelect");
+    const myLocationBtn = document.getElementById("myLocationBtn");
+    const layersBtn = document.getElementById("layersBtn");
+    const layersPanel = document.getElementById("layersPanel");
+    const operatorFilter = document.getElementById("operatorFilter");
+    const searchInput = document.getElementById("searchInput");
+    const searchBtn = document.getElementById("searchBtn");
+    const lastUpdatedPill = document.getElementById("lastUpdatedPill");
+    const statusPill = document.getElementById("statusPill");
+    const trainCountPill = document.getElementById("trainCountPill");
+    const logoutBtn = document.getElementById("logoutBtn");
 
-<script src="./ol/ol.js"></script>
-<script>
-if (typeof window.ol === "undefined") {
-  document.write('<script src="https://cdn.jsdelivr.net/npm/ol@7.5.2/dist/ol.js"><\/script>');
-}
-</script>
+    const toggleTrains = document.getElementById("toggleTrains");
+    const toggleRailLines = document.getElementById("toggleRailLines");
+    const toggleStations = document.getElementById("toggleStations");
+    const toggleTelstra = document.getElementById("toggleTelstra");
+    const toggleOptus = document.getElementById("toggleOptus");
+    const toggleVodafone = document.getElementById("toggleVodafone");
+    const toggleAllCoverage = document.getElementById("toggleAllCoverage");
 
-<script>
-const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
-const REVERSE_GEOCODE_ENABLED = true;
+    // ========= STATE =========
+    let allTrains = [];
+    let visibleTrains = [];
+    let selectedTrainFeature = null;
+    let lastGoodTrains = [];
+    let lastGoodUpdatedISO = null;
 
-const reverseGeoCache = new Map();
-let popupOverlay = null;
-let popupRequestId = 0;
-let allTrains = [];
-let lastGoodTrains = [];
-let lastGoodUpdatedISO = null;
-let consecutiveEmpty = 0;
-let desktopDebounceTimer;
-let mobileDebounceTimer;
-
-function isMobileLayout() {
-  return window.matchMedia("(max-width: 900px)").matches;
-}
-
-function isJunkId(s){
-  if (!s) return true;
-  const v = String(s).toLowerCase();
-  return v.startsWith("arrowmarkerssource_")
-      || v.startsWith("markersource_")
-      || v.startsWith("regtrainssource_")
-      || v.startsWith("unregtrainssource_")
-      || v.startsWith("trainsource_")
-      || v.includes("arrowmarkerssource");
-}
-
-function getLoco(train){
-  const candidates = [train.trKey, train.loco, train.train_name, train.trainName];
-  for (const c of candidates){
-    if (!c) continue;
-    const s = String(c).trim();
-    if (s && !isJunkId(s)) return s;
-  }
-  return "";
-}
-
-function getTrainId(train){
-  const candidates = [train.train_number, train.trainNumber, train.id, train.ID];
-  for (const c of candidates){
-    if (!c) continue;
-    const s = String(c).trim();
-    if (s && !isJunkId(s)) return s;
-  }
-  return "";
-}
-
-function buildLabel(train){
-  const loco = getLoco(train);
-  const tid = getTrainId(train);
-  if (!loco && !tid) return "";
-  if (loco && tid && loco !== tid) return `${loco} • ${tid}`;
-  return loco || tid;
-}
-
-function formatLocal(dt){
-  try {
-    if (!dt) return "";
-    const d = (dt instanceof Date) ? dt : new Date(dt);
-    if (!isFinite(d.getTime())) return "";
-    return d.toLocaleString("en-AU", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit"
-    });
-  } catch {
-    return "";
-  }
-}
-
-function esc(v){
-  return String(v ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-function getCurrentPlaceFromTrain(train){
-  const candidates = [
-    train.current_location,
-    train.currentLocation,
-    train.location,
-    train.place,
-    train.town,
-    train.suburb,
-    train.city,
-    train.locality,
-    train.closest_town,
-    train.closestTown,
-    train.nearest_town,
-    train.nearestTown,
-    train.place_name,
-    train.placeName,
-    train.area
-  ];
-
-  for (const c of candidates){
-    const s = String(c || "").trim();
-    if (s) return s;
-  }
-  return "";
-}
-
-function getSpeed(train){
-  const n = Number(train.speed || 0);
-  return Number.isFinite(n) ? n : 0;
-}
-
-function getDescription(train){
-  return String(
-    train.vehicle_description ||
-    train.vehicleDescription ||
-    train.description ||
-    train.serviceDesc ||
-    ""
-  ).trim();
-}
-
-function getOperator(train){
-  return String(
-    train.current_operator ||
-    train.currentOperator ||
-    train.operator ||
-    ""
-  ).trim();
-}
-
-function setStatusUI(lastText, noteText, countText) {
-  document.getElementById('lastUpdate').textContent = lastText;
-  document.getElementById('statusNote').textContent = noteText;
-  document.getElementById('trainCount').textContent = countText;
-
-  document.getElementById('mobileLastUpdate').textContent = lastText;
-  document.getElementById('mobileStatusNote').textContent = noteText;
-  document.getElementById('mobileTrainCount').textContent = countText;
-}
-
-async function reverseGeocodeTown(lat, lon){
-  const key = `${Number(lat).toFixed(4)},${Number(lon).toFixed(4)}`;
-  if (reverseGeoCache.has(key)) return reverseGeoCache.get(key);
-
-  if (!REVERSE_GEOCODE_ENABLED || !Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) {
-    return "";
-  }
-
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(lat)}&lon=${encodeURIComponent(lon)}&zoom=12&addressdetails=1`;
-    const res = await fetch(url, {
-      headers: { "Accept": "application/json" },
-      cache: "force-cache"
+    // ========= MAP =========
+    const osmLayer = new ol.layer.Tile({
+      source: new ol.source.OSM()
     });
 
-    if (!res.ok) throw new Error(`Reverse geocode HTTP ${res.status}`);
-
-    const data = await res.json();
-    const a = data.address || {};
-    const place =
-      a.city ||
-      a.town ||
-      a.village ||
-      a.suburb ||
-      a.hamlet ||
-      a.municipality ||
-      a.county ||
-      a.state_district ||
-      data.name ||
-      "";
-
-    reverseGeoCache.set(key, place || "");
-    return place || "";
-  } catch (err) {
-    console.warn("Reverse geocode failed:", err);
-    reverseGeoCache.set(key, "");
-    return "";
-  }
-}
-
-if (typeof window.ol === "undefined") {
-  alert("OpenLayers failed to load. Upload ./ol/ol.js and ./ol/ol.css to your site.");
-  throw new Error("OpenLayers still missing");
-}
-
-const map = new ol.Map({
-  target: 'map',
-  layers: [new ol.layer.Tile({ source: new ol.source.OSM() })],
-  view: new ol.View({
-    center: ol.proj.fromLonLat([133.7751, -25.2744]),
-    zoom: 4,
-    maxZoom: 18
-  })
-});
-
-map.getView().on('change:rotation', () => map.getView().setRotation(0));
-
-const railLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png' }),
-  visible: true,
-  zIndex: 1
-});
-
-railLayer.on('prerender', (e)=>{ if (e.context) e.context.filter='hue-rotate(200deg) brightness(0.95) saturate(1.6)'; });
-railLayer.on('postrender', (e)=>{ if (e.context) e.context.filter='none'; });
-
-const stationsLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({ url: 'https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png' }),
-  visible: true,
-  zIndex: 2
-});
-
-map.addLayer(railLayer);
-map.addLayer(stationsLayer);
-
-const ACCC_URL = 'https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer';
-
-function createAcccLayer(id) {
-  return new ol.layer.Tile({
-    source: new ol.source.TileArcGISRest({
-      url: ACCC_URL,
-      params: { layers: `show:${id}`, dpi: 96, transparent: true, format: 'png32' }
-    }),
-    opacity: 0.45,
-    visible: false,
-    zIndex: 3
-  });
-}
-
-const covTelstra = createAcccLayer(25);
-const covOptus   = createAcccLayer(15);
-const covTPG     = createAcccLayer(33);
-const covAll     = createAcccLayer(4);
-[covTelstra, covOptus, covTPG, covAll].forEach(l => map.addLayer(l));
-
-const trainSource = new ol.source.Vector();
-const trainLayer = new ol.layer.Vector({
-  source: trainSource,
-  visible: true,
-  zIndex: 10,
-  style: function(feature){
-    const train = feature.get('train_data') || {};
-    const label = buildLabel(train);
-    const speed = getSpeed(train);
-    const zoom = map.getView().getZoom() || 4;
-
-    let dotColor = '#ffaa00';
-    if (speed > 80) dotColor = '#ff4444';
-    else if (speed > 30) dotColor = '#00cc00';
-    else if (speed > 0) dotColor = '#44ff44';
-
-    let radius = 7;
-    if (zoom <= 5) radius = 5;
-    else if (zoom <= 7) radius = 6;
-
-    const styles = [
-      new ol.style.Style({
-        image: new ol.style.Circle({
-          radius: isMobileLayout() ? Math.max(4, radius - 1) : radius,
-          fill: new ol.style.Fill({ color: dotColor }),
-          stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+    const railLinesLayer = new ol.layer.Vector({
+      source: new ol.source.Vector(),
+      visible: true,
+      style: new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color: "#1d6fff",
+          width: 2
         })
       })
-    ];
+    });
 
-    if (label && !isJunkId(label) && zoom >= 5) {
-      let fontSize = 11;
-      let offsetY = -18;
-      let padding = [2, 8, 2, 8];
+    const stationsLayer = new ol.layer.Vector({
+      source: new ol.source.Vector(),
+      visible: false,
+      style: new ol.style.Style({
+        image: new ol.style.Circle({
+          radius: 4,
+          fill: new ol.style.Fill({ color: "#ffbf00" }),
+          stroke: new ol.style.Stroke({ color: "#fff", width: 1.2 })
+        })
+      })
+    });
 
-      if (zoom <= 5.5) {
-        fontSize = 9;
-        offsetY = -14;
-        padding = [1, 5, 1, 5];
-      } else if (zoom <= 7) {
-        fontSize = 10;
-        offsetY = -16;
-        padding = [2, 6, 2, 6];
+    const telstraLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:25" }
+      }),
+      opacity: 0.45
+    });
+
+    const optusLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:15" }
+      }),
+      opacity: 0.45
+    });
+
+    const vodafoneLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:33" }
+      }),
+      opacity: 0.45
+    });
+
+    const allCoverageLayer = new ol.layer.Tile({
+      visible: false,
+      source: new ol.source.TileArcGISRest({
+        url: "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer",
+        params: { layers: "show:4" }
+      }),
+      opacity: 0.38
+    });
+
+    const trainSource = new ol.source.Vector();
+
+    const trainLayer = new ol.layer.Vector({
+      source: trainSource,
+      visible: true,
+      style: feature => getTrainStyle(feature)
+    });
+
+    const map = new ol.Map({
+      target: "map",
+      layers: [
+        osmLayer,
+        telstraLayer,
+        optusLayer,
+        vodafoneLayer,
+        allCoverageLayer,
+        railLinesLayer,
+        stationsLayer,
+        trainLayer
+      ],
+      view: new ol.View({
+        center: ol.proj.fromLonLat([134.5, -25.7]),
+        zoom: 4.4,
+        minZoom: 3,
+        maxZoom: 18
+      }),
+      controls: ol.control.defaults({
+        attribution: true,
+        rotate: false,
+        zoom: true
+      })
+    });
+
+    // ========= POPUP =========
+    const popupEl = document.getElementById("popup");
+
+    const popupOverlay = new ol.Overlay({
+      element: popupEl,
+      positioning: "bottom-center",
+      stopEvent: true,
+      offset: [0, -18]
+    });
+
+    map.addOverlay(popupOverlay);
+
+    // ========= HELPERS =========
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function formatLocalTime(iso) {
+      if (!iso) return "--";
+      try {
+        return new Date(iso).toLocaleString("en-AU", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit"
+        });
+      } catch {
+        return iso;
+      }
+    }
+
+    function normalise(v) {
+      return String(v ?? "").trim().toLowerCase();
+    }
+
+    function getValue(obj, keys) {
+      for (const key of keys) {
+        if (obj && obj[key] !== undefined && obj[key] !== null && String(obj[key]).trim() !== "") {
+          return obj[key];
+        }
+      }
+      return "";
+    }
+
+    function getLat(train) {
+      const v = getValue(train, ["lat", "latitude", "y"]);
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function getLon(train) {
+      const v = getValue(train, ["lon", "lng", "longitude", "x"]);
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    }
+
+    function getLoco(train) {
+      return getValue(train, [
+        "loco",
+        "loco_number",
+        "locoNumber",
+        "vehicle_number",
+        "vehicleNumber",
+        "unit",
+        "unit_number",
+        "vehicle",
+        "name"
+      ]) || "Unknown";
+    }
+
+    function getTrainNumber(train) {
+      return getValue(train, [
+        "train_number",
+        "trainNumber",
+        "train_id",
+        "trainId",
+        "service_number",
+        "serviceNumber",
+        "id",
+        "ID"
+      ]);
+    }
+
+    function getVehicleDescription(train) {
+      return getValue(train, [
+        "vehicle_description",
+        "vehicleDescription",
+        "description",
+        "loco_class",
+        "class"
+      ]);
+    }
+
+    function getServiceDescription(train) {
+      return getValue(train, [
+        "service_description",
+        "serviceDescription",
+        "service_name",
+        "serviceName",
+        "service",
+        "trip_name",
+        "tripName"
+      ]);
+    }
+
+    function getCurrentOperator(train) {
+      return getValue(train, [
+        "current_operator",
+        "currentOperator",
+        "operator",
+        "Operator",
+        "company",
+        "Company",
+        "owner",
+        "Owner",
+        "railway",
+        "Railway",
+        "network",
+        "Network"
+      ]) || "Unknown";
+    }
+
+    function getOrigin(train) {
+      return getValue(train, [
+        "origin",
+        "from",
+        "start",
+        "departure",
+        "origin_name"
+      ]);
+    }
+
+    function getDestination(train) {
+      return getValue(train, [
+        "destination",
+        "to",
+        "end",
+        "arrival",
+        "destination_name"
+      ]);
+    }
+
+    function getSpeed(train) {
+      return getValue(train, [
+        "speed",
+        "speed_kmh",
+        "kph",
+        "kmh",
+        "velocity"
+      ]);
+    }
+
+    function getStatus(train) {
+      return getValue(train, [
+        "status",
+        "running_status",
+        "movement_status"
+      ]) || "Unknown";
+    }
+
+    function getTimetabling(train) {
+      return getValue(train, [
+        "timetabling",
+        "eta_text",
+        "expected_text",
+        "running_text"
+      ]);
+    }
+
+    function getUpdated(train) {
+      return getValue(train, [
+        "updated",
+        "lastUpdated",
+        "last_updated",
+        "timestamp",
+        "time"
+      ]);
+    }
+
+    function getKmPost(train) {
+      return getValue(train, [
+        "km_post",
+        "kmPost",
+        "kilometre_post",
+        "kilometer_post"
+      ]);
+    }
+
+    function getHeading(train) {
+      return getValue(train, [
+        "heading",
+        "bearing",
+        "direction"
+      ]);
+    }
+
+    function makeLabel(train) {
+      const loco = getLoco(train);
+      const trainNum = getTrainNumber(train);
+      if (trainNum && normalise(trainNum) !== normalise(loco)) {
+        return `${loco} • ${trainNum}`;
+      }
+      return loco;
+    }
+
+    function getSearchText(train) {
+      return [
+        getLoco(train),
+        getTrainNumber(train),
+        getVehicleDescription(train),
+        getServiceDescription(train),
+        getCurrentOperator(train),
+        getOrigin(train),
+        getDestination(train),
+        getStatus(train)
+      ].join(" ").toLowerCase();
+    }
+
+    function getDotClass(train) {
+      const status = normalise(getStatus(train));
+      const speed = Number(getSpeed(train));
+
+      if (status.includes("stop") || speed === 0) return "gray";
+      if (status.includes("late") || status.includes("delay")) return "red";
+      if (status.includes("run") || status.includes("move") || speed > 0) return "green";
+      return "orange";
+    }
+
+    // ========= POPUP HTML =========
+    function buildPopupHtml(train) {
+      const label = makeLabel(train);
+      const serviceDesc = getServiceDescription(train) || label;
+      const vehicleDesc = getVehicleDescription(train) || "-";
+      const currentOperator = getCurrentOperator(train) || "-";
+      const origin = getOrigin(train) || "-";
+      const destination = getDestination(train) || "-";
+      const status = getStatus(train) || "-";
+      const timetabling = getTimetabling(train) || "-";
+      const kmPost = getKmPost(train) || "-";
+      const updated = formatLocalTime(getUpdated(train));
+      const dotClass = getDotClass(train);
+
+      return `
+        <div class="tf-header">
+          <div class="main">${escapeHtml(getLoco(train))}${getTrainNumber(train) ? " - " + escapeHtml(getTrainNumber(train)) : ""}</div>
+          <div class="sub">${escapeHtml(serviceDesc)}</div>
+        </div>
+
+        <div class="tf-tabs">
+          <div class="tf-tab active">Current Data</div>
+          <div class="tf-tab">History</div>
+          <div class="tf-tab">Timetable</div>
+          <div class="tf-tab">Notes</div>
+        </div>
+
+        <div class="tf-body">
+          <div class="tf-left">
+            <div class="status-dot ${dotClass}"></div>
+            <div class="big">${escapeHtml(status)}</div>
+
+            <div class="small-label">KM Post</div>
+            <div class="small-value">${escapeHtml(kmPost)}</div>
+
+            <div class="small-label">Last Updated</div>
+            <div class="small-value">${escapeHtml(updated)}</div>
+          </div>
+
+          <div class="tf-right">
+            <div class="tf-row">
+              <div class="label">Vehicle Description</div>
+              <div class="value">${escapeHtml(vehicleDesc)}</div>
+            </div>
+
+            <div class="tf-row">
+              <div class="label">Timetabling</div>
+              <div class="value">${escapeHtml(timetabling)}</div>
+            </div>
+
+            <div class="tf-row">
+              <div class="label">Current Operator</div>
+              <div class="value">${escapeHtml(currentOperator)}</div>
+            </div>
+
+            <div class="tf-row">
+              <div class="label">Service Description</div>
+              <div class="value">${escapeHtml(serviceDesc)}</div>
+            </div>
+
+            <div class="tf-two-col">
+              <div class="tf-cell">
+                <div class="label">Origin</div>
+                <div class="value">${escapeHtml(origin)}</div>
+              </div>
+              <div class="tf-cell">
+                <div class="label">Destination</div>
+                <div class="value">${escapeHtml(destination)}</div>
+              </div>
+            </div>
+
+            <div class="tf-buttons">
+              <div class="tf-btn">View Service Operational History</div>
+              <div class="tf-btn">View Service Change History</div>
+            </div>
+
+            <div class="tf-alerts">
+              <div class="tf-alert">🔔 Enable Vehicle Alert</div>
+              <div class="tf-alert">🔔 Enable Service Alert</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // ========= TRAIN STYLE =========
+    function getTrainStyle(feature) {
+      const zoom = map.getView().getZoom() || 4;
+      const label = feature.get("label") || "";
+      const train = feature.get("trainData") || {};
+      const isSelected = feature === selectedTrainFeature;
+
+      let radius = 5;
+      let fontSize = 10;
+      let offsetY = -14;
+
+      if (zoom >= 10) {
+        radius = 8;
+        fontSize = 13;
+        offsetY = -18;
+      } else if (zoom >= 8) {
+        radius = 7;
+        fontSize = 12;
+        offsetY = -17;
+      } else if (zoom >= 6) {
+        radius = 6;
+        fontSize = 11;
+        offsetY = -15;
       }
 
-      styles.push(new ol.style.Style({
+      let fillColor = "#35d35b";
+      const status = normalise(getStatus(train));
+      const speed = Number(getSpeed(train));
+
+      if (status.includes("late") || status.includes("delay")) fillColor = "#f04646";
+      else if (status.includes("stop") || speed === 0) fillColor = "#f0a020";
+      else if (status.includes("run") || status.includes("move") || speed > 0) fillColor = "#35d35b";
+
+      if (isSelected) {
+        radius += 2;
+      }
+
+      return new ol.style.Style({
+        image: new ol.style.Circle({
+          radius,
+          fill: new ol.style.Fill({ color: fillColor }),
+          stroke: new ol.style.Stroke({
+            color: isSelected ? "#00d7ff" : "#ffffff",
+            width: isSelected ? 3 : 2
+          })
+        }),
         text: new ol.style.Text({
           text: label,
-          font: `bold ${fontSize}px monospace`,
-          fill: new ol.style.Fill({ color: '#ffaa00' }),
-          stroke: new ol.style.Stroke({ color: '#000000', width: 3 }),
-          offsetY: offsetY,
-          backgroundFill: new ol.style.Fill({ color: 'rgba(0,0,0,0.92)' }),
-          padding: padding
-        })
-      }));
+          offsetY,
+          font: `800 ${fontSize}px Segoe UI`,
+          fill: new ol.style.Fill({ color: "#ffffff" }),
+          stroke: new ol.style.Stroke({ color: "rgba(0,0,0,0.95)", width: 4 }),
+          overflow: true
+        }),
+        zIndex: isSelected ? 999 : 10
+      });
     }
 
-    return styles;
-  }
-});
-
-map.addLayer(trainLayer);
-
-async function loadRealTrains() {
-  const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
-  setStatusUI('Loading...', '…', '0');
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
-
-  try {
-    const response = await fetch(url, { cache: 'no-store', signal: controller.signal });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const data = await response.json();
-    const trains = Array.isArray(data.trains) ? data.trains : [];
-    const updatedISO = data.lastUpdated || null;
-
-    const localTs = updatedISO ? formatLocal(updatedISO) : formatLocal(new Date());
-    const statusText = (data.note || 'ok').toString();
-
-    if (trains.length === 0) {
-      consecutiveEmpty += 1;
-      if (lastGoodTrains.length > 0 && consecutiveEmpty < 3) {
-        setStatusUI(
-          localTs ? `Last: ${localTs}` : 'Last: (unknown)',
-          `empty payload (${consecutiveEmpty})`,
-          String(lastGoodTrains.length)
-        );
-        return;
-      }
-    } else {
-      consecutiveEmpty = 0;
-    }
-
-    allTrains = trains;
-    if (trains.length > 0) {
-      lastGoodTrains = trains.slice();
-      lastGoodUpdatedISO = updatedISO;
-    }
-
-    setStatusUI(
-      localTs ? `Last: ${localTs}` : 'Last: (unknown)',
-      statusText,
-      String(trains.length)
-    );
-
-    trainSource.clear();
-
-    trains.forEach(train => {
-      const maybeId = train.id || train.train_number || train.trainNumber || train.trKey || "";
-      const maybeName = train.train_name || train.loco || "";
-      if (isJunkId(maybeId) && isJunkId(maybeName)) return;
-
-      const lat = Number(train.lat);
-      const lon = Number(train.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+    function createTrainFeature(train) {
+      const lat = getLat(train);
+      const lon = getLon(train);
+      if (lat === null || lon === null) return null;
 
       const feature = new ol.Feature({
-        geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
+        geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat])),
+        trainData: train,
+        label: makeLabel(train)
       });
-      feature.set('train_data', train);
-      trainSource.addFeature(feature);
-    });
 
-    trainLayer.changed();
+      return feature;
+    }
 
-  } catch (err) {
-    console.error('Failed to load trains:', err);
-    if (lastGoodUpdatedISO) {
-      setStatusUI(
-        `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`,
-        'error',
-        String(lastGoodTrains.length)
+    function refreshOperatorDropdownFromData(trains) {
+      const existing = new Set(
+        Array.from(operatorFilter.options).map(opt => normalise(opt.value))
       );
-    } else {
-      setStatusUI('Update failed', 'error', '0');
+
+      const ops = [...new Set(
+        trains
+          .map(t => getCurrentOperator(t))
+          .filter(v => v && normalise(v) !== "unknown")
+      )].sort((a, b) => a.localeCompare(b));
+
+      for (const op of ops) {
+        if (!existing.has(normalise(op))) {
+          const option = document.createElement("option");
+          option.value = op;
+          option.textContent = op;
+          operatorFilter.appendChild(option);
+        }
+      }
     }
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
 
-function removePopup() {
-  if (popupOverlay) {
-    map.removeOverlay(popupOverlay);
-    popupOverlay = null;
-  }
-}
+    function renderTrains(trains) {
+      trainSource.clear();
 
-function renderPopupHTML(train, placeText, popupUpdated) {
-  const label = buildLabel(train);
-  const origin = train.origin || train.serviceFrom || '';
-  const dest = train.destination || train.serviceTo || '';
-  const speed = getSpeed(train);
-  const desc = getDescription(train);
-  const operator = getOperator(train);
-  const km = train.km || train.trainKM || train.km_post || train.kmPost || 'Unknown';
-  const lat = Number(train.lat);
-  const lon = Number(train.lon);
-  const locationText = placeText || "Looking up…";
+      const features = [];
+      for (const train of trains) {
+        const feature = createTrainFeature(train);
+        if (feature) features.push(feature);
+      }
 
-  return `
-    <button class="popup-close" id="popupCloseBtn" type="button">×</button>
-    <div class="popup-header">${esc(label || "Train")} — ${esc(speed)} km/h</div>
-    <div class="popup-subheader">Updated: ${esc(popupUpdated || 'Unknown')}</div>
-    ${desc ? `<div class="popup-subheader">${esc(desc)}</div>` : ''}
+      trainSource.addFeatures(features);
+      trainCountPill.textContent = String(features.length);
+      statusPill.textContent = `ok - ${features.length} trains`;
 
-    <div class="popup-grid">
-      <div class="popup-label">Current place</div><div class="popup-value" id="popupCurrentPlace">${esc(locationText)}</div>
-      <div class="popup-label">Origin</div><div class="popup-value">${esc(origin || 'Unknown')}</div>
-      <div class="popup-label">Destination</div><div class="popup-value">${esc(dest || 'Unknown')}</div>
-      <div class="popup-label">Current operator</div><div class="popup-value">${esc(operator || 'Unknown')}</div>
-      <div class="popup-label">Vehicle description</div><div class="popup-value">${esc(desc || 'Unknown')}</div>
-      <div class="popup-label">KM / post</div><div class="popup-value">${esc(km || 'Unknown')}</div>
-      <div class="popup-label">Latitude</div><div class="popup-value">${Number.isFinite(lat) ? esc(lat.toFixed(5)) : 'Unknown'}</div>
-      <div class="popup-label">Longitude</div><div class="popup-value">${Number.isFinite(lon) ? esc(lon.toFixed(5)) : 'Unknown'}</div>
-    </div>
-
-    <div class="popup-footer">
-      ${getLoco(train) ? `<span class="popup-badge">Loco: ${esc(getLoco(train))}</span>` : ''}
-      ${getTrainId(train) ? `<span class="popup-badge">Train: ${esc(getTrainId(train))}</span>` : ''}
-      ${operator ? `<span class="popup-badge">${esc(operator)}</span>` : ''}
-    </div>
-  `;
-}
-
-async function showTrainPopup(feature) {
-  removePopup();
-  if (!feature) return;
-
-  const train = feature.get('train_data') || {};
-  const label = buildLabel(train);
-  if (!label || isJunkId(label)) return;
-
-  const coords = feature.getGeometry().getCoordinates();
-  const popupUpdated = lastGoodUpdatedISO
-    ? formatLocal(lastGoodUpdatedISO)
-    : formatLocal(new Date());
-
-  const directPlace = getCurrentPlaceFromTrain(train);
-  const lat = Number(train.lat);
-  const lon = Number(train.lon);
-
-  const popupDiv = document.createElement('div');
-  popupDiv.className = 'train-popup';
-  popupDiv.innerHTML = renderPopupHTML(train, directPlace || (REVERSE_GEOCODE_ENABLED ? "Looking up…" : "Unknown"), popupUpdated);
-
-  popupOverlay = new ol.Overlay({
-    element: popupDiv,
-    position: coords,
-    positioning: 'bottom-center',
-    offset: [0, -12]
-  });
-
-  map.addOverlay(popupOverlay);
-
-  const closeBtn = popupDiv.querySelector('#popupCloseBtn');
-  if (closeBtn) closeBtn.addEventListener('click', removePopup);
-
-  if (!directPlace && REVERSE_GEOCODE_ENABLED && Number.isFinite(lat) && Number.isFinite(lon)) {
-    const reqId = ++popupRequestId;
-    const reversePlace = await reverseGeocodeTown(lat, lon);
-    if (!popupOverlay || reqId !== popupRequestId) return;
-
-    const placeEl = popupDiv.querySelector('#popupCurrentPlace');
-    if (placeEl) {
-      placeEl.textContent = reversePlace || 'Unknown';
+      if (selectedTrainFeature) {
+        const selectedTrain = selectedTrainFeature.get("trainData");
+        const selectedId = makeLabel(selectedTrain);
+        const newSelected = features.find(f => makeLabel(f.get("trainData")) === selectedId);
+        if (newSelected) {
+          selectedTrainFeature = newSelected;
+          popupEl.innerHTML = buildPopupHtml(newSelected.get("trainData"));
+          popupOverlay.setPosition(newSelected.getGeometry().getCoordinates());
+        } else {
+          selectedTrainFeature = null;
+          popupOverlay.setPosition(undefined);
+        }
+      }
     }
-  }
-}
 
-map.on('singleclick', function(evt){
-  const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
-    return layer === trainLayer ? f : null;
-  });
+    function applyFilters() {
+      const selectedOperator = operatorFilter.value;
+      const query = normalise(searchInput.value);
 
-  if (feature) showTrainPopup(feature);
-  else removePopup();
-});
+      visibleTrains = allTrains.filter(train => {
+        const operatorOk =
+          selectedOperator === "ALL" ||
+          normalise(getCurrentOperator(train)) === normalise(selectedOperator);
 
-map.on('pointermove', function(evt){
-  if ('ontouchstart' in window) return;
+        const searchOk =
+          !query || getSearchText(train).includes(query);
 
-  const feature = map.forEachFeatureAtPixel(evt.pixel, function(f, layer){
-    return layer === trainLayer ? f : null;
-  });
+        return operatorOk && searchOk;
+      });
 
-  if (feature) showTrainPopup(feature);
-  else removePopup();
-});
+      renderTrains(visibleTrains);
+    }
 
-function displayId(train){
-  return buildLabel(train);
-}
+    async function loadGeoJsonToLayer(url, layer) {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
 
-function hideAutocomplete(){
-  document.getElementById('autocompleteList').style.display = 'none';
-  document.getElementById('mobileAutocompleteList').style.display = 'none';
-}
+        const features = new ol.format.GeoJSON().readFeatures(data, {
+          featureProjection: "EPSG:3857"
+        });
 
-function updateAutocompleteFor(inputEl, listEl){
-  const query = inputEl.value.trim().toLowerCase();
-  if (query.length < 2) {
-    listEl.style.display = 'none';
-    return;
-  }
+        layer.getSource().clear();
+        layer.getSource().addFeatures(features);
+      } catch (err) {
+        console.warn("Could not load", url, err);
+      }
+    }
 
-  const matches = [];
-  const seen = new Set();
+    async function loadTrains() {
+      try {
+        const res = await fetch(`${TRAINS_URL}?_=${Date.now()}`, { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-  for (const train of allTrains){
-    const id = displayId(train);
-    if (!id || isJunkId(id)) continue;
+        const data = await res.json();
+        const trains = Array.isArray(data.trains) ? data.trains : [];
 
-    const searchable = [
-      displayId(train),
-      train.train_number, train.trainNumber,
-      train.trKey, train.loco, train.train_name, train.trainName,
-      train.origin, train.destination, train.serviceFrom, train.serviceTo,
-      train.description, train.serviceDesc,
-      train.location, train.place, train.town, train.suburb, train.city
-    ].filter(Boolean).map(s => String(s).toLowerCase());
+        if (trains.length > 0) {
+          allTrains = trains;
+          lastGoodTrains = trains;
+          lastGoodUpdatedISO = data.lastUpdated || data.last_updated || new Date().toISOString();
+          statusPill.textContent = `ok - ${trains.length} trains`;
+        } else if (lastGoodTrains.length > 0) {
+          allTrains = lastGoodTrains;
+          statusPill.textContent = "empty payload — keeping last good";
+        } else {
+          allTrains = [];
+          statusPill.textContent = "empty payload";
+        }
 
-    if (searchable.some(s => s.includes(query)) && !seen.has(id)){
-      seen.add(id);
-      matches.push({
-        id,
-        full: train,
-        lat: Number(train.lat),
-        lon: Number(train.lon)
+        refreshOperatorDropdownFromData(allTrains);
+
+        const updated = data.lastUpdated || data.last_updated || lastGoodUpdatedISO;
+        lastUpdatedPill.textContent = `Last: ${formatLocalTime(updated)}`;
+
+        applyFilters();
+      } catch (err) {
+        console.error("Train load failed:", err);
+
+        if (lastGoodTrains.length > 0) {
+          allTrains = lastGoodTrains;
+          lastUpdatedPill.textContent = `Last: ${formatLocalTime(lastGoodUpdatedISO)}`;
+          statusPill.textContent = "error — keeping last good";
+          applyFilters();
+        } else {
+          statusPill.textContent = "error loading trains";
+          trainSource.clear();
+          trainCountPill.textContent = "0";
+        }
+      }
+    }
+
+    // ========= STATE ZOOMS =========
+    const stateExtents = {
+      AU: [112.5, -44.8, 154.0, -9.0],
+      NSW: [140.8, -37.7, 153.8, -28.0],
+      VIC: [140.7, -39.3, 150.2, -33.8],
+      QLD: [137.9, -29.5, 153.7, -10.0],
+      SA: [129.0, -38.4, 141.2, -25.8],
+      WA: [112.0, -35.3, 129.2, -13.6],
+      TAS: [143.6, -43.9, 148.6, -39.0],
+      NT: [129.0, -26.2, 138.1, -10.8],
+      ACT: [148.76, -35.94, 149.40, -35.10]
+    };
+
+    function zoomToState(code) {
+      const extentLonLat = stateExtents[code];
+      if (!extentLonLat) return;
+
+      const extent = ol.proj.transformExtent(extentLonLat, "EPSG:4326", "EPSG:3857");
+      map.getView().fit(extent, {
+        padding: [90, 40, 40, 40],
+        duration: 700
       });
     }
-  }
 
-  if (matches.length === 0) {
-    listEl.style.display = 'none';
-    return;
-  }
-
-  listEl.innerHTML = '';
-  matches.slice(0, 10).forEach(match => {
-    const item = document.createElement('div');
-    item.className = 'autocomplete-item';
-    const o = match.full.origin || match.full.serviceFrom || '';
-    const d = match.full.destination || match.full.serviceTo || '';
-    item.innerHTML = `<span class="train-id">${esc(match.id)}</span><span class="train-loc">${esc(o)} → ${esc(d)}</span>`;
-    item.addEventListener('click', () => {
-      inputEl.value = match.id;
-      listEl.style.display = 'none';
-      flyToTrain(match.lat, match.lon);
+    // ========= EVENTS =========
+    stateSelect.addEventListener("change", () => {
+      zoomToState(stateSelect.value);
     });
-    listEl.appendChild(item);
-  });
 
-  listEl.style.display = 'block';
-}
+    myLocationBtn.addEventListener("click", () => {
+      if (!navigator.geolocation) return alert("Geolocation not supported on this device.");
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          const lon = pos.coords.longitude;
+          const lat = pos.coords.latitude;
+          map.getView().animate({
+            center: ol.proj.fromLonLat([lon, lat]),
+            zoom: 11,
+            duration: 700
+          });
+        },
+        () => alert("Could not get your location.")
+      );
+    });
 
-function wireSearchBox(inputId, buttonId, listId, isMobile) {
-  const input = document.getElementById(inputId);
-  const button = document.getElementById(buttonId);
-  const list = document.getElementById(listId);
+    layersBtn.addEventListener("click", () => {
+      layersPanel.style.display = layersPanel.style.display === "block" ? "none" : "block";
+    });
 
-  input.addEventListener('input', () => {
-    clearTimeout(isMobile ? mobileDebounceTimer : desktopDebounceTimer);
-    const timer = setTimeout(() => updateAutocompleteFor(input, list), 180);
-    if (isMobile) mobileDebounceTimer = timer;
-    else desktopDebounceTimer = timer;
-  });
+    document.addEventListener("click", e => {
+      const withinPanel = layersPanel.contains(e.target);
+      const clickedLayersBtn = layersBtn.contains(e.target);
+      if (!withinPanel && !clickedLayersBtn) {
+        layersPanel.style.display = "none";
+      }
+    });
 
-  input.addEventListener('keypress', e => {
-    if (e.key === 'Enter') searchTrainsFromInput(input);
-  });
+    toggleTrains.addEventListener("change", () => trainLayer.setVisible(toggleTrains.checked));
+    toggleRailLines.addEventListener("change", () => railLinesLayer.setVisible(toggleRailLines.checked));
+    toggleStations.addEventListener("change", () => stationsLayer.setVisible(toggleStations.checked));
+    toggleTelstra.addEventListener("change", () => telstraLayer.setVisible(toggleTelstra.checked));
+    toggleOptus.addEventListener("change", () => optusLayer.setVisible(toggleOptus.checked));
+    toggleVodafone.addEventListener("change", () => vodafoneLayer.setVisible(toggleVodafone.checked));
+    toggleAllCoverage.addEventListener("change", () => allCoverageLayer.setVisible(toggleAllCoverage.checked));
 
-  button.addEventListener('click', () => searchTrainsFromInput(input));
-}
+    operatorFilter.addEventListener("change", applyFilters);
+    searchBtn.addEventListener("click", applyFilters);
+    searchInput.addEventListener("keydown", e => {
+      if (e.key === "Enter") applyFilters();
+    });
 
-function flyToTrain(lat, lon){
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-  map.getView().animate({ center: ol.proj.fromLonLat([lon, lat]), zoom: 12, duration: 850 });
-}
+    logoutBtn.addEventListener("click", () => {
+      localStorage.removeItem("railops_logged_in");
+      window.location.href = "index.html";
+    });
 
-function searchTrainsFromInput(inputEl){
-  const query = inputEl.value.trim().toLowerCase();
-  if (!query) return;
+    map.on("singleclick", evt => {
+      const feature = map.forEachFeatureAtPixel(evt.pixel, f => f, {
+        layerFilter: layer => layer === trainLayer
+      });
 
-  for (const train of allTrains){
-    const id = displayId(train);
-    if (!id || isJunkId(id)) continue;
+      if (feature) {
+        selectedTrainFeature = feature;
+        trainLayer.changed();
+        popupEl.innerHTML = buildPopupHtml(feature.get("trainData"));
+        popupOverlay.setPosition(feature.getGeometry().getCoordinates());
+      } else {
+        selectedTrainFeature = null;
+        trainLayer.changed();
+        popupOverlay.setPosition(undefined);
+      }
+    });
 
-    const searchable = [
-      id,
-      train.train_number, train.trainNumber,
-      train.trKey, train.loco, train.train_name, train.trainName,
-      train.origin, train.destination,
-      train.location, train.place, train.town, train.suburb, train.city
-    ].filter(Boolean).map(s => String(s).toLowerCase());
+    searchBtn.addEventListener("click", () => {
+      const q = normalise(searchInput.value);
+      if (!q) return;
 
-    if (searchable.some(s => s.includes(query))){
-      flyToTrain(Number(train.lat), Number(train.lon));
-      hideAutocomplete();
-      return;
-    }
-  }
+      const firstMatch = visibleTrains.find(train => getSearchText(train).includes(q));
+      if (!firstMatch) return;
 
-  alert('No trains found matching: ' + query);
-}
+      const lon = getLon(firstMatch);
+      const lat = getLat(firstMatch);
+      if (lon === null || lat === null) return;
 
-const stateBounds = {
-  au: [112, -44, 154, -10],
-  nsw: [141, -38, 154, -28],
-  vic: [141, -40, 150, -34],
-  qld: [138, -30, 154, -9],
-  sa: [129, -40, 141, -25],
-  wa: [112, -36, 129, -13],
-  tas: [143, -44, 149, -39],
-  nt: [129, -27, 138, -10]
-};
+      map.getView().animate({
+        center: ol.proj.fromLonLat([lon, lat]),
+        zoom: Math.max(map.getView().getZoom() || 8, 8),
+        duration: 700
+      });
 
-function zoomTo(region){
-  const bounds = stateBounds[region] || stateBounds.au;
-  const extent = ol.proj.transformExtent(bounds, 'EPSG:4326', 'EPSG:3857');
-  map.getView().fit(extent, { duration: 900, maxZoom: 10 });
-}
+      setTimeout(() => {
+        const matchFeature = trainSource.getFeatures().find(f => {
+          return makeLabel(f.get("trainData")) === makeLabel(firstMatch);
+        });
 
-function zoomToCurrent(){
-  if (!navigator.geolocation) return;
-  navigator.geolocation.getCurrentPosition(pos => {
-    const center = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
-    map.getView().animate({ center, zoom: 12, duration: 850 });
-  });
-}
+        if (matchFeature) {
+          selectedTrainFeature = matchFeature;
+          trainLayer.changed();
+          popupEl.innerHTML = buildPopupHtml(matchFeature.get("trainData"));
+          popupOverlay.setPosition(matchFeature.getGeometry().getCoordinates());
+        }
+      }, 750);
+    });
 
-function syncStateSelect(value) {
-  document.getElementById('stateSelect').value = value;
-  document.getElementById('mobileStateSelect').value = value;
-}
+    // ========= STARTUP =========
+    loadGeoJsonToLayer(RAIL_LINES_URL, railLinesLayer);
+    loadGeoJsonToLayer(STATIONS_URL, stationsLayer);
+    loadTrains();
 
-document.getElementById('stateSelect').addEventListener('change', e => {
-  syncStateSelect(e.target.value);
-  zoomTo(e.target.value);
-});
-
-document.getElementById('mobileStateSelect').addEventListener('change', e => {
-  syncStateSelect(e.target.value);
-  zoomTo(e.target.value);
-});
-
-document.getElementById('locateBtn').addEventListener('click', zoomToCurrent);
-document.getElementById('mobileLocateBtn').addEventListener('click', zoomToCurrent);
-
-function toggleLayersPanel(){
-  const panel = document.getElementById('layersPanel');
-  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
-}
-
-function hideLayersPanel(){
-  document.getElementById('layersPanel').style.display = 'none';
-}
-
-document.getElementById('layersToggleBtn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  toggleLayersPanel();
-});
-
-document.getElementById('mobileLayersBtn').addEventListener('click', (e) => {
-  e.stopPropagation();
-  toggleLayersPanel();
-});
-
-document.getElementById('trainLayerChk').addEventListener('change', e => trainLayer.setVisible(e.target.checked));
-document.getElementById('railLayerChk').addEventListener('change', e => railLayer.setVisible(e.target.checked));
-document.getElementById('stationsLayerChk').addEventListener('change', e => stationsLayer.setVisible(e.target.checked));
-document.getElementById('covTelstraChk').addEventListener('change', e => covTelstra.setVisible(e.target.checked));
-document.getElementById('covOptusChk').addEventListener('change', e => covOptus.setVisible(e.target.checked));
-document.getElementById('covTPGChk').addEventListener('change', e => covTPG.setVisible(e.target.checked));
-document.getElementById('covAllChk').addEventListener('change', e => covAll.setVisible(e.target.checked));
-
-document.addEventListener('click', (e) => {
-  const layersPanel = document.getElementById('layersPanel');
-  const layersBtn = document.getElementById('layersToggleBtn');
-  const mobileLayersBtn = document.getElementById('mobileLayersBtn');
-  const searchContainer = document.getElementById('searchContainer');
-  const topCard = document.getElementById('topCard');
-
-  if (layersPanel.style.display !== 'none') {
-    const clickedInsidePanel = layersPanel.contains(e.target);
-    const clickedDesktopBtn = layersBtn.contains(e.target);
-    const clickedMobileBtn = mobileLayersBtn.contains(e.target);
-    if (!clickedInsidePanel && !clickedDesktopBtn && !clickedMobileBtn) hideLayersPanel();
-  }
-
-  if (document.getElementById('autocompleteList').style.display !== 'none') {
-    const clickedInsideDesktopSearch = searchContainer.contains(e.target);
-    if (!clickedInsideDesktopSearch) document.getElementById('autocompleteList').style.display = 'none';
-  }
-
-  if (document.getElementById('mobileAutocompleteList').style.display !== 'none') {
-    const clickedInsideMobileSearch = topCard.contains(e.target);
-    if (!clickedInsideMobileSearch) document.getElementById('mobileAutocompleteList').style.display = 'none';
-  }
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') {
-    hideAutocomplete();
-    hideLayersPanel();
-    removePopup();
-  }
-});
-
-wireSearchBox('searchInput', 'searchBtn', 'autocompleteList', false);
-wireSearchBox('mobileSearchInput', 'mobileSearchBtn', 'mobileAutocompleteList', true);
-
-window.addEventListener('resize', () => {
-  trainLayer.changed();
-  hideAutocomplete();
-  removePopup();
-});
-
-loadRealTrains();
-setInterval(loadRealTrains, 30000);
-zoomTo('au');
-</script>
-
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js")
-      .then(() => console.log("Service worker registered"))
-      .catch((err) => console.error("Service worker registration failed:", err));
-  });
-}
-</script>
-
-<button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid #2a4a7a;background:rgba(8,20,38,.92);color:#fff;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.45);cursor:pointer;">Logout</button>
-<script>RailOpsAuth && RailOpsAuth.wireLogout('#logoutBtn');</script>
+    // refresh every 60s
+    setInterval(loadTrains, 60000);
+  </script>
 </body>
 </html>
