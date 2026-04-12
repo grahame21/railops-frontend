@@ -76,16 +76,42 @@ body { overscroll-behavior: none; }
   box-shadow: var(--shadow);
   padding: 8px;
   display: none;
-  max-height: 52dvh;
+  max-height: 58dvh;
   overflow-y: auto;
+}
+
+.mobile-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .mobile-brand {
   color: var(--accent);
   font-size: 16px;
   font-weight: 900;
-  margin-bottom: 8px;
   line-height: 1.1;
+}
+
+.mobile-compact-toggle {
+  border: 1px solid var(--panel-btn-border);
+  background: var(--panel-btn);
+  color: white;
+  border-radius: 12px;
+  padding: 7px 10px;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.mobile-controls-area {
+  display: none;
+}
+
+.top-card.expanded .mobile-controls-area {
+  display: block;
 }
 
 .mobile-controls-grid {
@@ -568,8 +594,8 @@ body { overscroll-behavior: none; }
   }
 
   .layers-panel { bottom: calc(var(--safe-bottom) + 10px); }
-  .operator-panel { top: calc(var(--safe-top) + 250px); }
-  .route-panel { top: calc(var(--safe-top) + 250px); }
+  .operator-panel { top: calc(var(--safe-top) + 190px); }
+  .route-panel { top: calc(var(--safe-top) + 190px); }
 
   .popup-grid {
     grid-template-columns: 1fr;
@@ -587,39 +613,44 @@ body { overscroll-behavior: none; }
 <body>
 
 <div class="top-card" id="topCard">
-  <div class="mobile-brand">🚂 RailOps</div>
-
-  <div class="mobile-controls-grid">
-    <select id="mobileStateSelect">
-      <option value="au">🇦🇺 Australia</option>
-      <option value="nsw">📍 NSW</option>
-      <option value="vic">📍 VIC</option>
-      <option value="qld">📍 QLD</option>
-      <option value="sa">📍 SA</option>
-      <option value="wa">📍 WA</option>
-      <option value="tas">📍 TAS</option>
-      <option value="nt">📍 NT</option>
-    </select>
-
-    <button id="mobileLocateBtn">📍 My Location</button>
-    <button id="mobileLayersBtn">🗺️ Layers</button>
-    <button id="mobileOperatorBtn">🚫 Hide Operators (0)</button>
-    <button id="mobileRouteBtn">🧭 Hide Routes/Services (0)</button>
-    <button id="mobileClearFiltersBtn" class="clear-filters-btn">🧹 Clear All Filters</button>
-    <button id="mobileFilterToggleBtn">🧩 Show Active Filters</button>
+  <div class="mobile-brand-row">
+    <div class="mobile-brand">🚂 RailOps</div>
+    <button id="mobileCompactToggle" class="mobile-compact-toggle">Show Controls</button>
   </div>
 
-  <div class="mobile-search-wrap">
-    <div class="search-box">
-      <input type="text" id="mobileSearchInput" placeholder="Search train, loco, operator, town, origin, destination...">
-      <button id="mobileSearchBtn">🔍 Search</button>
+  <div class="mobile-controls-area" id="mobileControlsArea">
+    <div class="mobile-controls-grid">
+      <select id="mobileStateSelect">
+        <option value="au">🇦🇺 Australia</option>
+        <option value="nsw">📍 NSW</option>
+        <option value="vic">📍 VIC</option>
+        <option value="qld">📍 QLD</option>
+        <option value="sa">📍 SA</option>
+        <option value="wa">📍 WA</option>
+        <option value="tas">📍 TAS</option>
+        <option value="nt">📍 NT</option>
+      </select>
+
+      <button id="mobileLocateBtn">📍 My Location</button>
+      <button id="mobileLayersBtn">🗺️ Layers</button>
+      <button id="mobileOperatorBtn">🚫 Hide Operators (0)</button>
+      <button id="mobileRouteBtn">🧭 Hide Routes/Services (0)</button>
+      <button id="mobileClearFiltersBtn" class="clear-filters-btn">🧹 Clear All Filters</button>
+      <button id="mobileFilterToggleBtn">🧩 Show Active Filters</button>
     </div>
-    <div id="mobileAutocompleteList" class="autocomplete-items" style="display:none;"></div>
-  </div>
 
-  <div class="mobile-chip-section" id="mobileChipSection">
-    <div class="mobile-chip-header">Active filters</div>
-    <div id="mobileFilterChipWrap" class="filter-chip-wrap mobile-chip-wrap"></div>
+    <div class="mobile-search-wrap">
+      <div class="search-box">
+        <input type="text" id="mobileSearchInput" placeholder="Search train, loco, operator, town, origin, destination...">
+        <button id="mobileSearchBtn">🔍 Search</button>
+      </div>
+      <div id="mobileAutocompleteList" class="autocomplete-items" style="display:none;"></div>
+    </div>
+
+    <div class="mobile-chip-section" id="mobileChipSection">
+      <div class="mobile-chip-header">Active filters</div>
+      <div id="mobileFilterChipWrap" class="filter-chip-wrap mobile-chip-wrap"></div>
+    </div>
   </div>
 
   <div class="mobile-status-row">
@@ -709,9 +740,10 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
-const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v5_fix";
-const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v3_fix";
-const MOBILE_FILTER_SECTION_KEY = "railops_mobile_filter_section_open";
+const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v6";
+const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v4";
+const MOBILE_FILTER_SECTION_KEY = "railops_mobile_filter_section_open_v2";
+const MOBILE_CONTROLS_EXPANDED_KEY = "railops_mobile_controls_expanded_v1";
 
 const FALLBACK_OPERATORS = [
   "707 Operations","Adelaide Metro","ALARC","ARHS ACT","ARTC","Aurizon","B Rail Pty Ltd","Brimble Rail",
@@ -755,6 +787,7 @@ let operatorList = [];
 let routeList = [];
 let selectedFeatureRef = null;
 let mobileFilterSectionOpen = false;
+let mobileControlsExpanded = false;
 
 function isMobileLayout() {
   return window.matchMedia("(max-width: 900px)").matches;
@@ -828,46 +861,43 @@ function isUsefulRouteText(v) {
   return true;
 }
 
-function loadHiddenFiltersFromStorage() {
+function loadStateFromStorage() {
   try {
     const opsRaw = localStorage.getItem(HIDDEN_OPERATORS_STORAGE_KEY);
     if (opsRaw) {
       const arr = JSON.parse(opsRaw);
-      if (Array.isArray(arr)) {
-        hiddenOperators = new Set(arr.map(v => String(v || "").toLowerCase().trim()).filter(Boolean));
-      }
+      if (Array.isArray(arr)) hiddenOperators = new Set(arr.map(v => String(v || "").toLowerCase().trim()).filter(Boolean));
     }
-  } catch (err) {
-    console.warn("Could not load hidden operators:", err);
-  }
+  } catch {}
 
   try {
     const routesRaw = localStorage.getItem(HIDDEN_ROUTES_STORAGE_KEY);
     if (routesRaw) {
       const arr = JSON.parse(routesRaw);
-      if (Array.isArray(arr)) {
-        hiddenRoutes = new Set(arr.map(v => String(v || "").toLowerCase().trim()).filter(Boolean));
-      }
+      if (Array.isArray(arr)) hiddenRoutes = new Set(arr.map(v => String(v || "").toLowerCase().trim()).filter(Boolean));
     }
-  } catch (err) {
-    console.warn("Could not load hidden routes:", err);
-  }
+  } catch {}
 
   try {
     mobileFilterSectionOpen = localStorage.getItem(MOBILE_FILTER_SECTION_KEY) === "1";
-  } catch (err) {
+  } catch {
     mobileFilterSectionOpen = false;
+  }
+
+  try {
+    mobileControlsExpanded = localStorage.getItem(MOBILE_CONTROLS_EXPANDED_KEY) === "1";
+  } catch {
+    mobileControlsExpanded = false;
   }
 }
 
-function saveHiddenFiltersToStorage() {
+function saveStateToStorage() {
   try {
     localStorage.setItem(HIDDEN_OPERATORS_STORAGE_KEY, JSON.stringify(Array.from(hiddenOperators)));
     localStorage.setItem(HIDDEN_ROUTES_STORAGE_KEY, JSON.stringify(Array.from(hiddenRoutes)));
     localStorage.setItem(MOBILE_FILTER_SECTION_KEY, mobileFilterSectionOpen ? "1" : "0");
-  } catch (err) {
-    console.warn("Could not save hidden filters:", err);
-  }
+    localStorage.setItem(MOBILE_CONTROLS_EXPANDED_KEY, mobileControlsExpanded ? "1" : "0");
+  } catch {}
 }
 
 function getLoco(train){
@@ -1136,6 +1166,18 @@ function updateMobileFilterSectionUI() {
   }
 }
 
+function updateMobileControlsUI() {
+  const card = document.getElementById("topCard");
+  const btn = document.getElementById("mobileCompactToggle");
+  if (mobileControlsExpanded) {
+    card.classList.add("expanded");
+    btn.textContent = "Hide Controls";
+  } else {
+    card.classList.remove("expanded");
+    btn.textContent = "Show Controls";
+  }
+}
+
 function renderFilterChipsInto(wrap) {
   wrap.innerHTML = "";
 
@@ -1169,7 +1211,7 @@ function renderFilterChipsInto(wrap) {
   ops.forEach(op => {
     addChip("Operator", op, () => {
       hiddenOperators.delete(op);
-      saveHiddenFiltersToStorage();
+      saveStateToStorage();
       updateFilterButtonLabels();
       renderFilterChips();
       renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
@@ -1181,7 +1223,7 @@ function renderFilterChipsInto(wrap) {
   routes.forEach(route => {
     addChip("Route", route, () => {
       hiddenRoutes.delete(route);
-      saveHiddenFiltersToStorage();
+      saveStateToStorage();
       updateFilterButtonLabels();
       renderFilterChips();
       renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
@@ -1199,7 +1241,7 @@ function renderFilterChips() {
 function clearAllFilters() {
   hiddenOperators.clear();
   hiddenRoutes.clear();
-  saveHiddenFiltersToStorage();
+  saveStateToStorage();
   updateFilterButtonLabels();
   renderFilterChips();
   renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
@@ -1461,7 +1503,7 @@ function renderOperatorChecklist(filterText = "") {
       cb.addEventListener("change", () => {
         if (cb.checked) hiddenOperators.add(op.toLowerCase());
         else hiddenOperators.delete(op.toLowerCase());
-        saveHiddenFiltersToStorage();
+        saveStateToStorage();
         updateFilterButtonLabels();
         renderFilterChips();
         removePopup();
@@ -1502,7 +1544,7 @@ function renderRouteChecklist(filterText = "") {
       cb.addEventListener("change", () => {
         if (cb.checked) hiddenRoutes.add(rt.toLowerCase());
         else hiddenRoutes.delete(rt.toLowerCase());
-        saveHiddenFiltersToStorage();
+        saveStateToStorage();
         updateFilterButtonLabels();
         renderFilterChips();
         removePopup();
@@ -1810,6 +1852,9 @@ function updateAutocompleteFor(inputEl, listEl){
       inputEl.value = match.id;
       listEl.style.display = "none";
       flyToMatches([match.full]);
+      mobileControlsExpanded = false;
+      updateMobileControlsUI();
+      saveStateToStorage();
     });
 
     listEl.appendChild(item);
@@ -1831,10 +1876,10 @@ function wireSearchBox(inputId, buttonId, listId, isMobile) {
   });
 
   input.addEventListener("keypress", e => {
-    if (e.key === "Enter") searchTrainsFromInput(input);
+    if (e.key === "Enter") searchTrainsFromInput(input, isMobile);
   });
 
-  button.addEventListener("click", () => searchTrainsFromInput(input));
+  button.addEventListener("click", () => searchTrainsFromInput(input, isMobile));
 }
 
 function flyToMatches(trains){
@@ -1873,7 +1918,7 @@ function flyToMatches(trains){
   });
 }
 
-function searchTrainsFromInput(inputEl){
+function searchTrainsFromInput(inputEl, isMobile) {
   const query = normalizeSearchText(inputEl.value);
   if (!query) return;
 
@@ -1896,6 +1941,12 @@ function searchTrainsFromInput(inputEl){
 
   hideAutocomplete();
   flyToMatches(matches);
+
+  if (isMobile) {
+    mobileControlsExpanded = false;
+    updateMobileControlsUI();
+    saveStateToStorage();
+  }
 }
 
 const stateBounds = {
@@ -1913,6 +1964,11 @@ function zoomTo(region){
   const bounds = stateBounds[region] || stateBounds.au;
   const extent = ol.proj.transformExtent(bounds, "EPSG:4326", "EPSG:3857");
   map.getView().fit(extent, { duration: 900, maxZoom: 10 });
+  if (isMobileLayout()) {
+    mobileControlsExpanded = false;
+    updateMobileControlsUI();
+    saveStateToStorage();
+  }
 }
 
 function zoomToCurrent(){
@@ -1920,6 +1976,11 @@ function zoomToCurrent(){
   navigator.geolocation.getCurrentPosition(pos => {
     const center = ol.proj.fromLonLat([pos.coords.longitude, pos.coords.latitude]);
     map.getView().animate({ center, zoom: 12, duration: 850 });
+    if (isMobileLayout()) {
+      mobileControlsExpanded = false;
+      updateMobileControlsUI();
+      saveStateToStorage();
+    }
   });
 }
 
@@ -1941,10 +2002,16 @@ document.getElementById("mobileStateSelect").addEventListener("change", e => {
 document.getElementById("locateBtn").addEventListener("click", zoomToCurrent);
 document.getElementById("mobileLocateBtn").addEventListener("click", zoomToCurrent);
 
+document.getElementById("mobileCompactToggle").addEventListener("click", () => {
+  mobileControlsExpanded = !mobileControlsExpanded;
+  updateMobileControlsUI();
+  saveStateToStorage();
+});
+
 document.getElementById("mobileFilterToggleBtn").addEventListener("click", () => {
   mobileFilterSectionOpen = !mobileFilterSectionOpen;
   updateMobileFilterSectionUI();
-  saveHiddenFiltersToStorage();
+  saveStateToStorage();
 });
 
 function toggleLayersPanel(){
@@ -2018,7 +2085,7 @@ document.getElementById("mobileRouteBtn").addEventListener("click", (e) => {
 
 document.getElementById("operatorHideNoneBtn").addEventListener("click", () => {
   hiddenOperators.clear();
-  saveHiddenFiltersToStorage();
+  saveStateToStorage();
   updateFilterButtonLabels();
   renderFilterChips();
   renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
@@ -2031,7 +2098,7 @@ document.getElementById("operatorHideAllBtn").addEventListener("click", () => {
   operatorList
     .filter(op => !filterText || op.toLowerCase().includes(filterText))
     .forEach(op => hiddenOperators.add(op.toLowerCase()));
-  saveHiddenFiltersToStorage();
+  saveStateToStorage();
   updateFilterButtonLabels();
   renderFilterChips();
   renderOperatorChecklist(filterText);
@@ -2041,7 +2108,7 @@ document.getElementById("operatorHideAllBtn").addEventListener("click", () => {
 
 document.getElementById("routeHideNoneBtn").addEventListener("click", () => {
   hiddenRoutes.clear();
-  saveHiddenFiltersToStorage();
+  saveStateToStorage();
   updateFilterButtonLabels();
   renderFilterChips();
   renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
@@ -2054,7 +2121,7 @@ document.getElementById("routeHideAllBtn").addEventListener("click", () => {
   routeList
     .filter(rt => !filterText || rt.toLowerCase().includes(filterText))
     .forEach(rt => hiddenRoutes.add(rt.toLowerCase()));
-  saveHiddenFiltersToStorage();
+  saveStateToStorage();
   updateFilterButtonLabels();
   renderFilterChips();
   renderRouteChecklist(filterText);
@@ -2145,9 +2212,10 @@ window.addEventListener("resize", () => {
   removePopup();
 });
 
-loadHiddenFiltersFromStorage();
+loadStateFromStorage();
 updateFilterButtonLabels();
 updateMobileFilterSectionUI();
+updateMobileControlsUI();
 renderFilterChips();
 loadRealTrains();
 setInterval(loadRealTrains, 30000);
