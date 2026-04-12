@@ -766,7 +766,6 @@ function getDestination(train){
   ).trim();
 }
 
-/* FIXED OPERATOR DETECTION */
 function getOperator(train){
   const candidates = [
     train.current_operator, train.currentOperator, train.current_operator_name, train.currentOperatorName,
@@ -781,35 +780,62 @@ function getOperator(train){
     if (s) return s;
   }
 
-  const label = buildLabel(train).trim();
-  const upper = label.toUpperCase();
+  const bits = [
+    buildLabel(train),
+    getLoco(train),
+    getTrainId(train),
+    getDescription(train),
+    getOrigin(train),
+    getDestination(train),
+    getCurrentPlaceFromTrain(train)
+  ]
+    .map(v => String(v || "").trim())
+    .filter(Boolean);
 
-  if (!upper) return "";
+  const combinedUpper = bits.join(" ").toUpperCase();
 
-  if (upper.startsWith("TNSW") || upper.includes(" TNSW") || upper.includes("TNSW-")) return "TNSW";
-  if (upper.startsWith("PN") || upper.includes("PACIFIC NATIONAL")) return "Pacific National";
-  if (upper.startsWith("SSR") || upper.includes("SSR")) return "Southern Shorthaul Railroad";
-  if (upper.startsWith("SCT") || upper.includes("SCT")) return "SCT Logistics";
-  if (upper.startsWith("QUBE") || upper.includes("QUBE")) return "QUBE Logistics";
-  if (upper.startsWith("AURIZON") || upper.includes("AURIZON")) return "Aurizon";
-  if (upper.startsWith("VLINE") || upper.startsWith("V/LINE") || upper.includes("V/LINE")) return "V/Line";
-  if (upper.startsWith("QR") || upper.includes("QUEENSLAND RAIL")) return "Queensland Rail";
-  if (upper.startsWith("TASR") || upper.includes("TASRAIL")) return "TasRail";
-  if (upper.startsWith("SYDNEY TRAINS") || upper.includes("SYDNEY TRAINS")) return "Sydney Trains";
-  if (upper.startsWith("NSW TRAINLINK") || upper.includes("NSW TRAINLINK")) return "NSW TrainLink";
-  if (upper.startsWith("TRANSWA") || upper.includes("TRANSWA")) return "Transwa";
-  if (upper.startsWith("METRO") || upper.includes("METRO TRAINS MELBOURNE")) return "Metro Trains Melbourne";
+  const known = [
+    ["TNSW", "TNSW"],
+    ["PACIFIC NATIONAL", "Pacific National"],
+    ["AURIZON", "Aurizon"],
+    ["QUBE", "QUBE Logistics"],
+    ["SSR", "Southern Shorthaul Railroad"],
+    ["SCT", "SCT Logistics"],
+    ["V/LINE", "V/Line"],
+    ["VLINE", "V/Line"],
+    ["QUEENSLAND RAIL", "Queensland Rail"],
+    ["QR", "Queensland Rail"],
+    ["TASRAIL", "TasRail"],
+    ["TASR", "TasRail"],
+    ["SYDNEY TRAINS", "Sydney Trains"],
+    ["NSW TRAINLINK", "NSW TrainLink"],
+    ["TRANSWA", "Transwa"],
+    ["METRO TRAINS MELBOURNE", "Metro Trains Melbourne"],
+    ["TRANSPORT FOR NSW", "Transport for NSW"],
+    ["PN", "Pacific National"]
+  ];
 
-  const firstToken = upper.split(/[\s•\-_/]+/).find(Boolean) || "";
-  if (firstToken && !isJunkId(firstToken) && firstToken.length <= 16) {
+  for (const [needle, label] of known) {
+    if (
+      combinedUpper === needle ||
+      combinedUpper.startsWith(needle + "-") ||
+      combinedUpper.startsWith(needle + " ") ||
+      combinedUpper.includes(" " + needle + " ") ||
+      combinedUpper.includes(needle + "-") ||
+      combinedUpper.endsWith(" " + needle)
+    ) {
+      return label;
+    }
+  }
+
+  const label = String(buildLabel(train) || "").toUpperCase().trim();
+  const firstToken = label.split(/[\s•\-_/]+/).find(Boolean) || "";
+
+  if (firstToken && !isJunkId(firstToken) && firstToken.length <= 20) {
     return firstToken;
   }
 
   return "";
-}
-
-function getOperatorKey(train) {
-  return getOperator(train).trim().toLowerCase();
 }
 
 function getHiddenCount() {
@@ -823,9 +849,28 @@ function updateOperatorButtonLabels() {
 }
 
 function trainPassesOperatorFilter(train) {
-  const opKey = getOperatorKey(train);
-  if (!opKey) return true;
-  return !hiddenOperators.has(opKey);
+  if (!hiddenOperators.size) return true;
+
+  const haystack = [
+    getOperator(train),
+    buildLabel(train),
+    getLoco(train),
+    getTrainId(train),
+    getDescription(train),
+    getOrigin(train),
+    getDestination(train),
+    getCurrentPlaceFromTrain(train)
+  ]
+    .map(v => String(v || "").toLowerCase())
+    .join(" | ");
+
+  for (const hidden of hiddenOperators) {
+    const h = String(hidden || "").toLowerCase().trim();
+    if (!h) continue;
+    if (haystack.includes(h)) return false;
+  }
+
+  return true;
 }
 
 function getVisibleTrains() {
@@ -978,10 +1023,25 @@ const trainLayer = new ol.layer.Vector({
 map.addLayer(trainLayer);
 
 function buildOperatorList(trains) {
-  operatorList = [...new Set([
-    ...FALLBACK_OPERATORS,
-    ...trains.map(getOperator).filter(Boolean).map(v => String(v).trim()).filter(Boolean)
-  ])].sort((a, b) => a.localeCompare(b));
+  const found = new Set();
+
+  FALLBACK_OPERATORS.forEach(op => {
+    const s = String(op || "").trim();
+    if (s) found.add(s);
+  });
+
+  trains.forEach(train => {
+    const op = String(getOperator(train) || "").trim();
+    if (op) found.add(op);
+
+    const label = String(buildLabel(train) || "").trim();
+    const firstToken = label.split(/[\s•\-_/]+/).find(Boolean) || "";
+    if (firstToken && !isJunkId(firstToken) && firstToken.length <= 20) {
+      found.add(firstToken);
+    }
+  });
+
+  operatorList = Array.from(found).sort((a, b) => a.localeCompare(b));
 }
 
 function renderOperatorChecklist(filterText = "") {
