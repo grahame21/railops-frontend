@@ -211,6 +211,7 @@ body { overscroll-behavior: none; }
   font-size: 13px;
   font-weight: 700;
   flex-wrap: wrap;
+  max-width: calc(100vw - 20px);
 }
 
 .toolbar button,
@@ -386,27 +387,30 @@ body { overscroll-behavior: none; }
 }
 
 .filter-chip-wrap {
-  position: absolute;
-  top: calc(var(--safe-top) + 72px);
-  left: calc(var(--safe-left) + 10px);
-  right: calc(var(--safe-right) + 10px);
-  z-index: 999;
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  pointer-events: auto;
+  width: 100%;
+}
+
+.toolbar-chip-wrap {
+  margin-top: 2px;
+}
+
+.mobile-chip-wrap {
+  margin-top: 8px;
 }
 
 .filter-chip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: rgba(8, 20, 38, 0.96);
+  background: rgba(19, 40, 66, 0.95);
   color: #fff;
   border: 1px solid #2a4a7a;
   border-radius: 999px;
   padding: 7px 10px;
-  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  box-shadow: 0 6px 18px rgba(0,0,0,.25);
   font-size: 12px;
   font-weight: 800;
   max-width: min(260px, 90vw);
@@ -533,13 +537,6 @@ body { overscroll-behavior: none; }
   .top-card { display: block; }
   .toolbar, .search-container, .status-bar { display: none !important; }
 
-  .filter-chip-wrap {
-    position: absolute;
-    top: calc(var(--safe-top) + 355px);
-    left: calc(var(--safe-left) + 10px);
-    right: calc(var(--safe-right) + 10px);
-  }
-
   .layers-panel,
   .operator-panel,
   .route-panel {
@@ -598,6 +595,8 @@ body { overscroll-behavior: none; }
     <div id="mobileAutocompleteList" class="autocomplete-items" style="display:none;"></div>
   </div>
 
+  <div id="mobileFilterChipWrap" class="filter-chip-wrap mobile-chip-wrap"></div>
+
   <div class="mobile-status-row">
     <div class="mobile-last" id="mobileLastUpdate">Loading...</div>
     <div class="mobile-status-pills">
@@ -624,6 +623,7 @@ body { overscroll-behavior: none; }
   <button id="operatorBtn">🚫 Hide Operators (0)</button>
   <button id="routeBtn">🧭 Hide Routes/Services (0)</button>
   <button id="clearFiltersBtn" class="clear-filters-btn">🧹 Clear All Filters</button>
+  <div id="toolbarFilterChipWrap" class="filter-chip-wrap toolbar-chip-wrap"></div>
 </div>
 
 <div class="search-container" id="searchContainer">
@@ -639,8 +639,6 @@ body { overscroll-behavior: none; }
   <span class="note-pill" id="statusNote">…</span>
   <span class="train-count" id="trainCount">0</span>
 </div>
-
-<div id="filterChipWrap" class="filter-chip-wrap"></div>
 
 <div class="layers-panel" id="layersPanel">
   <h3 style="margin-bottom:8px;">🗺️ MAP LAYERS</h3>
@@ -686,8 +684,8 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
-const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v4";
-const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v2";
+const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v5";
+const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v3";
 
 const FALLBACK_OPERATORS = [
   "707 Operations","Adelaide Metro","ALARC","ARHS ACT","ARTC","Aurizon","B Rail Pty Ltd","Brimble Rail",
@@ -758,7 +756,6 @@ function isJunkId(s){
 function looksLikeServiceId(v) {
   const s = String(v || "").trim().toUpperCase();
   if (!s) return false;
-
   return (
     /^[A-Z]?\d+[A-Z]?\d*$/.test(s) ||
     /^[A-Z]\d+[A-Z]-[A-Z]\d+$/.test(s) ||
@@ -771,7 +768,6 @@ function looksLikeGarbageOperator(v) {
   const s = String(v || "").trim();
   const upper = s.toUpperCase();
   if (!s) return true;
-
   if (isJunkId(s)) return true;
   if (/^\d+$/.test(s)) return true;
   if (looksLikeServiceId(s)) return true;
@@ -779,7 +775,6 @@ function looksLikeGarbageOperator(v) {
   if (/^[A-Z0-9_]{16,}$/.test(upper)) return true;
   if (upper === "UNKNOWN") return true;
   if (upper === "UNREG") return true;
-
   return false;
 }
 
@@ -1057,8 +1052,7 @@ function updateFilterButtonLabels() {
   document.getElementById("mobileRouteBtn").textContent = `🧭 Hide Routes/Services (${hiddenRoutes.size})`;
 }
 
-function renderFilterChips() {
-  const wrap = document.getElementById("filterChipWrap");
+function renderFilterChipsInto(wrap) {
   wrap.innerHTML = "";
 
   const ops = Array.from(hiddenOperators).sort((a, b) => a.localeCompare(b));
@@ -1111,6 +1105,11 @@ function renderFilterChips() {
       loadRealTrains();
     });
   });
+}
+
+function renderFilterChips() {
+  renderFilterChipsInto(document.getElementById("toolbarFilterChipWrap"));
+  renderFilterChipsInto(document.getElementById("mobileFilterChipWrap"));
 }
 
 function clearAllFilters() {
