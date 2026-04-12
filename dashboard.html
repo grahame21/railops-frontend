@@ -34,7 +34,6 @@ if (window.RailOpsAuth && typeof RailOpsAuth.requireRole === "function") {
   --accent: #ffaa00;
   --blue: #0b57cf;
   --text: #ffffff;
-  --muted: #b8c9e8;
   --shadow: 0 8px 28px rgba(0,0,0,0.55);
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
@@ -60,7 +59,7 @@ body { overscroll-behavior: none; }
   background: #0a1a2a;
 }
 
-.top-card, .toolbar, .status-bar, .search-box, .autocomplete-items, .layers-panel, .operator-panel {
+.top-card, .toolbar, .status-bar, .search-box, .autocomplete-items, .layers-panel, .operator-panel, .route-panel {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -110,8 +109,9 @@ body { overscroll-behavior: none; }
   outline: none;
 }
 
-#mobileLayersBtn { grid-column: 1 / -1; }
-#mobileOperatorBtn { grid-column: 1 / -1; }
+#mobileLayersBtn,
+#mobileOperatorBtn,
+#mobileRouteBtn { grid-column: 1 / -1; }
 
 .mobile-search-wrap { margin-bottom: 8px; }
 
@@ -235,7 +235,7 @@ body { overscroll-behavior: none; }
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  width: min(460px, calc(100vw - 430px));
+  width: min(460px, calc(100vw - 520px));
 }
 
 .autocomplete-items {
@@ -309,7 +309,8 @@ body { overscroll-behavior: none; }
 }
 
 .layers-panel,
-.operator-panel {
+.operator-panel,
+.route-panel {
   position: absolute;
   left: calc(var(--safe-left) + 12px);
   z-index: 1000;
@@ -318,17 +319,19 @@ body { overscroll-behavior: none; }
   border-radius: 18px;
   padding: 14px;
   border: 1px solid var(--panel-border);
-  width: 300px;
+  width: 320px;
   box-shadow: var(--shadow);
   max-height: 60dvh;
   overflow-y: auto;
 }
 
-.layers-panel { bottom: calc(var(--safe-bottom) + 12px); }
+.layers-panel { bottom: calc(var(--safe-bottom) + 12px); display:none; }
 .operator-panel { top: calc(var(--safe-top) + 64px); display: none; }
+.route-panel { top: calc(var(--safe-top) + 64px); left: calc(var(--safe-left) + 344px); display: none; }
 
 .layer-row,
-.operator-row {
+.operator-row,
+.route-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -338,7 +341,8 @@ body { overscroll-behavior: none; }
 }
 
 .layer-row:last-child,
-.operator-row:last-child { border-bottom: none; }
+.operator-row:last-child,
+.route-row:last-child { border-bottom: none; }
 
 .section-title {
   color: #9ab0d0;
@@ -346,14 +350,16 @@ body { overscroll-behavior: none; }
   margin: 12px 0 4px 0;
 }
 
-.operator-actions {
+.operator-actions,
+.route-actions {
   display: flex;
   gap: 8px;
   margin: 8px 0 10px 0;
   flex-wrap: wrap;
 }
 
-.operator-actions button {
+.operator-actions button,
+.route-actions button {
   background: #163456;
   color: white;
   border: 1px solid #2b4f80;
@@ -364,7 +370,8 @@ body { overscroll-behavior: none; }
   cursor: pointer;
 }
 
-.operator-search {
+.operator-search,
+.route-search {
   width: 100%;
   border: 1px solid #2b4f80;
   background: #15283f;
@@ -467,15 +474,17 @@ body { overscroll-behavior: none; }
   .toolbar, .search-container, .status-bar { display: none !important; }
 
   .layers-panel,
-  .operator-panel {
+  .operator-panel,
+  .route-panel {
     left: calc(var(--safe-left) + 10px);
     right: calc(var(--safe-right) + 10px);
     width: auto;
-    max-height: 45dvh;
+    max-height: 42dvh;
   }
 
   .layers-panel { bottom: calc(var(--safe-bottom) + 10px); }
-  .operator-panel { top: calc(var(--safe-top) + 250px); }
+  .operator-panel { top: calc(var(--safe-top) + 300px); }
+  .route-panel { top: calc(var(--safe-top) + 300px); }
 
   .popup-grid {
     grid-template-columns: 1fr;
@@ -486,10 +495,6 @@ body { overscroll-behavior: none; }
     min-width: 260px;
     max-width: calc(100vw - 20px);
   }
-}
-
-@media (min-width: 901px) {
-  .top-card { display: none !important; }
 }
 </style>
 </head>
@@ -514,6 +519,7 @@ body { overscroll-behavior: none; }
     <button id="mobileLocateBtn">📍 My Location</button>
     <button id="mobileLayersBtn">🗺️ Layers</button>
     <button id="mobileOperatorBtn">🚫 Hide Operators (0)</button>
+    <button id="mobileRouteBtn">🧭 Hide Routes/Services (0)</button>
   </div>
 
   <div class="mobile-search-wrap">
@@ -548,6 +554,7 @@ body { overscroll-behavior: none; }
   <button id="locateBtn">📍 My Location</button>
   <button id="layersToggleBtn">🗺️ Layers</button>
   <button id="operatorBtn">🚫 Hide Operators (0)</button>
+  <button id="routeBtn">🧭 Hide Routes/Services (0)</button>
 </div>
 
 <div class="search-container" id="searchContainer">
@@ -564,7 +571,7 @@ body { overscroll-behavior: none; }
   <span class="train-count" id="trainCount">0</span>
 </div>
 
-<div class="layers-panel" id="layersPanel" style="display:none;">
+<div class="layers-panel" id="layersPanel">
   <h3 style="margin-bottom:8px;">🗺️ MAP LAYERS</h3>
   <div class="layer-row"><label><input type="checkbox" id="trainLayerChk" checked> 🚆 Live Trains</label></div>
   <div class="layer-row"><label><input type="checkbox" id="railLayerChk" checked> 🛤️ Rail Lines (Blue)</label></div>
@@ -587,6 +594,16 @@ body { overscroll-behavior: none; }
   <div id="operatorChecklist"></div>
 </div>
 
+<div class="route-panel" id="routePanel">
+  <h3 style="margin-bottom:8px;">🧭 Hide Routes / Services</h3>
+  <input id="routeSearchInput" class="route-search" type="text" placeholder="Search routes/services...">
+  <div class="route-actions">
+    <button id="routeHideNoneBtn" type="button">Show All</button>
+    <button id="routeHideAllBtn" type="button">Hide All Listed</button>
+  </div>
+  <div id="routeChecklist"></div>
+</div>
+
 <div id="map"></div>
 
 <script src="./ol/ol.js"></script>
@@ -598,6 +615,8 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
+const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v3";
+const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v1";
 
 const FALLBACK_OPERATORS = [
   "707 Operations","Adelaide Metro","ALARC","ARHS ACT","ARTC","Aurizon","B Rail Pty Ltd","Brimble Rail",
@@ -614,7 +633,18 @@ const FALLBACK_OPERATORS = [
   "Swift Transport","Sydney Metro","Sydney Rail Services","Sydney Trains","Sydney Trains DMUs",
   "Sydney Trains Interurban","TasRail","Transdev Sydney","TransLink","Transport for NSW",
   "Transport Heritage NSW","Transport Sydney Trains","Transwa","UGL","V/Line","V/Line SG",
-  "VicTrack","Watco Australia","Whitehaven","Yarra Trams","TNSW"
+  "VicTrack","Watco Australia","Whitehaven","Yarra Trams","TNSW","Sydney Light Rail"
+];
+
+const FALLBACK_ROUTES = [
+  "Dulwich Hill Line",
+  "Randwick Line",
+  "Kingsford Line",
+  "Sydney Light Rail",
+  "Airport",
+  "Caboolture",
+  "Intercity",
+  "Metro"
 ];
 
 const reverseGeoCache = new Map();
@@ -627,7 +657,9 @@ let consecutiveEmpty = 0;
 let desktopDebounceTimer;
 let mobileDebounceTimer;
 let hiddenOperators = new Set();
+let hiddenRoutes = new Set();
 let operatorList = [];
+let routeList = [];
 let selectedFeatureRef = null;
 
 function isMobileLayout() {
@@ -652,6 +684,82 @@ function isJunkId(s){
       || v.startsWith("unregtrainssource_")
       || v.startsWith("trainsource_")
       || v.includes("arrowmarkerssource");
+}
+
+function looksLikeServiceId(v) {
+  const s = String(v || "").trim().toUpperCase();
+  if (!s) return false;
+
+  return (
+    /^[A-Z]?\d+[A-Z]?\d*$/.test(s) ||
+    /^[A-Z]\d+[A-Z]-[A-Z]\d+$/.test(s) ||
+    /^[A-Z]{1,3}\d{1,4}$/.test(s) ||
+    /^\d{2,6}[A-Z]?$/.test(s)
+  );
+}
+
+function looksLikeGarbageOperator(v) {
+  const s = String(v || "").trim();
+  const upper = s.toUpperCase();
+  if (!s) return true;
+
+  if (isJunkId(s)) return true;
+  if (/^\d+$/.test(s)) return true;
+  if (looksLikeServiceId(s)) return true;
+  if (s.length > 24 && /[A-Z]/.test(s) && /\d/.test(s)) return true;
+  if (/^[A-Z0-9_]{16,}$/.test(upper)) return true;
+  if (upper === "UNKNOWN") return true;
+  if (upper === "UNREG") return true;
+
+  return false;
+}
+
+function looksLikeGarbageRoute(v) {
+  const s = String(v || "").trim();
+  const upper = s.toUpperCase();
+  if (!s) return true;
+  if (isJunkId(s)) return true;
+  if (/^\d+$/.test(s)) return true;
+  if (looksLikeServiceId(s)) return true;
+  if (/^[A-Z0-9_]{16,}$/.test(upper)) return true;
+  if (s.length > 30 && /[A-Z]/.test(s) && /\d/.test(s)) return true;
+  if (upper === "UNKNOWN") return true;
+  return false;
+}
+
+function loadHiddenFiltersFromStorage() {
+  try {
+    const opsRaw = localStorage.getItem(HIDDEN_OPERATORS_STORAGE_KEY);
+    if (opsRaw) {
+      const arr = JSON.parse(opsRaw);
+      if (Array.isArray(arr)) {
+        hiddenOperators = new Set(arr.map(v => String(v || "").toLowerCase().trim()).filter(Boolean));
+      }
+    }
+  } catch (err) {
+    console.warn("Could not load hidden operators:", err);
+  }
+
+  try {
+    const routesRaw = localStorage.getItem(HIDDEN_ROUTES_STORAGE_KEY);
+    if (routesRaw) {
+      const arr = JSON.parse(routesRaw);
+      if (Array.isArray(arr)) {
+        hiddenRoutes = new Set(arr.map(v => String(v || "").toLowerCase().trim()).filter(Boolean));
+      }
+    }
+  } catch (err) {
+    console.warn("Could not load hidden routes:", err);
+  }
+}
+
+function saveHiddenFiltersToStorage() {
+  try {
+    localStorage.setItem(HIDDEN_OPERATORS_STORAGE_KEY, JSON.stringify(Array.from(hiddenOperators)));
+    localStorage.setItem(HIDDEN_ROUTES_STORAGE_KEY, JSON.stringify(Array.from(hiddenRoutes)));
+  } catch (err) {
+    console.warn("Could not save hidden filters:", err);
+  }
 }
 
 function getLoco(train){
@@ -742,6 +850,10 @@ function getDescription(train){
     train.serviceDesc ||
     train.service_description ||
     train.serviceDescription ||
+    train.line_name ||
+    train.lineName ||
+    train.route_name ||
+    train.routeName ||
     ""
   ).trim();
 }
@@ -777,25 +889,24 @@ function getOperator(train){
 
   for (const c of candidates) {
     const s = String(c || "").trim();
-    if (s) return s;
+    if (s && !looksLikeGarbageOperator(s)) return s;
   }
 
-  const bits = [
-    buildLabel(train),
-    getLoco(train),
-    getTrainId(train),
-    getDescription(train),
-    getOrigin(train),
-    getDestination(train),
-    getCurrentPlaceFromTrain(train)
-  ]
-    .map(v => String(v || "").trim())
-    .filter(Boolean);
+  const desc = String(getDescription(train) || "").trim();
+  const origin = String(getOrigin(train) || "").trim();
+  const destination = String(getDestination(train) || "").trim();
+  const place = String(getCurrentPlaceFromTrain(train) || "").trim();
+  const label = String(buildLabel(train) || "").trim();
+  const loco = String(getLoco(train) || "").trim();
+  const trainId = String(getTrainId(train) || "").trim();
 
-  const combinedUpper = bits.join(" ").toUpperCase();
+  const combinedUpper = [
+    desc, origin, destination, place, label, loco, trainId
+  ].join(" ").toUpperCase();
 
   const known = [
     ["TNSW", "TNSW"],
+    ["TRANSPORT FOR NSW", "Transport for NSW"],
     ["PACIFIC NATIONAL", "Pacific National"],
     ["AURIZON", "Aurizon"],
     ["QUBE", "QUBE Logistics"],
@@ -811,11 +922,13 @@ function getOperator(train){
     ["NSW TRAINLINK", "NSW TrainLink"],
     ["TRANSWA", "Transwa"],
     ["METRO TRAINS MELBOURNE", "Metro Trains Melbourne"],
-    ["TRANSPORT FOR NSW", "Transport for NSW"],
+    ["YARRA TRAMS", "Yarra Trams"],
+    ["SYDNEY LIGHT RAIL", "Sydney Light Rail"],
+    ["LIGHT RAIL", "Sydney Light Rail"],
     ["PN", "Pacific National"]
   ];
 
-  for (const [needle, label] of known) {
+  for (const [needle, name] of known) {
     if (
       combinedUpper === needle ||
       combinedUpper.startsWith(needle + "-") ||
@@ -824,28 +937,55 @@ function getOperator(train){
       combinedUpper.includes(needle + "-") ||
       combinedUpper.endsWith(" " + needle)
     ) {
-      return label;
+      return name;
     }
-  }
-
-  const label = String(buildLabel(train) || "").toUpperCase().trim();
-  const firstToken = label.split(/[\s•\-_/]+/).find(Boolean) || "";
-
-  if (firstToken && !isJunkId(firstToken) && firstToken.length <= 20) {
-    return firstToken;
   }
 
   return "";
 }
 
-function getHiddenCount() {
-  return hiddenOperators.size;
+function getRouteService(train) {
+  const candidates = [
+    train.line_name, train.lineName, train.route_name, train.routeName,
+    train.service_name, train.serviceName, train.trip_name, train.tripName,
+    train.vehicle_description, train.vehicleDescription, train.description,
+    train.serviceDesc, train.service_description, train.serviceDescription
+  ];
+
+  for (const c of candidates) {
+    const s = String(c || "").trim();
+    if (s && !looksLikeGarbageRoute(s)) {
+      const upper = s.toUpperCase();
+      if (upper.includes("DULWICH HILL")) return "Dulwich Hill Line";
+      if (upper.includes("RANDWICK")) return "Randwick Line";
+      if (upper.includes("KINGSFORD")) return "Kingsford Line";
+      if (upper.includes("LIGHT RAIL")) return "Sydney Light Rail";
+      return s;
+    }
+  }
+
+  const origin = String(getOrigin(train) || "").trim();
+  const destination = String(getDestination(train) || "").trim();
+  const desc = String(getDescription(train) || "").trim();
+
+  if (/DULWICH HILL/i.test(desc)) return "Dulwich Hill Line";
+  if (/RANDWICK/i.test(desc)) return "Randwick Line";
+  if (/KINGSFORD/i.test(desc)) return "Kingsford Line";
+  if (/LIGHT RAIL/i.test(desc)) return "Sydney Light Rail";
+
+  if (origin && destination) {
+    const combo = `${origin} → ${destination}`;
+    if (!looksLikeGarbageRoute(combo) && combo.length <= 60) return combo;
+  }
+
+  return "";
 }
 
-function updateOperatorButtonLabels() {
-  const text = `🚫 Hide Operators (${getHiddenCount()})`;
-  document.getElementById("operatorBtn").textContent = text;
-  document.getElementById("mobileOperatorBtn").textContent = text;
+function updateFilterButtonLabels() {
+  document.getElementById("operatorBtn").textContent = `🚫 Hide Operators (${hiddenOperators.size})`;
+  document.getElementById("mobileOperatorBtn").textContent = `🚫 Hide Operators (${hiddenOperators.size})`;
+  document.getElementById("routeBtn").textContent = `🧭 Hide Routes/Services (${hiddenRoutes.size})`;
+  document.getElementById("mobileRouteBtn").textContent = `🧭 Hide Routes/Services (${hiddenRoutes.size})`;
 }
 
 function trainPassesOperatorFilter(train) {
@@ -861,20 +1001,43 @@ function trainPassesOperatorFilter(train) {
     getDestination(train),
     getCurrentPlaceFromTrain(train)
   ]
-    .map(v => String(v || "").toLowerCase())
+    .map(v => String(v || "").toLowerCase().trim())
+    .filter(Boolean)
     .join(" | ");
 
   for (const hidden of hiddenOperators) {
     const h = String(hidden || "").toLowerCase().trim();
-    if (!h) continue;
-    if (haystack.includes(h)) return false;
+    if (h && haystack.includes(h)) return false;
+  }
+
+  return true;
+}
+
+function trainPassesRouteFilter(train) {
+  if (!hiddenRoutes.size) return true;
+
+  const haystack = [
+    getRouteService(train),
+    getDescription(train),
+    getOrigin(train),
+    getDestination(train),
+    getTrainId(train),
+    buildLabel(train)
+  ]
+    .map(v => String(v || "").toLowerCase().trim())
+    .filter(Boolean)
+    .join(" | ");
+
+  for (const hidden of hiddenRoutes) {
+    const h = String(hidden || "").toLowerCase().trim();
+    if (h && haystack.includes(h)) return false;
   }
 
   return true;
 }
 
 function getVisibleTrains() {
-  return allTrains.filter(trainPassesOperatorFilter);
+  return allTrains.filter(train => trainPassesOperatorFilter(train) && trainPassesRouteFilter(train));
 }
 
 function setStatusUI(lastText, noteText, countText) {
@@ -1027,21 +1190,31 @@ function buildOperatorList(trains) {
 
   FALLBACK_OPERATORS.forEach(op => {
     const s = String(op || "").trim();
-    if (s) found.add(s);
+    if (s && !looksLikeGarbageOperator(s)) found.add(s);
   });
 
   trains.forEach(train => {
     const op = String(getOperator(train) || "").trim();
-    if (op) found.add(op);
-
-    const label = String(buildLabel(train) || "").trim();
-    const firstToken = label.split(/[\s•\-_/]+/).find(Boolean) || "";
-    if (firstToken && !isJunkId(firstToken) && firstToken.length <= 20) {
-      found.add(firstToken);
-    }
+    if (op && !looksLikeGarbageOperator(op)) found.add(op);
   });
 
   operatorList = Array.from(found).sort((a, b) => a.localeCompare(b));
+}
+
+function buildRouteList(trains) {
+  const found = new Set();
+
+  FALLBACK_ROUTES.forEach(rt => {
+    const s = String(rt || "").trim();
+    if (s && !looksLikeGarbageRoute(s)) found.add(s);
+  });
+
+  trains.forEach(train => {
+    const route = String(getRouteService(train) || "").trim();
+    if (route && !looksLikeGarbageRoute(route)) found.add(route);
+  });
+
+  routeList = Array.from(found).sort((a, b) => a.localeCompare(b));
 }
 
 function renderOperatorChecklist(filterText = "") {
@@ -1068,13 +1241,54 @@ function renderOperatorChecklist(filterText = "") {
       cb.addEventListener("change", () => {
         if (cb.checked) hiddenOperators.add(op.toLowerCase());
         else hiddenOperators.delete(op.toLowerCase());
-        updateOperatorButtonLabels();
+        saveHiddenFiltersToStorage();
+        updateFilterButtonLabels();
         removePopup();
         loadRealTrains();
       });
 
       const span = document.createElement("span");
       span.textContent = op;
+
+      label.appendChild(cb);
+      label.appendChild(span);
+      row.appendChild(label);
+      wrap.appendChild(row);
+    });
+}
+
+function renderRouteChecklist(filterText = "") {
+  const wrap = document.getElementById("routeChecklist");
+  const q = String(filterText || "").trim().toLowerCase();
+  wrap.innerHTML = "";
+
+  routeList
+    .filter(rt => !q || rt.toLowerCase().includes(q))
+    .forEach(rt => {
+      const row = document.createElement("div");
+      row.className = "route-row";
+
+      const label = document.createElement("label");
+      label.style.display = "flex";
+      label.style.alignItems = "center";
+      label.style.gap = "10px";
+      label.style.width = "100%";
+
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = hiddenRoutes.has(rt.toLowerCase());
+
+      cb.addEventListener("change", () => {
+        if (cb.checked) hiddenRoutes.add(rt.toLowerCase());
+        else hiddenRoutes.delete(rt.toLowerCase());
+        saveHiddenFiltersToStorage();
+        updateFilterButtonLabels();
+        removePopup();
+        loadRealTrains();
+      });
+
+      const span = document.createElement("span");
+      span.textContent = rt;
 
       label.appendChild(cb);
       label.appendChild(span);
@@ -1107,7 +1321,7 @@ async function loadRealTrains() {
         setStatusUI(
           localTs ? `Last: ${localTs}` : "Last: (unknown)",
           `empty payload (${consecutiveEmpty})`,
-          String(lastGoodTrains.filter(trainPassesOperatorFilter).length)
+          String(lastGoodTrains.filter(train => trainPassesOperatorFilter(train) && trainPassesRouteFilter(train)).length)
         );
         return;
       }
@@ -1122,8 +1336,10 @@ async function loadRealTrains() {
     }
 
     buildOperatorList(allTrains);
+    buildRouteList(allTrains);
     renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
-    updateOperatorButtonLabels();
+    renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
+    updateFilterButtonLabels();
 
     const visibleTrains = getVisibleTrains();
 
@@ -1159,7 +1375,7 @@ async function loadRealTrains() {
       setStatusUI(
         `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`,
         "error",
-        String(lastGoodTrains.filter(trainPassesOperatorFilter).length)
+        String(lastGoodTrains.filter(train => trainPassesOperatorFilter(train) && trainPassesRouteFilter(train)).length)
       );
     } else {
       setStatusUI("Update failed", "error", "0");
@@ -1185,6 +1401,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
   const speed = getSpeed(train);
   const desc = getDescription(train);
   const operator = getOperator(train);
+  const route = getRouteService(train);
   const km = train.km || train.trainKM || train.km_post || train.kmPost || "Unknown";
   const lat = Number(train.lat);
   const lon = Number(train.lon);
@@ -1201,6 +1418,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
       <div class="popup-label">Origin</div><div class="popup-value">${esc(origin || "Unknown")}</div>
       <div class="popup-label">Destination</div><div class="popup-value">${esc(dest || "Unknown")}</div>
       <div class="popup-label">Current operator</div><div class="popup-value">${esc(operator || "Unknown")}</div>
+      <div class="popup-label">Route / service</div><div class="popup-value">${esc(route || "Unknown")}</div>
       <div class="popup-label">Vehicle description</div><div class="popup-value">${esc(desc || "Unknown")}</div>
       <div class="popup-label">KM / post</div><div class="popup-value">${esc(km || "Unknown")}</div>
       <div class="popup-label">Latitude</div><div class="popup-value">${Number.isFinite(lat) ? esc(lat.toFixed(5)) : "Unknown"}</div>
@@ -1211,6 +1429,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
       ${getLoco(train) ? `<span class="popup-badge">Loco: ${esc(getLoco(train))}</span>` : ""}
       ${getTrainId(train) ? `<span class="popup-badge">Train: ${esc(getTrainId(train))}</span>` : ""}
       ${operator ? `<span class="popup-badge">${esc(operator)}</span>` : ""}
+      ${route ? `<span class="popup-badge">${esc(route)}</span>` : ""}
       ${locationText ? `<span class="popup-badge">${esc(locationText)}</span>` : ""}
     </div>
   `;
@@ -1282,6 +1501,7 @@ function getSearchFields(train){
     getLoco(train),
     getTrainId(train),
     getOperator(train),
+    getRouteService(train),
     getOrigin(train),
     getDestination(train),
     getCurrentPlaceFromTrain(train),
@@ -1346,7 +1566,8 @@ function updateAutocompleteFor(inputEl, listEl){
     const o = getOrigin(match.full);
     const d = getDestination(match.full);
     const operator = getOperator(match.full);
-    const rightText = place || (o || d ? `${o || "?"} → ${d || "?"}` : "") || operator || "";
+    const route = getRouteService(match.full);
+    const rightText = place || route || (o || d ? `${o || "?"} → ${d || "?"}` : "") || operator || "";
 
     const item = document.createElement("div");
     item.className = "autocomplete-item";
@@ -1508,34 +1729,62 @@ function hideOperatorPanel(){
   document.getElementById("operatorPanel").style.display = "none";
 }
 
+function toggleRoutePanel(){
+  const panel = document.getElementById("routePanel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+}
+
+function hideRoutePanel(){
+  document.getElementById("routePanel").style.display = "none";
+}
+
 document.getElementById("layersToggleBtn").addEventListener("click", (e) => {
   e.stopPropagation();
   hideOperatorPanel();
+  hideRoutePanel();
   toggleLayersPanel();
 });
 
 document.getElementById("mobileLayersBtn").addEventListener("click", (e) => {
   e.stopPropagation();
   hideOperatorPanel();
+  hideRoutePanel();
   toggleLayersPanel();
 });
 
 document.getElementById("operatorBtn").addEventListener("click", (e) => {
   e.stopPropagation();
   hideLayersPanel();
+  hideRoutePanel();
   toggleOperatorPanel();
 });
 
 document.getElementById("mobileOperatorBtn").addEventListener("click", (e) => {
   e.stopPropagation();
   hideLayersPanel();
+  hideRoutePanel();
   toggleOperatorPanel();
+});
+
+document.getElementById("routeBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  hideLayersPanel();
+  hideOperatorPanel();
+  toggleRoutePanel();
+});
+
+document.getElementById("mobileRouteBtn").addEventListener("click", (e) => {
+  e.stopPropagation();
+  hideLayersPanel();
+  hideOperatorPanel();
+  toggleRoutePanel();
 });
 
 document.getElementById("operatorHideNoneBtn").addEventListener("click", () => {
   hiddenOperators.clear();
+  saveHiddenFiltersToStorage();
   renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
-  updateOperatorButtonLabels();
+  updateFilterButtonLabels();
   removePopup();
   loadRealTrains();
 });
@@ -1545,14 +1794,40 @@ document.getElementById("operatorHideAllBtn").addEventListener("click", () => {
   operatorList
     .filter(op => !filterText || op.toLowerCase().includes(filterText))
     .forEach(op => hiddenOperators.add(op.toLowerCase()));
+  saveHiddenFiltersToStorage();
   renderOperatorChecklist(filterText);
-  updateOperatorButtonLabels();
+  updateFilterButtonLabels();
+  removePopup();
+  loadRealTrains();
+});
+
+document.getElementById("routeHideNoneBtn").addEventListener("click", () => {
+  hiddenRoutes.clear();
+  saveHiddenFiltersToStorage();
+  renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
+  updateFilterButtonLabels();
+  removePopup();
+  loadRealTrains();
+});
+
+document.getElementById("routeHideAllBtn").addEventListener("click", () => {
+  const filterText = (document.getElementById("routeSearchInput").value || "").trim().toLowerCase();
+  routeList
+    .filter(rt => !filterText || rt.toLowerCase().includes(filterText))
+    .forEach(rt => hiddenRoutes.add(rt.toLowerCase()));
+  saveHiddenFiltersToStorage();
+  renderRouteChecklist(filterText);
+  updateFilterButtonLabels();
   removePopup();
   loadRealTrains();
 });
 
 document.getElementById("operatorSearchInput").addEventListener("input", (e) => {
   renderOperatorChecklist(e.target.value || "");
+});
+
+document.getElementById("routeSearchInput").addEventListener("input", (e) => {
+  renderRouteChecklist(e.target.value || "");
 });
 
 document.getElementById("trainLayerChk").addEventListener("change", e => trainLayer.setVisible(e.target.checked));
@@ -1566,10 +1841,13 @@ document.getElementById("covAllChk").addEventListener("change", e => covAll.setV
 document.addEventListener("click", (e) => {
   const layersPanel = document.getElementById("layersPanel");
   const operatorPanel = document.getElementById("operatorPanel");
+  const routePanel = document.getElementById("routePanel");
   const layersBtn = document.getElementById("layersToggleBtn");
   const mobileLayersBtn = document.getElementById("mobileLayersBtn");
   const operatorBtn = document.getElementById("operatorBtn");
   const mobileOperatorBtn = document.getElementById("mobileOperatorBtn");
+  const routeBtn = document.getElementById("routeBtn");
+  const mobileRouteBtn = document.getElementById("mobileRouteBtn");
   const searchContainer = document.getElementById("searchContainer");
   const topCard = document.getElementById("topCard");
 
@@ -1585,6 +1863,13 @@ document.addEventListener("click", (e) => {
     const clickedDesktopBtn = operatorBtn.contains(e.target);
     const clickedMobileBtn = mobileOperatorBtn.contains(e.target);
     if (!clickedInsidePanel && !clickedDesktopBtn && !clickedMobileBtn) hideOperatorPanel();
+  }
+
+  if (routePanel.style.display !== "none") {
+    const clickedInsidePanel = routePanel.contains(e.target);
+    const clickedDesktopBtn = routeBtn.contains(e.target);
+    const clickedMobileBtn = mobileRouteBtn.contains(e.target);
+    if (!clickedInsidePanel && !clickedDesktopBtn && !clickedMobileBtn) hideRoutePanel();
   }
 
   if (document.getElementById("autocompleteList").style.display !== "none") {
@@ -1603,6 +1888,7 @@ document.addEventListener("keydown", (e) => {
     hideAutocomplete();
     hideLayersPanel();
     hideOperatorPanel();
+    hideRoutePanel();
     removePopup();
   }
 });
@@ -1616,6 +1902,8 @@ window.addEventListener("resize", () => {
   removePopup();
 });
 
+loadHiddenFiltersFromStorage();
+updateFilterButtonLabels();
 loadRealTrains();
 setInterval(loadRealTrains, 30000);
 zoomTo("au");
