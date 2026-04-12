@@ -76,6 +76,8 @@ body { overscroll-behavior: none; }
   box-shadow: var(--shadow);
   padding: 8px;
   display: none;
+  max-height: calc(100dvh - var(--safe-top) - var(--safe-bottom) - 16px);
+  overflow-y: auto;
 }
 
 .mobile-brand {
@@ -394,11 +396,24 @@ body { overscroll-behavior: none; }
 }
 
 .toolbar-chip-wrap {
-  margin-top: 2px;
+  margin-top: 4px;
+}
+
+.mobile-chip-section {
+  margin-bottom: 8px;
+}
+
+.mobile-chip-header {
+  color: #9ab0d0;
+  font-size: 12px;
+  font-weight: 800;
+  margin-bottom: 6px;
 }
 
 .mobile-chip-wrap {
-  margin-top: 8px;
+  max-height: 108px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .filter-chip {
@@ -595,7 +610,10 @@ body { overscroll-behavior: none; }
     <div id="mobileAutocompleteList" class="autocomplete-items" style="display:none;"></div>
   </div>
 
-  <div id="mobileFilterChipWrap" class="filter-chip-wrap mobile-chip-wrap"></div>
+  <div class="mobile-chip-section">
+    <div class="mobile-chip-header">Active filters</div>
+    <div id="mobileFilterChipWrap" class="filter-chip-wrap mobile-chip-wrap"></div>
+  </div>
 
   <div class="mobile-status-row">
     <div class="mobile-last" id="mobileLastUpdate">Loading...</div>
@@ -684,8 +702,8 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
-const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v5";
-const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v3";
+const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v5_fix";
+const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v3_fix";
 
 const FALLBACK_OPERATORS = [
   "707 Operations","Adelaide Metro","ALARC","ARHS ACT","ARTC","Aurizon","B Rail Pty Ltd","Brimble Rail",
@@ -789,6 +807,16 @@ function looksLikeGarbageRoute(v) {
   if (s.length > 34 && /[A-Z]/.test(s) && /\d/.test(s)) return true;
   if (upper === "UNKNOWN") return true;
   return false;
+}
+
+function isUsefulRouteText(v) {
+  const s = String(v || "").trim();
+  if (!s) return false;
+  if (looksLikeGarbageRoute(s)) return false;
+  if (s.length < 4) return false;
+  if (/^[a-z]{3,5}$/i.test(s)) return false;   // bdca, brcl, brip etc
+  if (/^[a-z]{2,6}\d*$/i.test(s) && !/\s/.test(s)) return false;
+  return true;
 }
 
 function loadHiddenFiltersFromStorage() {
@@ -1018,12 +1046,13 @@ function getRouteService(train) {
 
   for (const c of candidates) {
     const s = String(c || "").trim();
-    if (s && !looksLikeGarbageRoute(s)) {
+    if (s && isUsefulRouteText(s)) {
       const upper = s.toUpperCase();
       if (upper.includes("DULWICH HILL")) return "Dulwich Hill Line";
       if (upper.includes("RANDWICK")) return "Randwick Line";
       if (upper.includes("KINGSFORD")) return "Kingsford Line";
       if (upper.includes("LIGHT RAIL")) return "Sydney Light Rail";
+      if (upper.includes("METRO NORTH WEST")) return "Metro North West";
       return s;
     }
   }
@@ -1036,10 +1065,11 @@ function getRouteService(train) {
   if (/RANDWICK/i.test(desc)) return "Randwick Line";
   if (/KINGSFORD/i.test(desc)) return "Kingsford Line";
   if (/LIGHT RAIL/i.test(desc)) return "Sydney Light Rail";
+  if (/METRO NORTH WEST/i.test(desc)) return "Metro North West";
 
   if (origin && destination) {
     const combo = `${origin} → ${destination}`;
-    if (!looksLikeGarbageRoute(combo) && combo.length <= 60) return combo;
+    if (isUsefulRouteText(combo) && combo.length <= 60) return combo;
   }
 
   return "";
@@ -1342,12 +1372,12 @@ function buildRouteList(trains) {
 
   FALLBACK_ROUTES.forEach(rt => {
     const s = String(rt || "").trim();
-    if (s && !looksLikeGarbageRoute(s)) found.add(s);
+    if (s && isUsefulRouteText(s)) found.add(s);
   });
 
   trains.forEach(train => {
     const route = String(getRouteService(train) || "").trim();
-    if (route && !looksLikeGarbageRoute(route)) found.add(route);
+    if (route && isUsefulRouteText(route)) found.add(route);
   });
 
   routeList = Array.from(found).sort((a, b) => a.localeCompare(b));
