@@ -111,7 +111,8 @@ body { overscroll-behavior: none; }
 
 #mobileLayersBtn,
 #mobileOperatorBtn,
-#mobileRouteBtn { grid-column: 1 / -1; }
+#mobileRouteBtn,
+#mobileClearFiltersBtn { grid-column: 1 / -1; }
 
 .mobile-search-wrap { margin-bottom: 8px; }
 
@@ -209,6 +210,7 @@ body { overscroll-behavior: none; }
   border: 1px solid var(--panel-border);
   font-size: 13px;
   font-weight: 700;
+  flex-wrap: wrap;
 }
 
 .toolbar button,
@@ -235,7 +237,7 @@ body { overscroll-behavior: none; }
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  width: min(460px, calc(100vw - 520px));
+  width: min(460px, calc(100vw - 600px));
 }
 
 .autocomplete-items {
@@ -383,6 +385,64 @@ body { overscroll-behavior: none; }
   margin-bottom: 8px;
 }
 
+.filter-chip-wrap {
+  position: absolute;
+  top: calc(var(--safe-top) + 72px);
+  left: calc(var(--safe-left) + 10px);
+  right: calc(var(--safe-right) + 10px);
+  z-index: 999;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(8, 20, 38, 0.96);
+  color: #fff;
+  border: 1px solid #2a4a7a;
+  border-radius: 999px;
+  padding: 7px 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.35);
+  font-size: 12px;
+  font-weight: 800;
+  max-width: min(260px, 90vw);
+}
+
+.filter-chip .chip-kind {
+  color: #9ab0d0;
+  font-weight: 700;
+}
+
+.filter-chip .chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-chip .chip-close {
+  border: 1px solid #2b4f80;
+  background: #163456;
+  color: white;
+  border-radius: 999px;
+  width: 22px;
+  height: 22px;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  line-height: 1;
+  flex: 0 0 auto;
+}
+
+.clear-filters-btn {
+  background: #163456 !important;
+  color: white !important;
+  border: 1px solid #2b4f80 !important;
+}
+
 .train-popup {
   position: absolute;
   background: rgba(9, 20, 38, 0.98);
@@ -473,18 +533,25 @@ body { overscroll-behavior: none; }
   .top-card { display: block; }
   .toolbar, .search-container, .status-bar { display: none !important; }
 
+  .filter-chip-wrap {
+    position: absolute;
+    top: calc(var(--safe-top) + 355px);
+    left: calc(var(--safe-left) + 10px);
+    right: calc(var(--safe-right) + 10px);
+  }
+
   .layers-panel,
   .operator-panel,
   .route-panel {
     left: calc(var(--safe-left) + 10px);
     right: calc(var(--safe-right) + 10px);
     width: auto;
-    max-height: 42dvh;
+    max-height: 40dvh;
   }
 
   .layers-panel { bottom: calc(var(--safe-bottom) + 10px); }
-  .operator-panel { top: calc(var(--safe-top) + 300px); }
-  .route-panel { top: calc(var(--safe-top) + 300px); }
+  .operator-panel { top: calc(var(--safe-top) + 350px); }
+  .route-panel { top: calc(var(--safe-top) + 350px); }
 
   .popup-grid {
     grid-template-columns: 1fr;
@@ -520,6 +587,7 @@ body { overscroll-behavior: none; }
     <button id="mobileLayersBtn">🗺️ Layers</button>
     <button id="mobileOperatorBtn">🚫 Hide Operators (0)</button>
     <button id="mobileRouteBtn">🧭 Hide Routes/Services (0)</button>
+    <button id="mobileClearFiltersBtn" class="clear-filters-btn">🧹 Clear All Filters</button>
   </div>
 
   <div class="mobile-search-wrap">
@@ -555,6 +623,7 @@ body { overscroll-behavior: none; }
   <button id="layersToggleBtn">🗺️ Layers</button>
   <button id="operatorBtn">🚫 Hide Operators (0)</button>
   <button id="routeBtn">🧭 Hide Routes/Services (0)</button>
+  <button id="clearFiltersBtn" class="clear-filters-btn">🧹 Clear All Filters</button>
 </div>
 
 <div class="search-container" id="searchContainer">
@@ -570,6 +639,8 @@ body { overscroll-behavior: none; }
   <span class="note-pill" id="statusNote">…</span>
   <span class="train-count" id="trainCount">0</span>
 </div>
+
+<div id="filterChipWrap" class="filter-chip-wrap"></div>
 
 <div class="layers-panel" id="layersPanel">
   <h3 style="margin-bottom:8px;">🗺️ MAP LAYERS</h3>
@@ -615,8 +686,8 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
-const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v3";
-const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v1";
+const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v4";
+const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v2";
 
 const FALLBACK_OPERATORS = [
   "707 Operations","Adelaide Metro","ALARC","ARHS ACT","ARTC","Aurizon","B Rail Pty Ltd","Brimble Rail",
@@ -641,9 +712,7 @@ const FALLBACK_ROUTES = [
   "Randwick Line",
   "Kingsford Line",
   "Sydney Light Rail",
-  "Airport",
-  "Caboolture",
-  "Intercity",
+  "Airport → Caboolture",
   "Metro"
 ];
 
@@ -722,7 +791,7 @@ function looksLikeGarbageRoute(v) {
   if (/^\d+$/.test(s)) return true;
   if (looksLikeServiceId(s)) return true;
   if (/^[A-Z0-9_]{16,}$/.test(upper)) return true;
-  if (s.length > 30 && /[A-Z]/.test(s) && /\d/.test(s)) return true;
+  if (s.length > 34 && /[A-Z]/.test(s) && /\d/.test(s)) return true;
   if (upper === "UNKNOWN") return true;
   return false;
 }
@@ -988,6 +1057,74 @@ function updateFilterButtonLabels() {
   document.getElementById("mobileRouteBtn").textContent = `🧭 Hide Routes/Services (${hiddenRoutes.size})`;
 }
 
+function renderFilterChips() {
+  const wrap = document.getElementById("filterChipWrap");
+  wrap.innerHTML = "";
+
+  const ops = Array.from(hiddenOperators).sort((a, b) => a.localeCompare(b));
+  const routes = Array.from(hiddenRoutes).sort((a, b) => a.localeCompare(b));
+
+  const addChip = (kind, text, onRemove) => {
+    const chip = document.createElement("div");
+    chip.className = "filter-chip";
+
+    const kindEl = document.createElement("span");
+    kindEl.className = "chip-kind";
+    kindEl.textContent = kind;
+
+    const textEl = document.createElement("span");
+    textEl.className = "chip-text";
+    textEl.textContent = text;
+
+    const close = document.createElement("button");
+    close.className = "chip-close";
+    close.type = "button";
+    close.textContent = "×";
+    close.addEventListener("click", onRemove);
+
+    chip.appendChild(kindEl);
+    chip.appendChild(textEl);
+    chip.appendChild(close);
+    wrap.appendChild(chip);
+  };
+
+  ops.forEach(op => {
+    addChip("Operator", op, () => {
+      hiddenOperators.delete(op);
+      saveHiddenFiltersToStorage();
+      updateFilterButtonLabels();
+      renderFilterChips();
+      renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
+      removePopup();
+      loadRealTrains();
+    });
+  });
+
+  routes.forEach(route => {
+    addChip("Route", route, () => {
+      hiddenRoutes.delete(route);
+      saveHiddenFiltersToStorage();
+      updateFilterButtonLabels();
+      renderFilterChips();
+      renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
+      removePopup();
+      loadRealTrains();
+    });
+  });
+}
+
+function clearAllFilters() {
+  hiddenOperators.clear();
+  hiddenRoutes.clear();
+  saveHiddenFiltersToStorage();
+  updateFilterButtonLabels();
+  renderFilterChips();
+  renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
+  renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
+  removePopup();
+  loadRealTrains();
+}
+
 function trainPassesOperatorFilter(train) {
   if (!hiddenOperators.size) return true;
 
@@ -1243,6 +1380,7 @@ function renderOperatorChecklist(filterText = "") {
         else hiddenOperators.delete(op.toLowerCase());
         saveHiddenFiltersToStorage();
         updateFilterButtonLabels();
+        renderFilterChips();
         removePopup();
         loadRealTrains();
       });
@@ -1283,6 +1421,7 @@ function renderRouteChecklist(filterText = "") {
         else hiddenRoutes.delete(rt.toLowerCase());
         saveHiddenFiltersToStorage();
         updateFilterButtonLabels();
+        renderFilterChips();
         removePopup();
         loadRealTrains();
       });
@@ -1340,6 +1479,7 @@ async function loadRealTrains() {
     renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
     renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
     updateFilterButtonLabels();
+    renderFilterChips();
 
     const visibleTrains = getVisibleTrains();
 
@@ -1783,8 +1923,9 @@ document.getElementById("mobileRouteBtn").addEventListener("click", (e) => {
 document.getElementById("operatorHideNoneBtn").addEventListener("click", () => {
   hiddenOperators.clear();
   saveHiddenFiltersToStorage();
-  renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
   updateFilterButtonLabels();
+  renderFilterChips();
+  renderOperatorChecklist(document.getElementById("operatorSearchInput").value || "");
   removePopup();
   loadRealTrains();
 });
@@ -1795,8 +1936,9 @@ document.getElementById("operatorHideAllBtn").addEventListener("click", () => {
     .filter(op => !filterText || op.toLowerCase().includes(filterText))
     .forEach(op => hiddenOperators.add(op.toLowerCase()));
   saveHiddenFiltersToStorage();
-  renderOperatorChecklist(filterText);
   updateFilterButtonLabels();
+  renderFilterChips();
+  renderOperatorChecklist(filterText);
   removePopup();
   loadRealTrains();
 });
@@ -1804,8 +1946,9 @@ document.getElementById("operatorHideAllBtn").addEventListener("click", () => {
 document.getElementById("routeHideNoneBtn").addEventListener("click", () => {
   hiddenRoutes.clear();
   saveHiddenFiltersToStorage();
-  renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
   updateFilterButtonLabels();
+  renderFilterChips();
+  renderRouteChecklist(document.getElementById("routeSearchInput").value || "");
   removePopup();
   loadRealTrains();
 });
@@ -1816,11 +1959,15 @@ document.getElementById("routeHideAllBtn").addEventListener("click", () => {
     .filter(rt => !filterText || rt.toLowerCase().includes(filterText))
     .forEach(rt => hiddenRoutes.add(rt.toLowerCase()));
   saveHiddenFiltersToStorage();
-  renderRouteChecklist(filterText);
   updateFilterButtonLabels();
+  renderFilterChips();
+  renderRouteChecklist(filterText);
   removePopup();
   loadRealTrains();
 });
+
+document.getElementById("clearFiltersBtn").addEventListener("click", clearAllFilters);
+document.getElementById("mobileClearFiltersBtn").addEventListener("click", clearAllFilters);
 
 document.getElementById("operatorSearchInput").addEventListener("input", (e) => {
   renderOperatorChecklist(e.target.value || "");
@@ -1904,6 +2051,7 @@ window.addEventListener("resize", () => {
 
 loadHiddenFiltersFromStorage();
 updateFilterButtonLabels();
+renderFilterChips();
 loadRealTrains();
 setInterval(loadRealTrains, 30000);
 zoomTo("au");
