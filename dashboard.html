@@ -739,7 +739,7 @@ if (typeof window.ol === "undefined") {
 </script>
 
 <script>
-const TRAINS_URL_BASE = "https://railops-backend.fly.dev/trains.json";
+const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
 const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v6";
 const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v4";
 const MOBILE_FILTER_SECTION_KEY = "railops_mobile_filter_section_open_v2";
@@ -2229,7 +2229,7 @@ setInterval(loadRealTrains, 30000);
 zoomTo("au");
 </script>
 
-<!-- Service worker intentionally disabled while testing live Fly data -->
+<!-- Service worker intentionally disabled while stabilising live data -->
 
 <button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid #2a4a7a;background:rgba(8,20,38,.92);color:#fff;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.45);cursor:pointer;">Logout</button>
 <script>
