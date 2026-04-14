@@ -739,7 +739,7 @@ if (typeof window.ol === "undefined") {
 </script>
 
 <script>
-const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
+const TRAINS_URL_BASE = "https://railops-backend.fly.dev/trains.json";
 const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v6";
 const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v4";
 const MOBILE_FILTER_SECTION_KEY = "railops_mobile_filter_section_open_v2";
@@ -975,7 +975,9 @@ function freshnessLabel(iso) {
   if (!isFinite(t)) return "unknown";
   const mins = (Date.now() - t) / 60000;
   if (mins <= 3) return "fresh";
-  if (mins <= 15) return "stale";
+  if (mins <= 10) return "recent";
+  if (mins <= 20) return "slightly stale";
+  if (mins <= 45) return "stale";
   return "very stale";
 }
 
@@ -1566,10 +1568,15 @@ async function loadRealTrains() {
   setStatusUI("Loading...", "fetching...", "0");
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000);
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: { "Accept": "application/json" }
+    });
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
@@ -2222,15 +2229,7 @@ setInterval(loadRealTrains, 30000);
 zoomTo("au");
 </script>
 
-<script>
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./service-worker.js")
-      .then(() => console.log("Service worker registered"))
-      .catch((err) => console.error("Service worker registration failed:", err));
-  });
-}
-</script>
+<!-- Service worker intentionally disabled while testing live Fly data -->
 
 <button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid #2a4a7a;background:rgba(8,20,38,.92);color:#fff;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.45);cursor:pointer;">Logout</button>
 <script>
