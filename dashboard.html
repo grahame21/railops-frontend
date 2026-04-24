@@ -739,10 +739,7 @@ if (typeof window.ol === "undefined") {
 </script>
 
 <script>
-const TRAINS_URLS = [
-  "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json",
-  "https://cdn.jsdelivr.net/gh/grahame21/railops-backend@main/trains.json"
-];
+const TRAINS_URL = "https://railops-backend-web-production.up.railway.app/trains.json";
 const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v6";
 const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v4";
 const MOBILE_FILTER_SECTION_KEY = "railops_mobile_filter_section_open_v2";
@@ -1567,41 +1564,35 @@ function renderRouteChecklist(filterText = "") {
 }
 
 async function fetchTrainsPayload() {
-  let lastError = null;
+  const url = `${TRAINS_URL}?ts=${Date.now()}&r=${Math.random().toString(36).slice(2)}`;
 
-  for (const baseUrl of TRAINS_URLS) {
-    const url = `${baseUrl}?ts=${Date.now()}`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    try {
-      const response = await fetch(url, {
-        cache: "no-store",
-        signal: controller.signal,
-        headers: { "Accept": "application/json" }
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status} from ${baseUrl}`);
+  try {
+    const response = await fetch(url, {
+      cache: "no-store",
+      signal: controller.signal,
+      headers: {
+        "Accept": "application/json",
+        "Cache-Control": "no-cache"
       }
+    });
 
-      const data = await response.json();
-      clearTimeout(timeoutId);
-
-      if (!data || !Array.isArray(data.trains)) {
-        throw new Error(`Invalid JSON payload from ${baseUrl}`);
-      }
-
-      return data;
-    } catch (err) {
-      clearTimeout(timeoutId);
-      lastError = err;
-      console.warn("Train source failed:", baseUrl, err);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status} from Railway source`);
     }
-  }
 
-  throw lastError || new Error("All train sources failed");
+    const data = await response.json();
+
+    if (!data || !Array.isArray(data.trains)) {
+      throw new Error("Invalid JSON payload from Railway source");
+    }
+
+    return data;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function loadRealTrains() {
@@ -2248,6 +2239,25 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+function wireSearchBox(inputId, buttonId, listId, isMobile) {
+  const input = document.getElementById(inputId);
+  const button = document.getElementById(buttonId);
+  const list = document.getElementById(listId);
+
+  input.addEventListener("input", () => {
+    clearTimeout(isMobile ? mobileDebounceTimer : desktopDebounceTimer);
+    const timer = setTimeout(() => updateAutocompleteFor(input, list), 180);
+    if (isMobile) mobileDebounceTimer = timer;
+    else desktopDebounceTimer = timer;
+  });
+
+  input.addEventListener("keypress", e => {
+    if (e.key === "Enter") searchTrainsFromInput(input, isMobile);
+  });
+
+  button.addEventListener("click", () => searchTrainsFromInput(input, isMobile));
+}
+
 wireSearchBox("searchInput", "searchBtn", "autocompleteList", false);
 wireSearchBox("mobileSearchInput", "mobileSearchBtn", "mobileAutocompleteList", true);
 
@@ -2266,8 +2276,6 @@ loadRealTrains();
 setInterval(loadRealTrains, 30000);
 zoomTo("au");
 </script>
-
-<!-- Service worker intentionally disabled while stabilising live data -->
 
 <button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid #2a4a7a;background:rgba(8,20,38,.92);color:#fff;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.45);cursor:pointer;">Logout</button>
 <script>
