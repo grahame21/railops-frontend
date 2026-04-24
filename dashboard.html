@@ -739,7 +739,10 @@ if (typeof window.ol === "undefined") {
 </script>
 
 <script>
-const TRAINS_URL_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json";
+const TRAINS_URLS = [
+  "https://raw.githubusercontent.com/grahame21/railops-backend/main/trains.json",
+  "https://cdn.jsdelivr.net/gh/grahame21/railops-backend@main/trains.json"
+];
 const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v6";
 const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v4";
 const MOBILE_FILTER_SECTION_KEY = "railops_mobile_filter_section_open_v2";
@@ -1563,23 +1566,49 @@ function renderRouteChecklist(filterText = "") {
     });
 }
 
+async function fetchTrainsPayload() {
+  let lastError = null;
+
+  for (const baseUrl of TRAINS_URLS) {
+    const url = `${baseUrl}?ts=${Date.now()}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+    try {
+      const response = await fetch(url, {
+        cache: "no-store",
+        signal: controller.signal,
+        headers: { "Accept": "application/json" }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} from ${baseUrl}`);
+      }
+
+      const data = await response.json();
+      clearTimeout(timeoutId);
+
+      if (!data || !Array.isArray(data.trains)) {
+        throw new Error(`Invalid JSON payload from ${baseUrl}`);
+      }
+
+      return data;
+    } catch (err) {
+      clearTimeout(timeoutId);
+      lastError = err;
+      console.warn("Train source failed:", baseUrl, err);
+    }
+  }
+
+  throw lastError || new Error("All train sources failed");
+}
+
 async function loadRealTrains() {
-  const url = `${TRAINS_URL_BASE}?ts=${Date.now()}`;
   setStatusUI("Loading...", "fetching...", "0");
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
-
   try {
-    const response = await fetch(url, {
-      cache: "no-store",
-      signal: controller.signal,
-      headers: { "Accept": "application/json" }
-    });
-
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const data = await response.json();
+    const data = await fetchTrainsPayload();
     const trains = Array.isArray(data.trains) ? data.trains : [];
     const updatedISO = data.lastUpdated || null;
 
@@ -1596,10 +1625,14 @@ async function loadRealTrains() {
     if (trains.length === 0) {
       consecutiveEmpty += 1;
       if (lastGoodTrains.length > 0 && consecutiveEmpty < 3) {
+        const lastVisible = lastGoodTrains.filter(
+          train => trainPassesOperatorFilter(train) && trainPassesRouteFilter(train)
+        );
+
         setStatusUI(
           localTs ? `Last: ${localTs}` : "Last: (unknown)",
           `empty payload (${consecutiveEmpty})`,
-          String(lastGoodTrains.filter(train => trainPassesOperatorFilter(train) && trainPassesRouteFilter(train)).length)
+          String(lastVisible.length)
         );
         return;
       }
@@ -1608,6 +1641,7 @@ async function loadRealTrains() {
     }
 
     allTrains = trains;
+
     if (trains.length > 0) {
       lastGoodTrains = trains.slice();
       lastGoodUpdatedISO = updatedISO;
@@ -1642,6 +1676,7 @@ async function loadRealTrains() {
       const feature = new ol.Feature({
         geometry: new ol.geom.Point(ol.proj.fromLonLat([lon, lat]))
       });
+
       feature.set("train_data", train);
       trainSource.addFeature(feature);
     });
@@ -1650,17 +1685,20 @@ async function loadRealTrains() {
 
   } catch (err) {
     console.error("Failed to load trains:", err);
+
     if (lastGoodUpdatedISO) {
+      const lastVisible = lastGoodTrains.filter(
+        train => trainPassesOperatorFilter(train) && trainPassesRouteFilter(train)
+      );
+
       setStatusUI(
         `Last: ${formatLocal(lastGoodUpdatedISO)} (stale)`,
         `error • ${getAgeText(lastGoodUpdatedISO) || "stale"}`,
-        String(lastGoodTrains.filter(train => trainPassesOperatorFilter(train) && trainPassesRouteFilter(train)).length)
+        String(lastVisible.length)
       );
     } else {
       setStatusUI("Update failed", "error", "0");
     }
-  } finally {
-    clearTimeout(timeoutId);
   }
 }
 
