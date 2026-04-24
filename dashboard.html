@@ -1574,8 +1574,7 @@ async function fetchTrainsPayload() {
       cache: "no-store",
       signal: controller.signal,
       headers: {
-        "Accept": "application/json",
-        "Cache-Control": "no-cache"
+        "Accept": "application/json"
       }
     });
 
@@ -2238,25 +2237,6 @@ document.addEventListener("keydown", (e) => {
     removePopup();
   }
 });
-
-function wireSearchBox(inputId, buttonId, listId, isMobile) {
-  const input = document.getElementById(inputId);
-  const button = document.getElementById(buttonId);
-  const list = document.getElementById(listId);
-
-  input.addEventListener("input", () => {
-    clearTimeout(isMobile ? mobileDebounceTimer : desktopDebounceTimer);
-    const timer = setTimeout(() => updateAutocompleteFor(input, list), 180);
-    if (isMobile) mobileDebounceTimer = timer;
-    else desktopDebounceTimer = timer;
-  });
-
-  input.addEventListener("keypress", e => {
-    if (e.key === "Enter") searchTrainsFromInput(input, isMobile);
-  });
-
-  button.addEventListener("click", () => searchTrainsFromInput(input, isMobile));
-}
 
 wireSearchBox("searchInput", "searchBtn", "autocompleteList", false);
 wireSearchBox("mobileSearchInput", "mobileSearchBtn", "mobileAutocompleteList", true);
