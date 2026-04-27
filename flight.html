@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>RailOps Flight Tracker</title>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="dashboard-page">
+  <header class="topbar">
+    <h1>✈️ RailOps Flight Tracker</h1>
+
+    <div class="topbar-right">
+      <span data-user-label>Checking...</span>
+      <button onclick="railopsLogout()">Logout</button>
+    </div>
+  </header>
+
+  <main class="panel">
+    <h2>Flight Tracker</h2>
+
+    <p>
+      This page is protected behind the RailOps login system.
+    </p>
+
+    <p>
+      Your aircraft tracker/map code can go inside this page.
+    </p>
+
+    <div class="button-row">
+      <a class="button-link" href="/dashboard.html">Train Dashboard</a>
+      <a class="button-link" href="/database.html">Database</a>
+      <a class="button-link" href="/admin.html">Admin</a>
+    </div>
+  </main>
+
+  <script src="app-auth.js"></script>
+  <script>
+    railopsCheckSession();
+  </script>
+</body>
+</html>
