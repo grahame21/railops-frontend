@@ -12,7 +12,8 @@
 <body class="admin-page">
   <header class="topbar">
     <h1>🚂 Grahame’s RailOps Admin</h1>
-    <div>
+
+    <div class="topbar-right">
       <span data-user-label>Checking...</span>
       <button onclick="railopsLogout()">Logout</button>
     </div>
@@ -21,22 +22,30 @@
   <main class="admin-grid">
     <section class="panel">
       <h2>Admin Console</h2>
-      <p>Status: protected admin area</p>
+
+      <p>
+        This page is admin-only.
+      </p>
 
       <div class="button-row">
-        <a href="/dashboard.html">Open Train Dashboard</a>
-        <a href="/flight.html">Open Flight Tracker</a>
-        <a href="/database.html">Open Database</a>
+        <a class="button-link" href="/dashboard.html">Open Train Dashboard</a>
+        <a class="button-link" href="/flight.html">Open Flight Tracker</a>
+        <a class="button-link" href="/database.html">Open Database</a>
       </div>
     </section>
 
     <section class="panel">
       <h2>Create Guest Token</h2>
 
-      <label>Guest label</label>
+      <p class="small-note">
+        This creates a temporary guest access link like
+        <strong>/access?token=...</strong>
+      </p>
+
+      <label for="tokenLabel">Guest label</label>
       <input id="tokenLabel" value="guest" />
 
-      <label>Expires in hours</label>
+      <label for="tokenHours">Expires in hours</label>
       <input id="tokenHours" type="number" value="24" min="1" max="720" />
 
       <button onclick="makeToken()">Generate Guest Link</button>
@@ -51,11 +60,14 @@
     railopsCheckSession("admin");
 
     async function makeToken() {
-      const label = document.getElementById("tokenLabel").value.trim() || "guest";
-      const hours = Number(document.getElementById("tokenHours").value || 24);
+      const labelInput = document.getElementById("tokenLabel");
+      const hoursInput = document.getElementById("tokenHours");
       const output = document.getElementById("tokenOutput");
 
-      output.value = "Generating...";
+      const label = labelInput.value.trim() || "guest";
+      const hours = Number(hoursInput.value || 24);
+
+      output.value = "Generating guest link...";
 
       try {
         const res = await fetch("/api/make-token", {
@@ -63,20 +75,31 @@
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ label, hours }),
+          cache: "no-store",
+          body: JSON.stringify({
+            label,
+            hours,
+          }),
         });
 
-        const data = await res.json();
+        let data = null;
+
+        try {
+          data = await res.json();
+        } catch (jsonErr) {
+          output.value = "Failed to read server response.";
+          return;
+        }
 
         if (!res.ok || !data.ok) {
-          output.value = data.error || "Failed to create token.";
+          output.value = data.error || "Failed to create guest token.";
           return;
         }
 
         const fullUrl = `${window.location.origin}${data.accessUrl}`;
         output.value = fullUrl;
       } catch (err) {
-        output.value = "Failed to create token.";
+        output.value = "Failed to create guest token.";
       }
     }
   </script>
