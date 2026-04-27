@@ -14,13 +14,9 @@
 <link rel="apple-touch-icon" href="./icons/icon-180.png" />
 <link rel="stylesheet" href="./ol/ol.css" />
 
-<script src="./auth.js"></script>
+<script src="./app-auth.js"></script>
 <script>
-if (window.RailOpsAuth && typeof RailOpsAuth.requireRole === "function") {
-  if (!RailOpsAuth.requireRole(["admin","guest"])) {
-    document.documentElement.innerHTML = "";
-  }
-}
+  railopsCheckSession();
 </script>
 
 <style>
@@ -106,13 +102,9 @@ body { overscroll-behavior: none; }
   cursor: pointer;
 }
 
-.mobile-controls-area {
-  display: none;
-}
+.mobile-controls-area { display: none; }
 
-.top-card.expanded .mobile-controls-area {
-  display: block;
-}
+.top-card.expanded .mobile-controls-area { display: block; }
 
 .mobile-controls-grid {
   display: grid;
@@ -422,18 +414,14 @@ body { overscroll-behavior: none; }
   width: 100%;
 }
 
-.toolbar-chip-wrap {
-  margin-top: 4px;
-}
+.toolbar-chip-wrap { margin-top: 4px; }
 
 .mobile-chip-section {
   margin-bottom: 8px;
   display: none;
 }
 
-.mobile-chip-section.open {
-  display: block;
-}
+.mobile-chip-section.open { display: block; }
 
 .mobile-chip-header {
   color: #9ab0d0;
@@ -577,6 +565,21 @@ body { overscroll-behavior: none; }
   width: 28px;
   height: 28px;
   font-weight: 900;
+  cursor: pointer;
+}
+
+#logoutBtn {
+  position: fixed;
+  right: 14px;
+  bottom: 14px;
+  z-index: 2000;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #2a4a7a;
+  background: rgba(8,20,38,.92);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 8px 28px rgba(0,0,0,.45);
   cursor: pointer;
 }
 
@@ -1798,9 +1801,7 @@ map.on("singleclick", function(evt){
   else removePopup();
 });
 
-function displayId(train){
-  return buildLabel(train);
-}
+function displayId(train){ return buildLabel(train); }
 
 function getSearchFields(train){
   return [
@@ -2054,27 +2055,21 @@ function toggleLayersPanel(){
   panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
-function hideLayersPanel(){
-  document.getElementById("layersPanel").style.display = "none";
-}
+function hideLayersPanel(){ document.getElementById("layersPanel").style.display = "none"; }
 
 function toggleOperatorPanel(){
   const panel = document.getElementById("operatorPanel");
   panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
-function hideOperatorPanel(){
-  document.getElementById("operatorPanel").style.display = "none";
-}
+function hideOperatorPanel(){ document.getElementById("operatorPanel").style.display = "none"; }
 
 function toggleRoutePanel(){
   const panel = document.getElementById("routePanel");
   panel.style.display = panel.style.display === "none" ? "block" : "none";
 }
 
-function hideRoutePanel(){
-  document.getElementById("routePanel").style.display = "none";
-}
+function hideRoutePanel(){ document.getElementById("routePanel").style.display = "none"; }
 
 document.getElementById("layersToggleBtn").addEventListener("click", (e) => {
   e.stopPropagation();
@@ -2257,11 +2252,10 @@ setInterval(loadRealTrains, 30000);
 zoomTo("au");
 </script>
 
-<button id="logoutBtn" style="position:fixed;right:14px;bottom:14px;z-index:2000;padding:10px 14px;border-radius:12px;border:1px solid #2a4a7a;background:rgba(8,20,38,.92);color:#fff;font-weight:700;box-shadow:0 8px 28px rgba(0,0,0,.45);cursor:pointer;">Logout</button>
+<button id="logoutBtn">Logout</button>
+
 <script>
-if (window.RailOpsAuth && typeof RailOpsAuth.wireLogout === "function") {
-  RailOpsAuth.wireLogout("#logoutBtn");
-}
+  document.getElementById("logoutBtn").addEventListener("click", railopsLogout);
 </script>
 
 </body>
