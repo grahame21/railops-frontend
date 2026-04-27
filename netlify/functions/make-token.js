@@ -10,6 +10,7 @@ function base64url(input) {
 
 function sign(payload, secret) {
   const encodedPayload = base64url(JSON.stringify(payload));
+
   const signature = crypto
     .createHmac("sha256", secret)
     .update(encodedPayload)
@@ -21,7 +22,7 @@ function sign(payload, secret) {
   return `${encodedPayload}.${signature}`;
 }
 
-function verifyToken(token, secret) {
+function verifySessionToken(token, secret) {
   if (!token || !secret) return null;
 
   const parts = token.split(".");
@@ -43,18 +44,23 @@ function verifyToken(token, secret) {
   const payload = JSON.parse(json);
 
   const now = Math.floor(Date.now() / 1000);
-  if (!payload.exp || payload.exp < now) return null;
+
+  if (!payload.exp || payload.exp < now) {
+    return null;
+  }
 
   return payload;
 }
 
 function getCookie(header, name) {
   const cookies = String(header || "").split(";").map(v => v.trim());
+
   for (const cookie of cookies) {
     if (cookie.startsWith(`${name}=`)) {
       return cookie.slice(name.length + 1);
     }
   }
+
   return "";
 }
 
@@ -63,26 +69,45 @@ exports.handler = async function (event) {
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
-        body: JSON.stringify({ ok: false, error: "Method not allowed" }),
+        body: JSON.stringify({
+          ok: false,
+          error: "Method not allowed",
+        }),
       };
     }
 
     const secret = process.env.JWT_SECRET || "";
+
+    if (!secret) {
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          ok: false,
+          error: "Missing JWT_SECRET",
+        }),
+      };
+    }
+
     const sessionToken = getCookie(event.headers.cookie, "railops_session");
-    const session = verifyToken(sessionToken, secret);
+    const session = verifySessionToken(sessionToken, secret);
 
     if (!session || session.role !== "admin") {
       return {
         statusCode: 403,
-        body: JSON.stringify({ ok: false, error: "Admin only" }),
+        body: JSON.stringify({
+          ok: false,
+          error: "Admin only",
+        }),
       };
     }
 
     const body = JSON.parse(event.body || "{}");
-    const hours = Number(body.hours || 24);
-    const label = String(body.label || "guest").trim();
 
-    const safeHours = Math.max(1, Math.min(hours, 24 * 30));
+    const label = String(body.label || "guest").trim();
+    const unlimited = Boolean(body.unlimited);
+    const days = Number(body.days || 1);
+
+    const safeDays = Math.max(1, Math.min(days, 3650));
     const now = Math.floor(Date.now() / 1000);
 
     const payload = {
@@ -90,8 +115,18 @@ exports.handler = async function (event) {
       role: "guest",
       tokenLogin: true,
       iat: now,
-      exp: now + safeHours * 60 * 60,
+      unlimited,
     };
+
+    if (!unlimited) {
+      payload.exp = now + safeDays * 24 * 60 * 60;
+      payload.days = safeDays;
+    }
+
+    if (unlimited) {
+      payload.exp = null;
+      payload.days = null;
+    }
 
     const token = sign(payload, secret);
 
@@ -104,13 +139,18 @@ exports.handler = async function (event) {
         ok: true,
         token,
         accessUrl: `/access?token=${encodeURIComponent(token)}`,
-        expires: payload.exp,
+        unlimited,
+        days: unlimited ? null : safeDays,
+        expires: unlimited ? null : payload.exp,
       }),
     };
   } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ ok: false, error: String(err.message || err) }),
+      body: JSON.stringify({
+        ok: false,
+        error: String(err.message || err),
+      }),
     };
   }
 };
