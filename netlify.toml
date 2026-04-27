@@ -1,0 +1,27 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[edge_functions]]
+  path = "/dashboard.html"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/admin.html"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/flight.html"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/database.html"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/static/*"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/assets/*"
+  function = "protect"
