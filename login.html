@@ -2,67 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>RailOps — Login</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Grahame’s RailOps Login</title>
+
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <div class="login-wrap">
-    <div class="login">
-      <h1>Grahame’s RailOps Login</h1>
-      <div class="sub">Admins go to the control panel. Guests go to the live dashboard.</div>
 
-      <label for="user">Username</label>
-      <input id="user" placeholder="admin or guest" autocomplete="username" autocapitalize="off" />
+<body class="login-page">
+  <main class="login-card">
+    <div class="logo">🚂</div>
+    <h1>Grahame’s RailOps</h1>
+    <p class="subtitle">Private train, flight and database tracker</p>
 
-      <label for="pass">Password</label>
-      <input id="pass" type="password" placeholder="Password" autocomplete="current-password" />
+    <form id="loginForm">
+      <label>Username</label>
+      <input id="username" autocomplete="username" required />
 
-      <div class="row">
-        <button class="ghost" id="guestBtn" type="button">Continue as Guest</button>
-        <button class="primary" id="loginBtn" type="button">Log In</button>
-      </div>
+      <label>Password</label>
+      <input id="password" type="password" autocomplete="current-password" required />
 
-      <div class="small">Current demo logins: <b>admin / railops</b> and <b>guest / guestpass</b></div>
-      <div class="small" id="errorText" style="color:#ffb4b4;min-height:20px;margin-top:10px"></div>
-    </div>
-  </div>
+      <button type="submit">Login</button>
+    </form>
+
+    <p id="message" class="message"></p>
+  </main>
 
   <script>
-    (function(){
+    const form = document.getElementById("loginForm");
+    const message = document.getElementById("message");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      message.textContent = "Logging in...";
+
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
       try {
-        const sess = JSON.parse(localStorage.getItem('railops_session') || 'null');
-        if (sess?.role === 'admin') location.replace('/admin.html');
-        if (sess?.role === 'guest') location.replace('/dashboard.html');
-      } catch {}
-    })();
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ username, password }),
+        });
 
-    const userEl = document.getElementById('user');
-    const passEl = document.getElementById('pass');
-    const errEl = document.getElementById('errorText');
+        const data = await res.json();
 
-    function doLogin(user, pass) {
-      const u = String(user || '').trim().toLowerCase();
-      const p = String(pass || '').trim().toLowerCase();
-      errEl.textContent = '';
+        if (!res.ok || !data.ok) {
+          message.textContent = data.error || "Invalid login";
+          return;
+        }
 
-      if (u === 'admin' && p === 'railops') {
-        localStorage.setItem('railops_session', JSON.stringify({ role: 'admin', ts: Date.now() }));
-        location.replace('/admin.html');
-        return;
+        window.location.href = data.redirect || "/dashboard.html";
+      } catch (err) {
+        message.textContent = "Login failed. Check internet or Netlify function.";
       }
-      if (u === 'guest' && p === 'guestpass') {
-        localStorage.setItem('railops_session', JSON.stringify({ role: 'guest', ts: Date.now() }));
-        location.replace('/dashboard.html');
-        return;
-      }
-      errEl.textContent = 'Invalid username or password.';
-    }
-
-    document.getElementById('loginBtn').addEventListener('click', () => doLogin(userEl.value, passEl.value));
-    document.getElementById('guestBtn').addEventListener('click', () => doLogin('guest', 'guestpass'));
-    passEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(userEl.value, passEl.value); });
-    userEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') doLogin(userEl.value, passEl.value); });
+    });
   </script>
 </body>
 </html>
