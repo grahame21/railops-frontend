@@ -10,6 +10,7 @@ function base64url(input) {
 
 function sign(payload, secret) {
   const encodedPayload = base64url(JSON.stringify(payload));
+
   const signature = crypto
     .createHmac("sha256", secret)
     .update(encodedPayload)
@@ -21,7 +22,7 @@ function sign(payload, secret) {
   return `${encodedPayload}.${signature}`;
 }
 
-function verifyToken(token, secret) {
+function verifyToken(token, secret, allowUnlimited = false) {
   if (!token || !secret) return null;
 
   const parts = token.split(".");
@@ -43,7 +44,14 @@ function verifyToken(token, secret) {
   const payload = JSON.parse(json);
 
   const now = Math.floor(Date.now() / 1000);
-  if (!payload.exp || payload.exp < now) return null;
+
+  if (payload.unlimited && allowUnlimited) {
+    return payload;
+  }
+
+  if (!payload.exp || payload.exp < now) {
+    return null;
+  }
 
   return payload;
 }
@@ -53,11 +61,15 @@ exports.handler = async function (event) {
     if (event.httpMethod !== "POST") {
       return {
         statusCode: 405,
-        body: JSON.stringify({ ok: false, error: "Method not allowed" }),
+        body: JSON.stringify({
+          ok: false,
+          error: "Method not allowed",
+        }),
       };
     }
 
     const body = JSON.parse(event.body || "{}");
+
     const username = String(body.username || "").trim();
     const password = String(body.password || "").trim();
 
@@ -70,7 +82,10 @@ exports.handler = async function (event) {
     if (!secret) {
       return {
         statusCode: 500,
-        body: JSON.stringify({ ok: false, error: "Missing JWT_SECRET" }),
+        body: JSON.stringify({
+          ok: false,
+          error: "Missing JWT_SECRET",
+        }),
       };
     }
 
@@ -80,46 +95,58 @@ exports.handler = async function (event) {
 
     if (username === adminUser && password === adminPass) {
       role = "admin";
+      expiresIn = 60 * 60 * 24 * 30;
     }
 
     if (username === guestUser && password === guestPass) {
       role = "guest";
+      expiresIn = 60 * 60 * 24 * 30;
     }
 
     if (username === "__token__") {
-      const tokenPayload = verifyToken(password, secret);
+      const tokenPayload = verifyToken(password, secret, true);
 
       if (!tokenPayload || tokenPayload.role !== "guest" || !tokenPayload.tokenLogin) {
         return {
           statusCode: 401,
-          body: JSON.stringify({ ok: false, error: "Invalid or expired token" }),
+          body: JSON.stringify({
+            ok: false,
+            error: "Invalid or expired token",
+          }),
         };
       }
 
       role = "guest";
       subject = tokenPayload.sub || "token-guest";
 
-      const now = Math.floor(Date.now() / 1000);
-      expiresIn = Math.max(60, tokenPayload.exp - now);
+      if (tokenPayload.unlimited) {
+        expiresIn = 60 * 60 * 24 * 3650;
+      } else {
+        const now = Math.floor(Date.now() / 1000);
+        expiresIn = Math.max(60, tokenPayload.exp - now);
+      }
     }
 
     if (!role) {
       return {
         statusCode: 401,
-        body: JSON.stringify({ ok: false, error: "Invalid login" }),
+        body: JSON.stringify({
+          ok: false,
+          error: "Invalid login",
+        }),
       };
     }
 
     const now = Math.floor(Date.now() / 1000);
 
-    const payload = {
+    const sessionPayload = {
       sub: subject,
       role,
       iat: now,
       exp: now + expiresIn,
     };
 
-    const sessionToken = sign(payload, secret);
+    const sessionToken = sign(sessionPayload, secret);
 
     return {
       statusCode: 200,
@@ -131,12 +158,16 @@ exports.handler = async function (event) {
         ok: true,
         role,
         redirect: role === "admin" ? "/admin.html" : "/dashboard.html",
+        unlimited: expiresIn >= 60 * 60 * 24 * 3650,
       }),
     };
   } catch (err) {
     return {
       statusCode: 500,
-      body: JSON.stringify({ ok: false, error: String(err.message || err) }),
+      body: JSON.stringify({
+        ok: false,
+        error: String(err.message || err),
+      }),
     };
   }
 };
