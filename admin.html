@@ -38,15 +38,20 @@
       <h2>Create Guest Token</h2>
 
       <p class="small-note">
-        This creates a temporary guest access link like
+        This creates a guest access link like
         <strong>/access?token=...</strong>
       </p>
 
       <label for="tokenLabel">Guest label</label>
       <input id="tokenLabel" value="guest" />
 
-      <label for="tokenHours">Expires in hours</label>
-      <input id="tokenHours" type="number" value="24" min="1" max="720" />
+      <label for="tokenDays">Expires in days</label>
+      <input id="tokenDays" type="number" value="7" min="1" max="3650" />
+
+      <label style="display:flex;align-items:center;gap:10px;margin-top:14px;">
+        <input id="tokenUnlimited" type="checkbox" style="width:auto;" />
+        Unlimited token
+      </label>
 
       <button onclick="makeToken()">Generate Guest Link</button>
 
@@ -59,13 +64,26 @@
   <script>
     railopsCheckSession("admin");
 
+    const tokenUnlimited = document.getElementById("tokenUnlimited");
+    const tokenDays = document.getElementById("tokenDays");
+
+    tokenUnlimited.addEventListener("change", () => {
+      tokenDays.disabled = tokenUnlimited.checked;
+
+      if (tokenUnlimited.checked) {
+        tokenDays.style.opacity = "0.45";
+      } else {
+        tokenDays.style.opacity = "1";
+      }
+    });
+
     async function makeToken() {
       const labelInput = document.getElementById("tokenLabel");
-      const hoursInput = document.getElementById("tokenHours");
       const output = document.getElementById("tokenOutput");
 
       const label = labelInput.value.trim() || "guest";
-      const hours = Number(hoursInput.value || 24);
+      const days = Number(tokenDays.value || 7);
+      const unlimited = tokenUnlimited.checked;
 
       output.value = "Generating guest link...";
 
@@ -78,7 +96,8 @@
           cache: "no-store",
           body: JSON.stringify({
             label,
-            hours,
+            days,
+            unlimited,
           }),
         });
 
@@ -97,7 +116,16 @@
         }
 
         const fullUrl = `${window.location.origin}${data.accessUrl}`;
-        output.value = fullUrl;
+
+        if (data.unlimited) {
+          output.value = `${fullUrl}\n\nExpires: Unlimited`;
+        } else {
+          const expiryDate = data.expires
+            ? new Date(data.expires * 1000).toLocaleString("en-AU")
+            : "Unknown";
+
+          output.value = `${fullUrl}\n\nExpires in: ${data.days} day(s)\nExpiry date: ${expiryDate}`;
+        }
       } catch (err) {
         output.value = "Failed to create guest token.";
       }
