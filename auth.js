@@ -1,23 +1,52 @@
-(function(){
-  function getSession(){
-    try { return JSON.parse(localStorage.getItem('railops_session') || 'null'); }
-    catch(e){ return null; }
-  }
-  function logout(){
-    try { localStorage.removeItem('railops_session'); } catch(e){}
-    location.replace('/login.html');
-  }
-  function requireRole(allowedRoles){
-    const sess = getSession();
-    if (!sess || !allowedRoles.includes(sess.role)) {
-      location.replace('/login.html');
-      return false;
+async function railopsCheckSession(requiredRole = null) {
+  try {
+    const res = await fetch("/api/session", {
+      method: "GET",
+      cache: "no-store",
+    });
+
+    let data = null;
+
+    try {
+      data = await res.json();
+    } catch (jsonErr) {
+      window.location.href = "/login.html";
+      return null;
     }
-    return true;
+
+    if (!res.ok || !data.ok || !data.loggedIn) {
+      window.location.href = "/login.html";
+      return null;
+    }
+
+    if (requiredRole && data.role !== requiredRole) {
+      window.location.href = "/dashboard.html";
+      return null;
+    }
+
+    const userLabel = document.querySelector("[data-user-label]");
+    if (userLabel) {
+      const username = data.username || "user";
+      const role = data.role || "guest";
+      userLabel.textContent = `${username} (${role})`;
+    }
+
+    return data;
+  } catch (err) {
+    window.location.href = "/login.html";
+    return null;
   }
-  function wireLogout(selector){
-    const el = document.querySelector(selector);
-    if (el) el.addEventListener('click', function(e){ e.preventDefault(); logout(); });
+}
+
+async function railopsLogout() {
+  try {
+    await fetch("/api/logout", {
+      method: "POST",
+      cache: "no-store",
+    });
+  } catch (err) {
+    // Still redirect even if logout request fails.
   }
-  window.RailOpsAuth = { getSession, logout, requireRole, wireLogout };
-})();
+
+  window.location.href = "/login.html";
+}
