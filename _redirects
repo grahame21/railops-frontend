@@ -1,0 +1,11 @@
+/access              /access.html  200
+/login               /login.html   200
+/dashboard           /dashboard.html 200
+/admin               /admin.html 200
+/flight              /flight.html 200
+/database            /database.html 200
+
+/api/login           /.netlify/functions/login 200
+/api/logout          /.netlify/functions/logout 200
+/api/session         /.netlify/functions/session 200
+/api/make-token      /.netlify/functions/make-token 200
