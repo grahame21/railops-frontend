@@ -43,13 +43,14 @@
           }),
         });
 
-        /*
-          Token direct-login needs special handling.
-          The simple setup above creates tokens, but login.js only handles username/password.
-          So for now, use generated token links as shareable signed tokens only after adding token-login support.
-        */
+        const data = await res.json();
 
-        message.textContent = "Token login needs the token-login extension added. Use guest username/password for now.";
+        if (!res.ok || !data.ok) {
+          message.textContent = data.error || "Invalid or expired token.";
+          return;
+        }
+
+        window.location.href = data.redirect || "/dashboard.html";
       } catch (err) {
         message.textContent = "Token access failed.";
       }
