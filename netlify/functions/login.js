@@ -21,6 +21,33 @@ function sign(payload, secret) {
   return `${encodedPayload}.${signature}`;
 }
 
+function verifyToken(token, secret) {
+  if (!token || !secret) return null;
+
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+
+  const [encodedPayload, signature] = parts;
+
+  const expected = crypto
+    .createHmac("sha256", secret)
+    .update(encodedPayload)
+    .digest("base64")
+    .replace(/=/g, "")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_");
+
+  if (signature !== expected) return null;
+
+  const json = Buffer.from(encodedPayload, "base64").toString("utf8");
+  const payload = JSON.parse(json);
+
+  const now = Math.floor(Date.now() / 1000);
+  if (!payload.exp || payload.exp < now) return null;
+
+  return payload;
+}
+
 exports.handler = async function (event) {
   try {
     if (event.httpMethod !== "POST") {
@@ -48,6 +75,8 @@ exports.handler = async function (event) {
     }
 
     let role = null;
+    let subject = username;
+    let expiresIn = 60 * 60 * 24 * 30;
 
     if (username === adminUser && password === adminPass) {
       role = "admin";
@@ -55,6 +84,23 @@ exports.handler = async function (event) {
 
     if (username === guestUser && password === guestPass) {
       role = "guest";
+    }
+
+    if (username === "__token__") {
+      const tokenPayload = verifyToken(password, secret);
+
+      if (!tokenPayload || tokenPayload.role !== "guest" || !tokenPayload.tokenLogin) {
+        return {
+          statusCode: 401,
+          body: JSON.stringify({ ok: false, error: "Invalid or expired token" }),
+        };
+      }
+
+      role = "guest";
+      subject = tokenPayload.sub || "token-guest";
+
+      const now = Math.floor(Date.now() / 1000);
+      expiresIn = Math.max(60, tokenPayload.exp - now);
     }
 
     if (!role) {
@@ -67,19 +113,19 @@ exports.handler = async function (event) {
     const now = Math.floor(Date.now() / 1000);
 
     const payload = {
-      sub: username,
+      sub: subject,
       role,
       iat: now,
-      exp: now + 60 * 60 * 24 * 30,
+      exp: now + expiresIn,
     };
 
-    const token = sign(payload, secret);
+    const sessionToken = sign(payload, secret);
 
     return {
       statusCode: 200,
       headers: {
         "Content-Type": "application/json",
-        "Set-Cookie": `railops_session=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${60 * 60 * 24 * 30}`,
+        "Set-Cookie": `railops_session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${expiresIn}`,
       },
       body: JSON.stringify({
         ok: true,
