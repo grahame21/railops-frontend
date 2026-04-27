@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>RailOps Access</title>
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body class="login-page">
+  <main class="login-card">
+    <div class="logo">🔐</div>
+    <h1>RailOps Guest Access</h1>
+    <p id="message" class="subtitle">Checking access token...</p>
+  </main>
+
+  <script>
+    function getToken() {
+      const params = new URLSearchParams(window.location.search);
+      return params.get("token") || "";
+    }
+
+    async function loginWithToken() {
+      const token = getToken();
+      const message = document.getElementById("message");
+
+      if (!token) {
+        message.textContent = "Missing token.";
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            username: "__token__",
+            password: token,
+          }),
+        });
+
+        /*
+          Token direct-login needs special handling.
+          The simple setup above creates tokens, but login.js only handles username/password.
+          So for now, use generated token links as shareable signed tokens only after adding token-login support.
+        */
+
+        message.textContent = "Token login needs the token-login extension added. Use guest username/password for now.";
+      } catch (err) {
+        message.textContent = "Token access failed.";
+      }
+    }
+
+    loginWithToken();
+  </script>
+</body>
+</html>
