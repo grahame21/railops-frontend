@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <title>RailOps Access</title>
+  <title>RailOps Guest Access</title>
 
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -13,8 +13,10 @@
   <main class="login-card">
     <div class="logo">🔐</div>
     <h1>RailOps Guest Access</h1>
-    <p id="message" class="subtitle">Checking access token...</p>
+    <p id="message" class="subtitle">Checking guest token...</p>
   </main>
+
+  <script src="app-auth.js"></script>
 
   <script>
     function getToken() {
@@ -37,9 +39,11 @@
           headers: {
             "Content-Type": "application/json",
           },
+          cache: "no-store",
           body: JSON.stringify({
             username: "__token__",
             password: token,
+            deviceId: railopsGetDeviceId(),
           }),
         });
 
@@ -51,7 +55,7 @@
         }
 
         window.location.href = data.redirect || "/dashboard.html";
-      } catch (err) {
+      } catch {
         message.textContent = "Token access failed.";
       }
     }
