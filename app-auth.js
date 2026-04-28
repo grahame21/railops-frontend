@@ -5,7 +5,12 @@ function railopsGetDeviceId() {
     let id = localStorage.getItem(key);
 
     if (!id) {
-      id = "dev_" + crypto.randomUUID();
+      if (window.crypto && typeof crypto.randomUUID === "function") {
+        id = "dev_" + crypto.randomUUID();
+      } else {
+        id = "dev_" + Math.random().toString(36).slice(2) + Date.now();
+      }
+
       localStorage.setItem(key, id);
     }
 
@@ -63,13 +68,25 @@ async function railopsLogout() {
       method: "POST",
       cache: "no-store",
     });
-  } catch {}
+  } catch {
+    // Still redirect even if logout function fails.
+  }
 
   window.location.href = "/login.html";
 }
 
 setInterval(() => {
-  if (!location.pathname.endsWith("/login.html") && !location.pathname.endsWith("/access.html")) {
+  const path = location.pathname.toLowerCase();
+
+  const isLoginPage =
+    path.endsWith("/login.html") ||
+    path.endsWith("/login") ||
+    path.endsWith("/access.html") ||
+    path.endsWith("/access") ||
+    path === "/" ||
+    path === "";
+
+  if (!isLoginPage) {
     railopsCheckSession();
   }
 }, 60000);
