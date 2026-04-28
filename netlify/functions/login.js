@@ -16,25 +16,59 @@ const {
 
 async function handleTokenLogin(tokenText, deviceId) {
   const parts = String(tokenText || "").split(".");
+
   if (parts.length !== 2) {
-    return { ok: false, status: 401, error: "Invalid token format" };
+    return {
+      ok: false,
+      status: 401,
+      error: "Invalid token format",
+    };
   }
 
   const [tokenId, tokenSecret] = parts;
   const record = await readJSON(tokenKey(tokenId));
 
-  if (!record) return { ok: false, status: 401, error: "Token not found" };
-  if (record.revoked) return { ok: false, status: 401, error: "Token has been revoked" };
-  if (isExpired(record)) return { ok: false, status: 401, error: "Token has expired" };
+  if (!record) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Token not found",
+    };
+  }
+
+  if (record.revoked) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Token has been revoked",
+    };
+  }
+
+  if (isExpired(record)) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Token has expired",
+    };
+  }
+
   if (record.secretHash !== sha256(tokenSecret)) {
-    return { ok: false, status: 401, error: "Invalid token secret" };
+    return {
+      ok: false,
+      status: 401,
+      error: "Invalid token secret",
+    };
   }
 
   const cleanDeviceId = safeString(deviceId);
 
   if (record.deviceLocked) {
     if (!cleanDeviceId) {
-      return { ok: false, status: 400, error: "Missing device ID" };
+      return {
+        ok: false,
+        status: 400,
+        error: "Missing device ID",
+      };
     }
 
     if (!record.deviceId) {
@@ -66,19 +100,43 @@ async function handleTokenLogin(tokenText, deviceId) {
 async function handleStoredGuestLogin(username, password, deviceId) {
   const record = await readJSON(guestKey(username));
 
-  if (!record) return null;
-  if (record.disabled) return { ok: false, status: 401, error: "Guest login is disabled" };
-  if (isExpired(record)) return { ok: false, status: 401, error: "Guest login has expired" };
+  if (!record) {
+    return null;
+  }
+
+  if (record.disabled) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Guest login is disabled",
+    };
+  }
+
+  if (isExpired(record)) {
+    return {
+      ok: false,
+      status: 401,
+      error: "Guest login has expired",
+    };
+  }
 
   if (!verifyPassword(password, record.passwordHash)) {
-    return { ok: false, status: 401, error: "Invalid guest password" };
+    return {
+      ok: false,
+      status: 401,
+      error: "Invalid guest password",
+    };
   }
 
   const cleanDeviceId = safeString(deviceId);
 
   if (record.deviceLocked) {
     if (!cleanDeviceId) {
-      return { ok: false, status: 400, error: "Missing device ID" };
+      return {
+        ok: false,
+        status: 400,
+        error: "Missing device ID",
+      };
     }
 
     if (!record.deviceId) {
@@ -110,19 +168,38 @@ async function handleStoredGuestLogin(username, password, deviceId) {
 exports.handler = async function (event) {
   try {
     if (event.httpMethod !== "POST") {
-      return json(405, { ok: false, error: "Method not allowed" });
+      return json(405, {
+        ok: false,
+        error: "Method not allowed",
+      });
     }
 
     const body = JSON.parse(event.body || "{}");
 
     const username = safeString(body.username);
-    const password = safeString(body.password);
+    const password = String(body.password || "");
     const deviceId = safeString(body.deviceId);
 
-    const adminUser = process.env.ADMIN_USERNAME || "admin";
+    const adminUser = process.env.ADMIN_USERNAME || "";
     const adminPass = process.env.ADMIN_PASSWORD || "";
+    const jwtSecret = process.env.JWT_SECRET || "";
+
     const legacyGuestUser = process.env.GUEST_USERNAME || "";
     const legacyGuestPass = process.env.GUEST_PASSWORD || "";
+
+    if (!jwtSecret) {
+      return json(500, {
+        ok: false,
+        error: "Missing JWT_SECRET in Netlify environment variables",
+      });
+    }
+
+    if (!adminUser || !adminPass) {
+      return json(500, {
+        ok: false,
+        error: "Missing ADMIN_USERNAME or ADMIN_PASSWORD in Netlify environment variables",
+      });
+    }
 
     let auth = null;
 
@@ -139,7 +216,7 @@ exports.handler = async function (event) {
     } else {
       auth = await handleStoredGuestLogin(username, password, deviceId);
 
-      if (!auth && legacyGuestUser && username === legacyGuestUser && password === legacyGuestPass) {
+      if (!auth && legacyGuestUser && legacyGuestPass && username === legacyGuestUser && password === legacyGuestPass) {
         auth = {
           ok: true,
           role: "guest",
@@ -165,7 +242,10 @@ exports.handler = async function (event) {
       if (auth.unlimited) {
         expiresIn = 60 * 60 * 24 * 3650;
       } else if (auth.expiresAt) {
-        expiresIn = Math.max(60, Math.floor((new Date(auth.expiresAt).getTime() - Date.now()) / 1000));
+        expiresIn = Math.max(
+          60,
+          Math.floor((new Date(auth.expiresAt).getTime() - Date.now()) / 1000)
+        );
       }
     }
 
@@ -177,8 +257,13 @@ exports.handler = async function (event) {
       exp: now + expiresIn,
     };
 
-    if (auth.tokenId) sessionPayload.tokenId = auth.tokenId;
-    if (auth.username) sessionPayload.username = auth.username;
+    if (auth.tokenId) {
+      sessionPayload.tokenId = auth.tokenId;
+    }
+
+    if (auth.username) {
+      sessionPayload.username = auth.username;
+    }
 
     const sessionToken = signSession(sessionPayload);
 
