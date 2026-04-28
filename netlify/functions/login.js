@@ -176,16 +176,16 @@ exports.handler = async function (event) {
 
     const body = JSON.parse(event.body || "{}");
 
-    const username = safeString(body.username);
-    const password = String(body.password || "");
+    const username = String(body.username || "").trim();
+    const password = String(body.password || "").trim();
     const deviceId = safeString(body.deviceId);
 
-    const adminUser = process.env.ADMIN_USERNAME || "";
-    const adminPass = process.env.ADMIN_PASSWORD || "";
-    const jwtSecret = process.env.JWT_SECRET || "";
+    const adminUser = String(process.env.ADMIN_USERNAME || "").trim();
+    const adminPass = String(process.env.ADMIN_PASSWORD || "").trim();
+    const jwtSecret = String(process.env.JWT_SECRET || "").trim();
 
-    const legacyGuestUser = process.env.GUEST_USERNAME || "";
-    const legacyGuestPass = process.env.GUEST_PASSWORD || "";
+    const legacyGuestUser = String(process.env.GUEST_USERNAME || "").trim();
+    const legacyGuestPass = String(process.env.GUEST_PASSWORD || "").trim();
 
     if (!jwtSecret) {
       return json(500, {
@@ -203,24 +203,36 @@ exports.handler = async function (event) {
 
     let auth = null;
 
+    const usernameMatchesAdmin =
+      username.toLowerCase() === adminUser.toLowerCase();
+
+    const passwordMatchesAdmin =
+      password === adminPass;
+
     if (username === "__token__") {
       auth = await handleTokenLogin(password, deviceId);
-    } else if (username === adminUser && password === adminPass) {
+    } else if (usernameMatchesAdmin && passwordMatchesAdmin) {
       auth = {
         ok: true,
         role: "admin",
-        subject: username,
+        subject: adminUser,
         accessType: "admin",
         unlimited: false,
       };
     } else {
-      auth = await handleStoredGuestLogin(username, password, deviceId);
+      auth = await handleStoredGuestLogin(username.toLowerCase(), password, deviceId);
 
-      if (!auth && legacyGuestUser && legacyGuestPass && username === legacyGuestUser && password === legacyGuestPass) {
+      if (
+        !auth &&
+        legacyGuestUser &&
+        legacyGuestPass &&
+        username.toLowerCase() === legacyGuestUser.toLowerCase() &&
+        password === legacyGuestPass
+      ) {
         auth = {
           ok: true,
           role: "guest",
-          subject: username,
+          subject: legacyGuestUser,
           accessType: "legacyGuest",
           unlimited: false,
         };
@@ -228,9 +240,17 @@ exports.handler = async function (event) {
     }
 
     if (!auth || !auth.ok) {
+      const debugHint = {
+        typedUsernameLength: username.length,
+        adminUsernameLength: adminUser.length,
+        usernameMatchedAdmin: usernameMatchesAdmin,
+        passwordLengthMatchedAdmin: password.length === adminPass.length,
+      };
+
       return json(auth?.status || 401, {
         ok: false,
         error: auth?.error || "Invalid login",
+        hint: debugHint,
       });
     }
 
