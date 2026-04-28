@@ -1,11 +1,22 @@
-/access              /access.html  200
-/login               /login.html   200
-/dashboard           /dashboard.html 200
-/admin               /admin.html 200
-/flight              /flight.html 200
-/database            /database.html 200
+/                 /login.html  200
+/login            /login.html  200
+/access           /access.html 200
 
-/api/login           /.netlify/functions/login 200
-/api/logout          /.netlify/functions/logout 200
-/api/session         /.netlify/functions/session 200
-/api/make-token      /.netlify/functions/make-token 200
+/dashboard        /dashboard.html 200
+/admin            /admin.html 200
+/flight           /flight.html 200
+/database         /database.html 200
+
+/api/login                  /.netlify/functions/login 200
+/api/logout                 /.netlify/functions/logout 200
+/api/session                /.netlify/functions/session 200
+/api/make-token             /.netlify/functions/make-token 200
+/api/list-access            /.netlify/functions/list-access 200
+/api/revoke-token           /.netlify/functions/revoke-token 200
+/api/reset-token-device     /.netlify/functions/reset-token-device 200
+/api/delete-token           /.netlify/functions/delete-token 200
+/api/create-guest           /.netlify/functions/create-guest 200
+/api/list-guests            /.netlify/functions/list-guests 200
+/api/disable-guest          /.netlify/functions/disable-guest 200
+/api/reset-guest-device     /.netlify/functions/reset-guest-device 200
+/api/delete-guest           /.netlify/functions/delete-guest 200
