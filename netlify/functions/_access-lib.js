@@ -1,14 +1,21 @@
 const crypto = require("crypto");
-const { getStore } = require("@netlify/blobs");
 
 const COOKIE_NAME = "railops_session";
 const STORE_NAME = "railops-access";
 
-function accessStore() {
-  return getStore({
+let cachedStore = null;
+
+async function accessStore() {
+  if (cachedStore) return cachedStore;
+
+  const blobs = await import("@netlify/blobs");
+
+  cachedStore = blobs.getStore({
     name: STORE_NAME,
     consistency: "strong",
   });
+
+  return cachedStore;
 }
 
 function nowISO() {
@@ -59,11 +66,16 @@ function verifyPassword(password, storedHash) {
   if (!storedHash || !storedHash.includes(":")) return false;
 
   const [salt, expected] = storedHash.split(":");
+
   const actual = crypto
     .pbkdf2Sync(String(password), salt, 120000, 64, "sha512")
     .toString("hex");
 
-  return crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
+  try {
+    return crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
+  } catch {
+    return false;
+  }
 }
 
 function base64url(input) {
@@ -76,7 +88,10 @@ function base64url(input) {
 
 function signSession(payload) {
   const secret = process.env.JWT_SECRET || "";
-  if (!secret) throw new Error("Missing JWT_SECRET");
+
+  if (!secret) {
+    throw new Error("Missing JWT_SECRET");
+  }
 
   const encodedPayload = base64url(JSON.stringify(payload));
 
@@ -93,6 +108,7 @@ function signSession(payload) {
 
 function verifySessionToken(token) {
   const secret = process.env.JWT_SECRET || "";
+
   if (!secret || !token) return null;
 
   const parts = token.split(".");
@@ -111,8 +127,12 @@ function verifySessionToken(token) {
   if (signature !== expected) return null;
 
   try {
-    const payload = JSON.parse(Buffer.from(encodedPayload, "base64").toString("utf8"));
+    const payload = JSON.parse(
+      Buffer.from(encodedPayload, "base64").toString("utf8")
+    );
+
     if (!payload.exp || payload.exp < nowSeconds()) return null;
+
     return payload;
   } catch {
     return null;
@@ -120,7 +140,9 @@ function verifySessionToken(token) {
 }
 
 function getCookie(header, name) {
-  const cookies = String(header || "").split(";").map(v => v.trim());
+  const cookies = String(header || "")
+    .split(";")
+    .map((v) => v.trim());
 
   for (const cookie of cookies) {
     if (cookie.startsWith(`${name}=`)) {
@@ -132,7 +154,11 @@ function getCookie(header, name) {
 }
 
 function getSessionFromEvent(event) {
-  const token = getCookie(event.headers.cookie || event.headers.Cookie || "", COOKIE_NAME);
+  const token = getCookie(
+    event.headers.cookie || event.headers.Cookie || "",
+    COOKIE_NAME
+  );
+
   return verifySessionToken(token);
 }
 
@@ -150,22 +176,23 @@ function clearSessionCookie() {
 }
 
 async function readJSON(key) {
-  const store = accessStore();
-
   try {
+    const store = await accessStore();
+
     const value = await store.get(key, {
       type: "json",
       consistency: "strong",
     });
 
     return value || null;
-  } catch {
+  } catch (err) {
+    console.error("readJSON failed:", key, err);
     return null;
   }
 }
 
 async function writeJSON(key, value) {
-  const store = accessStore();
+  const store = await accessStore();
 
   await store.setJSON(key, value, {
     consistency: "strong",
@@ -175,13 +202,17 @@ async function writeJSON(key, value) {
 }
 
 async function deleteKey(key) {
-  const store = accessStore();
+  const store = await accessStore();
   await store.delete(key);
 }
 
 async function listJSON(prefix) {
-  const store = accessStore();
-  const result = await store.list({ prefix });
+  const store = await accessStore();
+
+  const result = await store.list({
+    prefix,
+  });
+
   const blobs = result.blobs || [];
   const items = [];
 
@@ -198,13 +229,14 @@ function tokenKey(id) {
 }
 
 function guestKey(username) {
-  return `guests/${username.toLowerCase()}`;
+  return `guests/${String(username || "").toLowerCase()}`;
 }
 
 function isExpired(record) {
   if (!record) return true;
   if (record.unlimited) return false;
   if (!record.expiresAt) return false;
+
   return new Date(record.expiresAt).getTime() < Date.now();
 }
 
@@ -212,7 +244,10 @@ function expiryFromDays(days, unlimited) {
   if (unlimited) return null;
 
   const safeDays = Math.max(1, Math.min(Number(days || 7), 3650));
-  return new Date(Date.now() + safeDays * 24 * 60 * 60 * 1000).toISOString();
+
+  return new Date(
+    Date.now() + safeDays * 24 * 60 * 60 * 1000
+  ).toISOString();
 }
 
 function publicToken(record) {
@@ -256,17 +291,27 @@ function publicGuest(record) {
 async function sessionStillAllowed(session) {
   if (!session) return false;
 
-  if (session.accessType === "admin") return true;
+  if (session.accessType === "admin") {
+    return true;
+  }
 
   if (session.accessType === "token") {
     const token = await readJSON(tokenKey(session.tokenId));
-    if (!token || token.revoked || isExpired(token)) return false;
+
+    if (!token || token.revoked || isExpired(token)) {
+      return false;
+    }
+
     return true;
   }
 
   if (session.accessType === "guest") {
     const guest = await readJSON(guestKey(session.username));
-    if (!guest || guest.disabled || isExpired(guest)) return false;
+
+    if (!guest || guest.disabled || isExpired(guest)) {
+      return false;
+    }
+
     return true;
   }
 
