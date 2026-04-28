@@ -12,21 +12,40 @@
 <body class="login-page">
   <main class="login-card">
     <div class="logo">🚂</div>
+
     <h1>Grahame’s RailOps</h1>
-    <p class="subtitle">Private train, flight and database tracker</p>
+
+    <p class="subtitle">
+      Private train, flight and database tracker
+    </p>
 
     <form id="loginForm">
-      <label>Username</label>
-      <input id="username" autocomplete="username" required />
+      <label for="username">Username</label>
+      <input
+        id="username"
+        name="username"
+        autocomplete="username"
+        autocapitalize="none"
+        spellcheck="false"
+        required
+      />
 
-      <label>Password</label>
-      <input id="password" type="password" autocomplete="current-password" required />
+      <label for="password">Password</label>
+      <input
+        id="password"
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      />
 
       <button type="submit">Login</button>
     </form>
 
     <p id="message" class="message"></p>
   </main>
+
+  <script src="app-auth.js"></script>
 
   <script>
     const form = document.getElementById("loginForm");
@@ -38,7 +57,12 @@
       message.textContent = "Logging in...";
 
       const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value.trim();
+      const password = document.getElementById("password").value;
+
+      if (!username || !password) {
+        message.textContent = "Enter username and password.";
+        return;
+      }
 
       try {
         const res = await fetch("/api/login", {
@@ -46,19 +70,31 @@
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ username, password }),
+          cache: "no-store",
+          body: JSON.stringify({
+            username,
+            password,
+            deviceId: railopsGetDeviceId(),
+          }),
         });
 
-        const data = await res.json();
+        let data = null;
+
+        try {
+          data = await res.json();
+        } catch {
+          message.textContent = "Login failed. Server did not return JSON.";
+          return;
+        }
 
         if (!res.ok || !data.ok) {
-          message.textContent = data.error || "Invalid login";
+          message.textContent = data.error || "Invalid login.";
           return;
         }
 
         window.location.href = data.redirect || "/dashboard.html";
       } catch (err) {
-        message.textContent = "Login failed. Check internet or Netlify function.";
+        message.textContent = "Login failed. Check your Netlify functions.";
       }
     });
   </script>
