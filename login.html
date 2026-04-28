@@ -43,6 +43,11 @@
     </form>
 
     <p id="message" class="message"></p>
+
+    <pre
+      id="debugBox"
+      style="display:none;white-space:pre-wrap;background:#02101f;border:1px solid #2a4a7a;border-radius:12px;padding:12px;margin-top:16px;color:#cfe2ff;font-size:12px;text-align:left;overflow:auto;"
+    ></pre>
   </main>
 
   <script src="app-auth.js"></script>
@@ -50,14 +55,22 @@
   <script>
     const form = document.getElementById("loginForm");
     const message = document.getElementById("message");
+    const debugBox = document.getElementById("debugBox");
+
+    function showDebug(data) {
+      debugBox.style.display = "block";
+      debugBox.textContent = JSON.stringify(data, null, 2);
+    }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
       message.textContent = "Logging in...";
+      debugBox.style.display = "none";
+      debugBox.textContent = "";
 
       const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value;
+      const password = document.getElementById("password").value.trim();
 
       if (!username || !password) {
         message.textContent = "Enter username and password.";
@@ -84,17 +97,27 @@
           data = await res.json();
         } catch {
           message.textContent = "Login failed. Server did not return JSON.";
+          showDebug({
+            status: res.status,
+            statusText: res.statusText,
+            problem: "The function did not return JSON. Check Netlify deploy/function logs."
+          });
           return;
         }
 
         if (!res.ok || !data.ok) {
           message.textContent = data.error || "Invalid login.";
+          showDebug(data);
           return;
         }
 
+        message.textContent = "Login successful. Redirecting...";
         window.location.href = data.redirect || "/dashboard.html";
       } catch (err) {
         message.textContent = "Login failed. Check your Netlify functions.";
+        showDebug({
+          error: String(err.message || err)
+        });
       }
     });
   </script>
