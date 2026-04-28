@@ -7,6 +7,124 @@
   <title>Grahame’s RailOps Admin</title>
 
   <link rel="stylesheet" href="styles.css" />
+
+  <style>
+    .access-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 14px;
+      font-size: 14px;
+    }
+
+    .access-table th,
+    .access-table td {
+      border-bottom: 1px solid rgba(120, 190, 255, 0.2);
+      padding: 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    .access-table th {
+      color: #9ab0d0;
+      font-size: 12px;
+      text-transform: uppercase;
+    }
+
+    .access-actions {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .access-actions button {
+      margin-top: 0;
+      padding: 7px 9px;
+      font-size: 12px;
+      border-radius: 10px;
+    }
+
+    .danger-btn {
+      background: #b42318 !important;
+    }
+
+    .warn-btn {
+      background: #946200 !important;
+    }
+
+    .ok-pill,
+    .bad-pill,
+    .warn-pill {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+
+    .ok-pill {
+      background: rgba(0, 140, 70, 0.35);
+      color: #9ff0bc;
+    }
+
+    .bad-pill {
+      background: rgba(180, 35, 24, 0.35);
+      color: #ffb3ad;
+    }
+
+    .warn-pill {
+      background: rgba(148, 98, 0, 0.35);
+      color: #ffd47a;
+    }
+
+    .two-col-form {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    .copy-box {
+      width: 100%;
+      min-height: 90px;
+      margin-top: 12px;
+    }
+
+    @media (max-width: 800px) {
+      .access-table,
+      .access-table thead,
+      .access-table tbody,
+      .access-table th,
+      .access-table td,
+      .access-table tr {
+        display: block;
+      }
+
+      .access-table thead {
+        display: none;
+      }
+
+      .access-table tr {
+        border: 1px solid rgba(120, 190, 255, 0.2);
+        border-radius: 14px;
+        margin-bottom: 12px;
+        padding: 8px;
+      }
+
+      .access-table td {
+        border: 0;
+        padding: 6px;
+      }
+
+      .access-table td::before {
+        content: attr(data-label) ": ";
+        color: #9ab0d0;
+        font-weight: bold;
+      }
+    }
+  </style>
 </head>
 
 <body class="admin-page">
@@ -23,10 +141,6 @@
     <section class="panel">
       <h2>Admin Console</h2>
 
-      <p>
-        This page is admin-only.
-      </p>
-
       <div class="button-row">
         <a class="button-link" href="/dashboard.html">Open Train Dashboard</a>
         <a class="button-link" href="/flight.html">Open Flight Tracker</a>
@@ -37,27 +151,85 @@
     <section class="panel">
       <h2>Create Guest Token</h2>
 
-      <p class="small-note">
-        This creates a guest access link like
-        <strong>/access?token=...</strong>
-      </p>
+      <div class="two-col-form">
+        <div>
+          <label for="tokenLabel">Token label</label>
+          <input id="tokenLabel" value="guest-token" />
+        </div>
 
-      <label for="tokenLabel">Guest label</label>
-      <input id="tokenLabel" value="guest" />
+        <div>
+          <label for="tokenDays">Expires in days</label>
+          <input id="tokenDays" type="number" value="7" min="1" max="3650" />
+        </div>
 
-      <label for="tokenDays">Expires in days</label>
-      <input id="tokenDays" type="number" value="7" min="1" max="3650" />
+        <label>
+          <input id="tokenUnlimited" type="checkbox" style="width:auto;" />
+          Unlimited
+        </label>
 
-      <label style="display:flex;align-items:center;gap:10px;margin-top:14px;">
-        <input id="tokenUnlimited" type="checkbox" style="width:auto;" />
-        Unlimited token
-      </label>
+        <label>
+          <input id="tokenDeviceLocked" type="checkbox" checked style="width:auto;" />
+          One device only
+        </label>
+      </div>
 
       <button onclick="makeToken()">Generate Guest Link</button>
 
-      <textarea id="tokenOutput" readonly placeholder="Guest link will appear here"></textarea>
+      <textarea id="tokenOutput" class="copy-box" readonly placeholder="Guest link will appear here"></textarea>
+    </section>
+
+    <section class="panel">
+      <h2>Create Guest Login</h2>
+
+      <div class="two-col-form">
+        <div>
+          <label for="guestUsername">Username</label>
+          <input id="guestUsername" placeholder="guest-georgia" />
+        </div>
+
+        <div>
+          <label for="guestPassword">Password</label>
+          <input id="guestPassword" placeholder="guest password" />
+        </div>
+
+        <div>
+          <label for="guestLabel">Label</label>
+          <input id="guestLabel" placeholder="Georgia guest" />
+        </div>
+
+        <div>
+          <label for="guestDays">Expires in days</label>
+          <input id="guestDays" type="number" value="30" min="1" max="3650" />
+        </div>
+
+        <label>
+          <input id="guestUnlimited" type="checkbox" style="width:auto;" />
+          Unlimited
+        </label>
+
+        <label>
+          <input id="guestDeviceLocked" type="checkbox" checked style="width:auto;" />
+          One device only
+        </label>
+      </div>
+
+      <button onclick="createGuest()">Create Guest Login</button>
+
+      <p id="guestCreateMessage" class="small-note"></p>
     </section>
   </main>
+
+  <section class="panel">
+    <h2>Guest Tokens</h2>
+    <button onclick="loadTokens()">Refresh Tokens</button>
+    <div id="tokensWrap"></div>
+  </section>
+
+  <section class="panel">
+    <h2>Guest Logins</h2>
+    <button onclick="loadGuests()">Refresh Guests</button>
+    <div id="guestsWrap"></div>
+  </section>
 
   <script src="app-auth.js"></script>
 
@@ -66,70 +238,259 @@
 
     const tokenUnlimited = document.getElementById("tokenUnlimited");
     const tokenDays = document.getElementById("tokenDays");
+    const guestUnlimited = document.getElementById("guestUnlimited");
+    const guestDays = document.getElementById("guestDays");
 
     tokenUnlimited.addEventListener("change", () => {
       tokenDays.disabled = tokenUnlimited.checked;
-
-      if (tokenUnlimited.checked) {
-        tokenDays.style.opacity = "0.45";
-      } else {
-        tokenDays.style.opacity = "1";
-      }
+      tokenDays.style.opacity = tokenUnlimited.checked ? "0.45" : "1";
     });
 
-    async function makeToken() {
-      const labelInput = document.getElementById("tokenLabel");
-      const output = document.getElementById("tokenOutput");
+    guestUnlimited.addEventListener("change", () => {
+      guestDays.disabled = guestUnlimited.checked;
+      guestDays.style.opacity = guestUnlimited.checked ? "0.45" : "1";
+    });
 
-      const label = labelInput.value.trim() || "guest";
-      const days = Number(tokenDays.value || 7);
-      const unlimited = tokenUnlimited.checked;
+    function statusPill(status) {
+      if (status === "active") return `<span class="ok-pill">Active</span>`;
+      if (status === "expired") return `<span class="warn-pill">Expired</span>`;
+      return `<span class="bad-pill">${escapeHtml(status)}</span>`;
+    }
+
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function fmtDate(value) {
+      if (!value) return "Unlimited";
+      try {
+        return new Date(value).toLocaleString("en-AU");
+      } catch {
+        return value;
+      }
+    }
+
+    async function apiPost(url, body) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify(body || {}),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Request failed");
+      }
+
+      return data;
+    }
+
+    async function apiGet(url) {
+      const res = await fetch(url, {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Request failed");
+      }
+
+      return data;
+    }
+
+    async function makeToken() {
+      const output = document.getElementById("tokenOutput");
 
       output.value = "Generating guest link...";
 
       try {
-        const res = await fetch("/api/make-token", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          cache: "no-store",
-          body: JSON.stringify({
-            label,
-            days,
-            unlimited,
-          }),
+        const data = await apiPost("/api/make-token", {
+          label: document.getElementById("tokenLabel").value.trim() || "guest-token",
+          days: Number(document.getElementById("tokenDays").value || 7),
+          unlimited: document.getElementById("tokenUnlimited").checked,
+          deviceLocked: document.getElementById("tokenDeviceLocked").checked,
         });
-
-        let data = null;
-
-        try {
-          data = await res.json();
-        } catch (jsonErr) {
-          output.value = "Failed to read server response.";
-          return;
-        }
-
-        if (!res.ok || !data.ok) {
-          output.value = data.error || "Failed to create guest token.";
-          return;
-        }
 
         const fullUrl = `${window.location.origin}${data.accessUrl}`;
 
-        if (data.unlimited) {
-          output.value = `${fullUrl}\n\nExpires: Unlimited`;
-        } else {
-          const expiryDate = data.expires
-            ? new Date(data.expires * 1000).toLocaleString("en-AU")
-            : "Unknown";
+        output.value =
+          `${fullUrl}\n\n` +
+          `Label: ${data.record.label}\n` +
+          `Expiry: ${data.record.unlimited ? "Unlimited" : fmtDate(data.record.expiresAt)}\n` +
+          `One device only: ${data.record.deviceLocked ? "Yes" : "No"}`;
 
-          output.value = `${fullUrl}\n\nExpires in: ${data.days} day(s)\nExpiry date: ${expiryDate}`;
-        }
+        await loadTokens();
       } catch (err) {
-        output.value = "Failed to create guest token.";
+        output.value = err.message;
       }
     }
+
+    async function createGuest() {
+      const msg = document.getElementById("guestCreateMessage");
+      msg.textContent = "Creating guest login...";
+
+      try {
+        await apiPost("/api/create-guest", {
+          username: document.getElementById("guestUsername").value.trim(),
+          password: document.getElementById("guestPassword").value,
+          label: document.getElementById("guestLabel").value.trim(),
+          days: Number(document.getElementById("guestDays").value || 30),
+          unlimited: document.getElementById("guestUnlimited").checked,
+          deviceLocked: document.getElementById("guestDeviceLocked").checked,
+        });
+
+        msg.textContent = "Guest login created.";
+        document.getElementById("guestPassword").value = "";
+        await loadGuests();
+      } catch (err) {
+        msg.textContent = err.message;
+      }
+    }
+
+    async function loadTokens() {
+      const wrap = document.getElementById("tokensWrap");
+      wrap.innerHTML = "<p>Loading tokens...</p>";
+
+      try {
+        const data = await apiGet("/api/list-access");
+        const tokens = data.tokens || [];
+
+        if (!tokens.length) {
+          wrap.innerHTML = "<p>No guest tokens yet.</p>";
+          return;
+        }
+
+        wrap.innerHTML = `
+          <table class="access-table">
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Status</th>
+                <th>Expiry</th>
+                <th>Device</th>
+                <th>Last Used</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tokens.map(t => `
+                <tr>
+                  <td data-label="Label">${escapeHtml(t.label)}<br><small>${escapeHtml(t.id)}</small></td>
+                  <td data-label="Status">${statusPill(t.status)}</td>
+                  <td data-label="Expiry">${escapeHtml(fmtDate(t.expiresAt))}</td>
+                  <td data-label="Device">${t.deviceLocked ? (t.hasDevice ? "Locked" : "Waiting first device") : "Not locked"}</td>
+                  <td data-label="Last Used">${escapeHtml(fmtDate(t.lastUsedAt || ""))}</td>
+                  <td data-label="Actions">
+                    <div class="access-actions">
+                      <button class="warn-btn" onclick="revokeToken('${escapeHtml(t.id)}', ${t.status === "revoked" ? "false" : "true"})">${t.status === "revoked" ? "Unrevoke" : "Revoke"}</button>
+                      <button onclick="resetTokenDevice('${escapeHtml(t.id)}')">Reset Device</button>
+                      <button class="danger-btn" onclick="deleteToken('${escapeHtml(t.id)}')">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        wrap.innerHTML = `<p>${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    async function loadGuests() {
+      const wrap = document.getElementById("guestsWrap");
+      wrap.innerHTML = "<p>Loading guests...</p>";
+
+      try {
+        const data = await apiGet("/api/list-guests");
+        const guests = data.guests || [];
+
+        if (!guests.length) {
+          wrap.innerHTML = "<p>No guest logins yet.</p>";
+          return;
+        }
+
+        wrap.innerHTML = `
+          <table class="access-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Status</th>
+                <th>Expiry</th>
+                <th>Device</th>
+                <th>Last Used</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${guests.map(g => `
+                <tr>
+                  <td data-label="Username">${escapeHtml(g.username)}<br><small>${escapeHtml(g.label || "")}</small></td>
+                  <td data-label="Status">${statusPill(g.status)}</td>
+                  <td data-label="Expiry">${escapeHtml(fmtDate(g.expiresAt))}</td>
+                  <td data-label="Device">${g.deviceLocked ? (g.hasDevice ? "Locked" : "Waiting first device") : "Not locked"}</td>
+                  <td data-label="Last Used">${escapeHtml(fmtDate(g.lastUsedAt || ""))}</td>
+                  <td data-label="Actions">
+                    <div class="access-actions">
+                      <button class="warn-btn" onclick="disableGuest('${escapeHtml(g.username)}', ${g.status === "disabled" ? "false" : "true"})">${g.status === "disabled" ? "Enable" : "Disable"}</button>
+                      <button onclick="resetGuestDevice('${escapeHtml(g.username)}')">Reset Device</button>
+                      <button class="danger-btn" onclick="deleteGuest('${escapeHtml(g.username)}')">Delete</button>
+                    </div>
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      } catch (err) {
+        wrap.innerHTML = `<p>${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    async function revokeToken(id, revoked) {
+      await apiPost("/api/revoke-token", { id, revoked });
+      await loadTokens();
+    }
+
+    async function resetTokenDevice(id) {
+      await apiPost("/api/reset-token-device", { id });
+      await loadTokens();
+    }
+
+    async function deleteToken(id) {
+      if (!confirm("Delete this token permanently?")) return;
+      await apiPost("/api/delete-token", { id });
+      await loadTokens();
+    }
+
+    async function disableGuest(username, disabled) {
+      await apiPost("/api/disable-guest", { username, disabled });
+      await loadGuests();
+    }
+
+    async function resetGuestDevice(username) {
+      await apiPost("/api/reset-guest-device", { username });
+      await loadGuests();
+    }
+
+    async function deleteGuest(username) {
+      if (!confirm("Delete this guest login permanently?")) return;
+      await apiPost("/api/delete-guest", { username });
+      await loadGuests();
+    }
+
+    loadTokens();
+    loadGuests();
   </script>
 </body>
 </html>
