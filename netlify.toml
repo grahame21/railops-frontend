@@ -1,6 +1,10 @@
 [build]
   publish = "."
   functions = "netlify/functions"
+  command = "npm install"
+
+[functions]
+  node_bundler = "esbuild"
 
 [[edge_functions]]
   path = "/dashboard.html"
@@ -19,9 +23,17 @@
   function = "protect"
 
 [[edge_functions]]
-  path = "/static/*"
+  path = "/dashboard"
   function = "protect"
 
 [[edge_functions]]
-  path = "/assets/*"
+  path = "/admin"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/flight"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/database"
   function = "protect"
