@@ -1,667 +1,465 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Grahame’s RailOps Admin</title>
-
   <style>
-    :root {
-      color-scheme: dark;
-      --bg: #071222;
-      --panel: #102039;
-      --panel2: #0d1a2f;
-      --line: #274569;
-      --text: #eaf2ff;
-      --muted: #9fb3d3;
-      --accent: #238cff;
-      --good: #17c964;
-      --danger: #ff5a6b;
-      --warn: #ffd166;
-      --input: #081426;
-      --pill: #123f68;
+    :root{
+      --bg:#041326;
+      --panel:#071b34;
+      --panel2:#0b2342;
+      --line:#1d4577;
+      --text:#eaf3ff;
+      --muted:#a9bfdc;
+      --blue:#2f8fff;
+      --blue2:#67b2ff;
+      --green:#2ca86a;
+      --green2:#1f7f50;
+      --shadow:0 10px 30px rgba(0,0,0,.28);
+      --radius:24px;
     }
 
-    * {
-      box-sizing: border-box;
+    *{box-sizing:border-box}
+    html,body{
+      margin:0;
+      padding:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(circle at top, #0a2b54 0%, #041326 45%, #020b16 100%);
+      color:var(--text);
+      min-height:100%;
     }
 
-    html,
-    body {
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    a{color:inherit;text-decoration:none}
+
+    .wrap{
+      width:min(1180px, calc(100% - 28px));
+      margin:18px auto 40px auto;
     }
 
-    body {
-      padding-bottom: 40px;
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:18px;
+      background:rgba(3,15,30,.78);
+      border:1px solid rgba(111,168,255,.22);
+      border-radius:28px;
+      padding:22px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
     }
 
-    .topbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      padding: 22px 24px;
-      border-bottom: 1px solid var(--line);
-      background: rgba(3, 14, 28, 0.92);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      backdrop-filter: blur(10px);
+    .brand{
+      display:flex;
+      align-items:flex-start;
+      gap:16px;
+      min-width:0;
     }
 
-    .brand h1 {
-      margin: 0;
-      font-size: 30px;
-      line-height: 1.08;
-      letter-spacing: -0.02em;
+    .brand-icon{
+      font-size:44px;
+      line-height:1;
+      margin-top:4px;
     }
 
-    .brand .sub {
-      color: var(--muted);
-      font-size: 15px;
-      margin-top: 4px;
+    .brand h1{
+      margin:0;
+      font-size:clamp(28px,4vw,54px);
+      line-height:1.02;
+      font-weight:800;
+      letter-spacing:-.03em;
     }
 
-    .user-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      color: var(--text);
-      font-size: 17px;
+    .brand p{
+      margin:10px 0 0 0;
+      color:var(--muted);
+      font-size:clamp(15px,2vw,20px);
+      line-height:1.35;
     }
 
-    .logout {
-      display: inline-block;
-      text-decoration: none;
-      color: white;
-      background: var(--accent);
-      border-radius: 14px;
-      padding: 12px 18px;
-      font-weight: 800;
+    .userbox{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:flex-end;
+      min-width:250px;
     }
 
-    .wrap {
-      width: min(1100px, calc(100% - 28px));
-      margin: 24px auto 0;
+    .user-meta{
+      text-align:right;
+      color:var(--text);
+      font-size:clamp(16px,2vw,22px);
+      line-height:1.35;
     }
 
-    .card {
-      background: linear-gradient(180deg, var(--panel), var(--panel2));
-      border: 1px solid var(--line);
-      border-radius: 22px;
-      padding: 24px;
-      margin-bottom: 22px;
-      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.25);
+    .user-meta .small{
+      color:var(--muted);
+      font-size:14px;
+      margin-top:4px;
     }
 
-    .card h2 {
-      margin: 0 0 18px;
-      font-size: 30px;
-      line-height: 1.1;
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:60px;
+      padding:14px 22px;
+      border-radius:20px;
+      border:1px solid rgba(111,168,255,.28);
+      background:linear-gradient(180deg, var(--blue), #2380ee);
+      color:#fff;
+      font-weight:800;
+      font-size:18px;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(47,143,255,.22);
+      transition:transform .14s ease, opacity .14s ease, filter .14s ease;
+      text-align:center;
     }
 
-    .muted {
-      color: var(--muted);
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
+    .btn:active{transform:translateY(0)}
+    .btn.secondary{
+      background:rgba(0,0,0,.18);
+      box-shadow:none;
+      border:1px solid rgba(111,168,255,.30);
+      color:var(--text);
+    }
+    .btn.green{
+      background:linear-gradient(180deg, var(--green), var(--green2));
+      box-shadow:0 10px 24px rgba(44,168,106,.22);
+      border-color:rgba(104,221,157,.25);
     }
 
-    .section-note {
-      color: var(--muted);
-      line-height: 1.45;
-      margin: -6px 0 16px;
-      font-size: 16px;
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+      margin-top:20px;
     }
 
-    .admin-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 14px;
-      align-items: center;
+    .card{
+      background:rgba(8,25,46,.88);
+      border:1px solid rgba(111,168,255,.20);
+      border-radius:28px;
+      padding:24px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
     }
 
-    .btn,
-    button.btn {
-      display: inline-block;
-      appearance: none;
-      border: 0;
-      text-decoration: none;
-      color: white;
-      background: var(--accent);
-      border-radius: 15px;
-      padding: 14px 20px;
-      font-size: 18px;
-      font-weight: 850;
-      cursor: pointer;
-      line-height: 1.15;
-      box-shadow: 0 8px 18px rgba(35, 140, 255, 0.18);
+    .card h2{
+      margin:0 0 10px 0;
+      font-size:clamp(28px,3vw,44px);
+      letter-spacing:-.03em;
     }
 
-    .btn:hover {
-      filter: brightness(1.06);
+    .card p{
+      margin:0 0 20px 0;
+      color:var(--muted);
+      line-height:1.45;
+      font-size:clamp(16px,2vw,20px);
     }
 
-    .btn.secondary {
-      background: var(--input);
-      color: var(--text);
-      border: 1px solid var(--line);
-      box-shadow: none;
+    .button-stack{
+      display:grid;
+      gap:14px;
     }
 
-    .btn.good {
-      background: #0f8f55;
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(2, minmax(0,1fr));
+      gap:14px;
     }
 
-    .btn.warn {
-      background: #a77800;
+    .mini{
+      background:rgba(10,34,63,.85);
+      border:1px solid rgba(111,168,255,.18);
+      border-radius:20px;
+      padding:16px;
     }
 
-    .btn.danger {
-      background: #b4233a;
+    .mini .label{
+      color:var(--muted);
+      font-size:13px;
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      margin-bottom:6px;
     }
 
-    label {
-      display: block;
-      margin: 14px 0 8px;
-      color: var(--muted);
-      font-weight: 800;
-      font-size: 16px;
+    .mini .value{
+      font-size:24px;
+      font-weight:800;
+      line-height:1.1;
+      word-break:break-word;
     }
 
-    input,
-    select {
-      width: 100%;
-      background: var(--input);
-      color: var(--text);
-      border: 1px solid var(--line);
-      border-radius: 15px;
-      padding: 14px;
-      font-size: 17px;
-      outline: none;
+    .link-list{
+      display:grid;
+      gap:12px;
     }
 
-    input[type="checkbox"] {
-      width: 28px;
-      height: 28px;
-      vertical-align: middle;
-      margin-right: 10px;
-      accent-color: var(--accent);
+    .small-btn{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px 16px;
+      background:rgba(10,34,63,.75);
+      border:1px solid rgba(111,168,255,.18);
+      border-radius:18px;
+      color:var(--text);
+      font-weight:700;
+      cursor:pointer;
+      transition:transform .14s ease, background .14s ease;
     }
 
-    .check-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 16px;
-      font-weight: 800;
-      color: var(--text);
-      font-size: 18px;
+    .small-btn:hover{
+      transform:translateY(-1px);
+      background:rgba(14,40,74,.95);
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 14px;
+    .footer-note{
+      margin-top:18px;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
     }
 
-    .flash {
-      border: 1px solid var(--line);
-      border-radius: 16px;
-      padding: 14px 16px;
-      margin-bottom: 16px;
-      background: #081426;
-    }
-
-    .flash.success {
-      border-color: #1f8f5f;
-      background: rgba(23, 201, 100, 0.10);
-    }
-
-    .flash.error {
-      border-color: #b4233a;
-      background: rgba(255, 90, 107, 0.10);
-    }
-
-    .pill-row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin: 8px 0 14px;
-    }
-
-    .pill {
-      display: inline-block;
-      background: var(--pill);
-      border: 1px solid #28557f;
-      color: var(--text);
-      border-radius: 999px;
-      padding: 8px 12px;
-      font-size: 14px;
-      font-weight: 800;
-    }
-
-    .pill.good {
-      background: #113f2d;
-      border-color: #2f8f61;
-    }
-
-    .pill.warn {
-      background: #3a2a05;
-      border-color: #a77800;
-      color: #ffe39a;
-    }
-
-    .pill.danger {
-      background: #3b1018;
-      border-color: #b4233a;
-      color: #ffb8c2;
-    }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #0d1b31;
-      border-radius: 18px;
-      overflow: hidden;
-    }
-
-    th,
-    td {
-      border-bottom: 1px solid var(--line);
-      padding: 12px;
-      text-align: left;
-      vertical-align: top;
-      font-size: 15px;
-    }
-
-    th {
-      background: #10213b;
-      color: var(--text);
-      font-weight: 900;
-    }
-
-    .table-wrap {
-      overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: 18px;
-    }
-
-    .small {
-      font-size: 13px;
-      color: var(--muted);
-    }
-
-    .mono {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-      word-break: break-all;
-    }
-
-    code {
-      color: #b7d7ff;
-    }
-
-    @media (max-width: 760px) {
-      .topbar {
-        align-items: flex-start;
-        padding: 18px 14px;
+    @media (max-width: 920px){
+      .grid{grid-template-columns:1fr}
+      .topbar{
+        flex-direction:column;
+        align-items:stretch;
       }
-
-      .brand h1 {
-        font-size: 26px;
+      .userbox{
+        align-items:flex-start;
+        min-width:0;
       }
-
-      .user-row {
-        flex-direction: column;
-        align-items: flex-end;
-        font-size: 15px;
-      }
-
-      .wrap {
-        width: calc(100% - 18px);
-        margin-top: 16px;
-      }
-
-      .card {
-        padding: 18px;
-        border-radius: 20px;
-      }
-
-      .card h2 {
-        font-size: 27px;
-      }
-
-      .grid {
-        grid-template-columns: 1fr;
-      }
-
-      .btn,
-      button.btn {
-        width: 100%;
-        text-align: center;
-        font-size: 17px;
-      }
-
-      th,
-      td {
-        font-size: 14px;
-      }
+      .user-meta{text-align:left}
+      .stats-grid{grid-template-columns:1fr}
     }
   </style>
 </head>
-
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <h1>🚂 Grahame’s<br>RailOps Admin</h1>
-      <div class="sub">Admin console and database tools</div>
-    </div>
-
-    <div class="user-row">
-      <div>
-        {{ session.get("display_name", "Grahame") }}
-        <span class="muted">({{ session.get("role", "admin") }} / {{ session.get("username", "admin") }})</span>
-      </div>
-      <a class="logout" href="/logout">Logout</a>
-    </div>
-  </header>
-
-  <main class="wrap">
-
-    {% with messages = get_flashed_messages(with_categories=true) %}
-      {% if messages %}
-        {% for category, message in messages %}
-          <div class="flash {{ category }}">{{ message }}</div>
-        {% endfor %}
-      {% endif %}
-    {% endwith %}
-
-    <section class="card">
-      <h2>Admin Console</h2>
-      <p class="section-note">
-        Database files are stored in GitHub. Railway cron updates and commits them back to GitHub.
-      </p>
-
-      <div class="admin-actions">
-        <a class="btn" href="/dashboard">Open Train Dashboard</a>
-        <a class="btn" href="/flight">Open Flight Tracker</a>
-
-        <a class="btn secondary" href="https://github.com/grahame21/railops-backend/tree/main/static/downloads" target="_blank" rel="noopener">
-          Open GitHub Database Files
-        </a>
-
-        <a class="btn secondary" href="https://github.com/grahame21/railops-backend/blob/main/static/downloads/loco_database.html" target="_blank" rel="noopener">
-          Open GitHub Full Database Source
-        </a>
-
-        <a class="btn good" href="/static/loco_stats.html">
-          Loco Added Stats / Filters
-        </a>
-
-        <a class="btn secondary" href="/downloads/loco_database.html">
-          Open Rendered Database
-        </a>
-      </div>
-
-      <div class="pill-row" style="margin-top:18px;">
-        <span class="pill good">GitHub database mode</span>
-        <span class="pill">Database start: 30/04/2026</span>
-        <span class="pill">Database repo: grahame21/railops-backend</span>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Database Tools</h2>
-      <p class="section-note">
-        Quick links for generated database files and history.
-      </p>
-
-      <div class="admin-actions">
-        <a class="btn secondary" href="/trains.json">Live Train JSON</a>
-        <a class="btn secondary" href="/locos.json">Locos JSON</a>
-        <a class="btn secondary" href="/loco_history.json">Loco History JSON</a>
-        <a class="btn secondary" href="/loco_summary.txt">Loco Summary TXT</a>
-        <a class="btn secondary" href="/loco_export.csv">Loco Export CSV</a>
-        <a class="btn secondary" href="/downloads/recently_added.html">Recently Added</a>
-        <a class="btn secondary" href="/downloads/loco_numbers_only.html">Numbers Only</a>
-        <a class="btn good" href="/static/loco_stats.html">Filter Added Locos</a>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Create Guest Token</h2>
-      <p class="section-note">
-        This creates a token link for temporary guest access.
-      </p>
-
-      <form method="post" action="/admin/generate-token">
-        <label for="tokenLabel">Token label</label>
-        <input id="tokenLabel" name="label" value="guest-token" autocomplete="off" />
-
-        <label for="tokenDays">Expires in days</label>
-        <input id="tokenDays" name="expires_days" type="number" min="1" value="7" />
-
-        <label class="check-row">
-          <input id="tokenUnlimited" type="checkbox" />
-          Unlimited
-        </label>
-
-        <div class="check-row">
-          <input type="checkbox" checked disabled />
-          One device only
+  <div class="wrap">
+    <section class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🚂</div>
+        <div>
+          <h1>Grahame’s<br>RailOps Admin</h1>
+          <p>Admin console and database tools</p>
         </div>
+      </div>
 
-        <p class="small">
-          Note: one-device behaviour depends on your current <code>/access</code> route logic.
+      <div class="userbox">
+        <div class="user-meta">
+          <div id="userDisplay">Grahame (admin / admin)</div>
+          <div class="small">Static Netlify admin page</div>
+        </div>
+        <button class="btn" id="logoutBtn" type="button">Logout</button>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>Admin Console</h2>
+        <p>
+          Database files are stored in GitHub. Railway cron updates and commits
+          them back to GitHub.
         </p>
 
-        <div class="admin-actions" style="margin-top:16px;">
-          <button class="btn" type="submit">Generate Token</button>
+        <div class="button-stack">
+          <button class="btn" type="button" id="openDashboardBtn">Open Train Dashboard</button>
+          <button class="btn" type="button" id="openFlightBtn">Open Flight Tracker</button>
+          <button class="btn secondary" type="button" id="openGitHubDbBtn">Open GitHub Database Files</button>
+          <button class="btn secondary" type="button" id="openGitHubRepoBtn">Open GitHub Full Database Source</button>
+          <button class="btn green" type="button" id="openStatsBtn">Loco Added Stats / Filters</button>
         </div>
-      </form>
+
+        <div class="footer-note">
+          If you still see messy template code on this page after updating,
+          hard refresh the page or open <strong>admin.html?v=2</strong>.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Quick Links</h2>
+        <p>Direct links to common backend files and data sources.</p>
+
+        <div class="link-list">
+          <button class="small-btn" type="button" id="linkTrainsJson">
+            <span>trains.json</span><span>↗</span>
+          </button>
+          <button class="small-btn" type="button" id="linkLocosJson">
+            <span>locos.json</span><span>↗</span>
+          </button>
+          <button class="small-btn" type="button" id="linkLocoHistory">
+            <span>loco_history.json</span><span>↗</span>
+          </button>
+          <button class="small-btn" type="button" id="linkLocoDbHtml">
+            <span>loco_database.html</span><span>↗</span>
+          </button>
+          <button class="small-btn" type="button" id="linkRecentlyAdded">
+            <span>recently_added.html</span><span>↗</span>
+          </button>
+          <button class="small-btn" type="button" id="linkNumbersOnly">
+            <span>loco_numbers_only.html</span><span>↗</span>
+          </button>
+        </div>
+      </div>
     </section>
 
-    <section class="card">
-      <h2>Create Guest Login</h2>
-      <p class="section-note">
-        This creates a normal username/password guest login.
-      </p>
-
-      <form method="post" action="/admin/create-guest">
-        <div class="grid">
-          <div>
-            <label for="guestUsername">Username</label>
-            <input id="guestUsername" name="username" placeholder="guest-name" autocomplete="off" />
+    <section class="grid">
+      <div class="card">
+        <h2>Session</h2>
+        <p>Quick summary of the currently shown user info.</p>
+        <div class="stats-grid">
+          <div class="mini">
+            <div class="label">Display Name</div>
+            <div class="value" id="displayNameStat">Grahame</div>
           </div>
-
-          <div>
-            <label for="guestPassword">Password</label>
-            <input id="guestPassword" name="password" placeholder="guest-password" autocomplete="off" />
+          <div class="mini">
+            <div class="label">Role</div>
+            <div class="value" id="roleStat">admin</div>
+          </div>
+          <div class="mini">
+            <div class="label">Username</div>
+            <div class="value" id="usernameStat">admin</div>
+          </div>
+          <div class="mini">
+            <div class="label">Frontend Mode</div>
+            <div class="value">Netlify Static</div>
           </div>
         </div>
+      </div>
 
-        <label for="guestDisplay">Display name</label>
-        <input id="guestDisplay" name="display_name" placeholder="Guest User" autocomplete="off" />
-
-        <label for="guestDays">Expires in days</label>
-        <input id="guestDays" name="expires_days" type="number" min="1" value="7" />
-
-        <label class="check-row">
-          <input id="guestUnlimited" type="checkbox" />
-          Unlimited
-        </label>
-
-        <label class="check-row">
-          <input name="device_lock" type="checkbox" checked />
-          One device only
-        </label>
-
-        <div class="admin-actions" style="margin-top:16px;">
-          <button class="btn" type="submit">Create Guest Login</button>
+      <div class="card">
+        <h2>Notes</h2>
+        <p>
+          This page is now fully static. It does not use Flask/Jinja template
+          tags, so Netlify will display it properly.
+        </p>
+        <div class="stats-grid">
+          <div class="mini">
+            <div class="label">Frontend Repo File</div>
+            <div class="value">/admin.html</div>
+          </div>
+          <div class="mini">
+            <div class="label">Stats Page</div>
+            <div class="value">/loco-stats.html</div>
+          </div>
+          <div class="mini">
+            <div class="label">Dashboard</div>
+            <div class="value">/dashboard.html</div>
+          </div>
+          <div class="mini">
+            <div class="label">Flight Tracker</div>
+            <div class="value">/flight.html</div>
+          </div>
         </div>
-      </form>
+      </div>
     </section>
-
-    <section class="card">
-      <h2>Guest Accounts</h2>
-
-      {% if guest_accounts %}
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Username</th>
-                <th>Display name</th>
-                <th>Status</th>
-                <th>Expires</th>
-                <th>Device lock</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for guest in guest_accounts %}
-                <tr>
-                  <td class="mono">{{ guest.username }}</td>
-                  <td>{{ guest.display_name }}</td>
-                  <td>
-                    {% if guest.disabled %}
-                      <span class="pill danger">Blocked</span>
-                    {% else %}
-                      <span class="pill good">Active</span>
-                    {% endif %}
-                  </td>
-                  <td class="small">{{ guest.expires_at or "Unlimited" }}</td>
-                  <td>
-                    {% if guest.device_lock %}
-                      <span class="pill">Locked</span>
-                    {% else %}
-                      <span class="pill warn">Not locked</span>
-                    {% endif %}
-                  </td>
-                  <td>
-                    <form method="post" action="/admin/toggle-guest/{{ guest.username }}">
-                      <button class="btn secondary" type="submit">
-                        {% if guest.disabled %}Unblock{% else %}Block{% endif %}
-                      </button>
-                    </form>
-                  </td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="muted">No guest accounts yet.</p>
-      {% endif %}
-    </section>
-
-    <section class="card">
-      <h2>Generated Tokens</h2>
-
-      {% if tokens %}
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Label</th>
-                <th>Token Link</th>
-                <th>Status</th>
-                <th>Created</th>
-                <th>Expires</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for token in tokens %}
-                <tr>
-                  <td>{{ token.label }}</td>
-                  <td class="mono">
-                    <a class="muted" href="/access?token={{ token.token }}">/access?token={{ token.token }}</a>
-                  </td>
-                  <td>
-                    {% if token.disabled %}
-                      <span class="pill danger">Disabled</span>
-                    {% else %}
-                      <span class="pill good">Active</span>
-                    {% endif %}
-                  </td>
-                  <td class="small">{{ token.created_at }}</td>
-                  <td class="small">{{ token.expires_at or "Unlimited" }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="muted">No generated tokens yet.</p>
-      {% endif %}
-    </section>
-
-    <section class="card">
-      <h2>Recent Activity</h2>
-
-      {% if logs %}
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>User</th>
-                <th>Role</th>
-                <th>Action</th>
-                <th>Details</th>
-              </tr>
-            </thead>
-            <tbody>
-              {% for item in logs %}
-                <tr>
-                  <td class="small">{{ item.time }}</td>
-                  <td>{{ item.user }}</td>
-                  <td>{{ item.role }}</td>
-                  <td>{{ item.action }}</td>
-                  <td class="mono small">{{ item.details }}</td>
-                </tr>
-              {% endfor %}
-            </tbody>
-          </table>
-        </div>
-      {% else %}
-        <p class="muted">No activity yet.</p>
-      {% endif %}
-    </section>
-
-  </main>
+  </div>
 
   <script>
-    const tokenUnlimited = document.getElementById("tokenUnlimited");
-    const tokenDays = document.getElementById("tokenDays");
-    const guestUnlimited = document.getElementById("guestUnlimited");
-    const guestDays = document.getElementById("guestDays");
+    /*
+      ===== EDIT THESE LINKS IF NEEDED =====
+    */
+    const TRAIN_DASHBOARD_URL = "dashboard.html";
+    const FLIGHT_TRACKER_URL = "flight.html";
+    const LOCO_STATS_URL = "loco-stats.html";
 
-    if (tokenUnlimited && tokenDays) {
-      tokenUnlimited.addEventListener("change", () => {
-        if (tokenUnlimited.checked) {
-          tokenDays.value = "";
-          tokenDays.disabled = true;
-        } else {
-          tokenDays.disabled = false;
-          tokenDays.value = tokenDays.value || "7";
-        }
-      });
+    const GITHUB_REPO_URL = "https://github.com/grahame21/railops-backend";
+    const GITHUB_DB_FILES_URL = "https://github.com/grahame21/railops-backend/tree/main";
+
+    const RAW_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/";
+    const TRAINS_JSON_URL = RAW_BASE + "trains.json";
+    const LOCOS_JSON_URL = RAW_BASE + "locos.json";
+    const LOCO_HISTORY_JSON_URL = RAW_BASE + "loco_history.json";
+    const LOCO_DATABASE_HTML_URL = RAW_BASE + "static/downloads/loco_database.html";
+    const RECENTLY_ADDED_HTML_URL = RAW_BASE + "static/downloads/recently_added.html";
+    const LOCO_NUMBERS_ONLY_HTML_URL = RAW_BASE + "static/downloads/loco_numbers_only.html";
+
+    function openLink(url){
+      window.location.href = url;
     }
 
-    if (guestUnlimited && guestDays) {
-      guestUnlimited.addEventListener("change", () => {
-        if (guestUnlimited.checked) {
-          guestDays.value = "";
-          guestDays.disabled = true;
-        } else {
-          guestDays.disabled = false;
-          guestDays.value = guestDays.value || "7";
-        }
-      });
+    function openNewTab(url){
+      window.open(url, "_blank", "noopener,noreferrer");
     }
+
+    function getStoredValue(keys, fallback){
+      for(const key of keys){
+        const value = localStorage.getItem(key);
+        if(value && String(value).trim() !== "") return value;
+      }
+      return fallback;
+    }
+
+    function setupUserInfo(){
+      const displayName = getStoredValue(
+        ["display_name", "railops_display_name", "admin_display_name", "name"],
+        "Grahame"
+      );
+
+      const role = getStoredValue(
+        ["role", "railops_role", "admin_role"],
+        "admin"
+      );
+
+      const username = getStoredValue(
+        ["username", "railops_username", "admin_username"],
+        "admin"
+      );
+
+      document.getElementById("userDisplay").textContent =
+        `${displayName} (${role} / ${username})`;
+
+      document.getElementById("displayNameStat").textContent = displayName;
+      document.getElementById("roleStat").textContent = role;
+      document.getElementById("usernameStat").textContent = username;
+    }
+
+    function logout(){
+      [
+        "display_name",
+        "railops_display_name",
+        "admin_display_name",
+        "name",
+        "role",
+        "railops_role",
+        "admin_role",
+        "username",
+        "railops_username",
+        "admin_username",
+        "session",
+        "railops_session",
+        "logged_in",
+        "railops_logged_in",
+        "token",
+        "guest_token"
+      ].forEach(k => localStorage.removeItem(k));
+
+      window.location.href = "admin-login.html";
+    }
+
+    document.getElementById("logoutBtn").addEventListener("click", logout);
+
+    document.getElementById("openDashboardBtn").addEventListener("click", () => openLink(TRAIN_DASHBOARD_URL));
+    document.getElementById("openFlightBtn").addEventListener("click", () => openLink(FLIGHT_TRACKER_URL));
+    document.getElementById("openGitHubDbBtn").addEventListener("click", () => openNewTab(GITHUB_DB_FILES_URL));
+    document.getElementById("openGitHubRepoBtn").addEventListener("click", () => openNewTab(GITHUB_REPO_URL));
+    document.getElementById("openStatsBtn").addEventListener("click", () => openLink(LOCO_STATS_URL));
+
+    document.getElementById("linkTrainsJson").addEventListener("click", () => openNewTab(TRAINS_JSON_URL));
+    document.getElementById("linkLocosJson").addEventListener("click", () => openNewTab(LOCOS_JSON_URL));
+    document.getElementById("linkLocoHistory").addEventListener("click", () => openNewTab(LOCO_HISTORY_JSON_URL));
+    document.getElementById("linkLocoDbHtml").addEventListener("click", () => openNewTab(LOCO_DATABASE_HTML_URL));
+    document.getElementById("linkRecentlyAdded").addEventListener("click", () => openNewTab(RECENTLY_ADDED_HTML_URL));
+    document.getElementById("linkNumbersOnly").addEventListener("click", () => openNewTab(LOCO_NUMBERS_ONLY_HTML_URL));
+
+    setupUserInfo();
   </script>
 </body>
 </html>
