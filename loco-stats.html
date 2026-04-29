@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RailOps — Loco Added Stats</title>
+
+  <style>
+    :root{
+      --bg:#041326;
+      --panel:#071b34;
+      --panel2:#0b2342;
+      --line:#1d4577;
+      --text:#eaf3ff;
+      --muted:#a9bfdc;
+      --blue:#2f8fff;
+      --green:#2ca86a;
+      --green2:#1f7f50;
+      --red:#ff5a6b;
+      --amber:#ffcc66;
+      --shadow:0 10px 30px rgba(0,0,0,.28);
+      --radius:24px;
+    }
+
+    *{box-sizing:border-box}
+
+    html,body{
+      margin:0;
+      padding:0;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+      background:
+        radial-gradient(circle at top, #0a2b54 0%, #041326 45%, #020b16 100%);
+      color:var(--text);
+      min-height:100%;
+    }
+
+    a{color:inherit;text-decoration:none}
+
+    .wrap{
+      width:min(1180px, calc(100% - 28px));
+      margin:18px auto 40px auto;
+    }
+
+    .topbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:18px;
+      background:rgba(3,15,30,.78);
+      border:1px solid rgba(111,168,255,.22);
+      border-radius:28px;
+      padding:22px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(10px);
+      margin-bottom:20px;
+    }
+
+    .brand{
+      display:flex;
+      align-items:flex-start;
+      gap:16px;
+      min-width:0;
+    }
+
+    .brand-icon{
+      font-size:44px;
+      line-height:1;
+      margin-top:4px;
+    }
+
+    .brand h1{
+      margin:0;
+      font-size:clamp(28px,4vw,54px);
+      line-height:1.02;
+      font-weight:800;
+      letter-spacing:-.03em;
+    }
+
+    .brand p{
+      margin:10px 0 0 0;
+      color:var(--muted);
+      font-size:clamp(15px,2vw,20px);
+      line-height:1.35;
+    }
+
+    .top-actions{
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      align-items:flex-end;
+      min-width:220px;
+    }
+
+    .btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      min-height:56px;
+      padding:13px 20px;
+      border-radius:19px;
+      border:1px solid rgba(111,168,255,.28);
+      background:linear-gradient(180deg, var(--blue), #2380ee);
+      color:#fff;
+      font-weight:800;
+      font-size:17px;
+      cursor:pointer;
+      box-shadow:0 10px 24px rgba(47,143,255,.22);
+      text-align:center;
+      transition:transform .14s ease, filter .14s ease;
+    }
+
+    .btn:hover{transform:translateY(-1px);filter:brightness(1.03)}
+    .btn.secondary{
+      background:rgba(0,0,0,.18);
+      box-shadow:none;
+      border:1px solid rgba(111,168,255,.30);
+      color:var(--text);
+    }
+
+    .btn.green{
+      background:linear-gradient(180deg, var(--green), var(--green2));
+      box-shadow:0 10px 24px rgba(44,168,106,.22);
+      border-color:rgba(104,221,157,.25);
+    }
+
+    .grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:20px;
+      margin-top:20px;
+    }
+
+    .card{
+      background:rgba(8,25,46,.88);
+      border:1px solid rgba(111,168,255,.20);
+      border-radius:28px;
+      padding:24px;
+      box-shadow:var(--shadow);
+      backdrop-filter:blur(8px);
+      margin-bottom:20px;
+    }
+
+    .card h2{
+      margin:0 0 10px 0;
+      font-size:clamp(26px,3vw,40px);
+      letter-spacing:-.03em;
+    }
+
+    .card p{
+      margin:0 0 18px 0;
+      color:var(--muted);
+      line-height:1.45;
+      font-size:clamp(15px,2vw,19px);
+    }
+
+    .pill-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .pill{
+      display:inline-flex;
+      align-items:center;
+      min-height:38px;
+      padding:8px 14px;
+      border-radius:999px;
+      background:rgba(47,143,255,.14);
+      border:1px solid rgba(111,168,255,.28);
+      color:var(--text);
+      font-weight:800;
+      font-size:14px;
+    }
+
+    .pill.green{
+      background:rgba(44,168,106,.18);
+      border-color:rgba(104,221,157,.28);
+    }
+
+    .pill.amber{
+      background:rgba(255,204,102,.13);
+      border-color:rgba(255,204,102,.30);
+      color:#ffe8b0;
+    }
+
+    label{
+      display:block;
+      margin:14px 0 8px 0;
+      color:var(--muted);
+      font-weight:800;
+      font-size:15px;
+    }
+
+    input,select{
+      width:100%;
+      min-height:54px;
+      padding:12px 14px;
+      border-radius:18px;
+      border:1px solid rgba(111,168,255,.25);
+      background:rgba(0,0,0,.18);
+      color:var(--text);
+      font-size:17px;
+      outline:none;
+    }
+
+    .form-grid{
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:14px;
+    }
+
+    .button-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:12px;
+      margin-top:18px;
+    }
+
+    .stats-grid{
+      display:grid;
+      grid-template-columns:repeat(4, minmax(0,1fr));
+      gap:14px;
+      margin-top:20px;
+    }
+
+    .stat{
+      background:rgba(10,34,63,.85);
+      border:1px solid rgba(111,168,255,.18);
+      border-radius:22px;
+      padding:18px;
+      min-height:120px;
+    }
+
+    .stat .num{
+      font-size:clamp(32px,5vw,52px);
+      font-weight:900;
+      line-height:1;
+      margin-bottom:10px;
+      letter-spacing:-.04em;
+    }
+
+    .stat .label{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.35;
+      font-weight:700;
+    }
+
+    .list{
+      max-height:420px;
+      overflow:auto;
+      background:rgba(0,0,0,.18);
+      border:1px solid rgba(111,168,255,.22);
+      border-radius:22px;
+      padding:16px;
+      white-space:pre-wrap;
+      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+      line-height:1.75;
+      font-size:15px;
+    }
+
+    .table-wrap{
+      width:100%;
+      overflow:auto;
+      border:1px solid rgba(111,168,255,.20);
+      border-radius:22px;
+      background:rgba(0,0,0,.14);
+    }
+
+    table{
+      width:100%;
+      border-collapse:collapse;
+      min-width:760px;
+    }
+
+    th,td{
+      text-align:left;
+      padding:14px;
+      border-bottom:1px solid rgba(111,168,255,.16);
+      vertical-align:top;
+      font-size:15px;
+    }
+
+    th{
+      background:rgba(47,143,255,.12);
+      color:var(--text);
+      font-weight:900;
+      position:sticky;
+      top:0;
+      z-index:2;
+    }
+
+    td{
+      color:var(--text);
+    }
+
+    .muted{color:var(--muted)}
+    .good{color:#7dffb6;font-weight:900}
+    .danger{color:var(--red);font-weight:900}
+
+    .status{
+      margin-top:16px;
+      color:var(--muted);
+      font-size:15px;
+      line-height:1.45;
+    }
+
+    .small-note{
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.45;
+      margin-top:12px;
+    }
+
+    @media (max-width: 920px){
+      .topbar{
+        flex-direction:column;
+        align-items:stretch;
+      }
+
+      .top-actions{
+        align-items:stretch;
+        min-width:0;
+      }
+
+      .grid,
+      .form-grid{
+        grid-template-columns:1fr;
+      }
+
+      .stats-grid{
+        grid-template-columns:1fr 1fr;
+      }
+
+      .btn{
+        width:100%;
+      }
+    }
+
+    @media (max-width: 540px){
+      .stats-grid{
+        grid-template-columns:1fr;
+      }
+
+      .card{
+        padding:18px;
+        border-radius:24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <section class="topbar">
+      <div class="brand">
+        <div class="brand-icon">🚂</div>
+        <div>
+          <h1>RailOps<br>Loco Added Stats</h1>
+          <p>Filter recently added loco counts from GitHub database history.</p>
+          <div class="pill-row">
+            <span class="pill green">Database starting date: 30/04/2026</span>
+            <span class="pill">Phone/browser local time</span>
+            <span class="pill amber">Source: GitHub</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button class="btn secondary" id="backAdminBtn" type="button">Back to Admin</button>
+        <button class="btn secondary" id="openHistoryBtn" type="button">Open GitHub History</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Filters</h2>
+      <p>
+        Pick a quick range or enter your own local date/time range. Counts are based on
+        <strong>loco_history.json</strong>.
+      </p>
+
+      <label for="quickRange">Quick range</label>
+      <select id="quickRange">
+        <option value="today">Today</option>
+        <option value="24h">Last 24 hours</option>
+        <option value="48h">Last 48 hours</option>
+        <option value="7d" selected>Last 7 days</option>
+        <option value="30d">Last 30 days</option>
+        <option value="sinceStart">Since database start: 30/04/2026</option>
+        <option value="all">All history</option>
+        <option value="custom">Custom time range</option>
+      </select>
+
+      <div class="form-grid">
+        <div>
+          <label for="fromTime">From</label>
+          <input id="fromTime" type="datetime-local" />
+        </div>
+
+        <div>
+          <label for="toTime">To</label>
+          <input id="toTime" type="datetime-local" />
+        </div>
+      </div>
+
+      <div class="button-row">
+        <button class="btn green" id="applyBtn" type="button">Apply Filter</button>
+        <button class="btn secondary" id="refreshBtn" type="button">Refresh From GitHub</button>
+        <button class="btn secondary" id="copyListBtn" type="button">Copy New Loco List</button>
+      </div>
+
+      <div class="status" id="status">Loading history...</div>
+    </section>
+
+    <section class="stats-grid">
+      <div class="stat">
+        <div class="num" id="runCount">0</div>
+        <div class="label">Database update runs in range</div>
+      </div>
+
+      <div class="stat">
+        <div class="num" id="addedTotal">0</div>
+        <div class="label">Total new locos added in range</div>
+      </div>
+
+      <div class="stat">
+        <div class="num" id="uniqueAdded">0</div>
+        <div class="label">Unique loco numbers added in range</div>
+      </div>
+
+      <div class="stat">
+        <div class="num" id="latestFinal">0</div>
+        <div class="label">Latest final visible loco count</div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
+        <h2>New Loco Numbers</h2>
+        <p>Sorted the same way as your database: number-only first, normal loco numbers next, 3V at the bottom.</p>
+        <div class="list" id="newLocoList">None loaded yet.</div>
+      </div>
+
+      <div class="card">
+        <h2>Range Summary</h2>
+        <p>Useful for checking what was added between times, days, or since the database started.</p>
+
+        <div class="list" id="rangeSummary">Waiting for history...</div>
+
+        <div class="small-note">
+          The database start date is shown as 30/04/2026. This page only reports what exists in
+          <strong>loco_history.json</strong>.
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Runs In Selected Range</h2>
+      <p>Each row is one Railway/database generation run.</p>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Generated</th>
+              <th>Source trains</th>
+              <th>Seen this run</th>
+              <th>New added</th>
+              <th>Final count</th>
+            </tr>
+          </thead>
+          <tbody id="runsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    /*
+      ===== EDIT THESE IF NEEDED =====
+    */
+    const ADMIN_URL = "admin.html";
+    const HISTORY_URL = "https://raw.githubusercontent.com/grahame21/railops-backend/main/loco_history.json";
+    const GITHUB_HISTORY_URL = "https://github.com/grahame21/railops-backend/blob/main/loco_history.json";
+
+    /*
+      Month is zero-based in JavaScript:
+      3 = April
+      30 = 30th
+    */
+    const DATABASE_START_LOCAL = new Date(2026, 3, 30, 0, 0, 0);
+
+    let allHistory = [];
+    let currentNewLocoList = [];
+
+    function parseDate(value){
+      if(!value) return null;
+      const d = new Date(value);
+      if(Number.isNaN(d.getTime())) return null;
+      return d;
+    }
+
+    function formatLocal(value){
+      const d = parseDate(value);
+      if(!d) return value || "";
+
+      return new Intl.DateTimeFormat(navigator.language || "en-AU", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        timeZoneName: "short"
+      }).format(d);
+    }
+
+    function toDatetimeLocal(date){
+      const pad = n => String(n).padStart(2, "0");
+
+      return [
+        date.getFullYear(),
+        "-",
+        pad(date.getMonth() + 1),
+        "-",
+        pad(date.getDate()),
+        "T",
+        pad(date.getHours()),
+        ":",
+        pad(date.getMinutes())
+      ].join("");
+    }
+
+    function fromDatetimeLocal(value){
+      if(!value) return null;
+      const d = new Date(value);
+      if(Number.isNaN(d.getTime())) return null;
+      return d;
+    }
+
+    function startOfToday(){
+      const d = new Date();
+      d.setHours(0, 0, 0, 0);
+      return d;
+    }
+
+    function setQuickRange(range){
+      const now = new Date();
+      let from = null;
+      let to = now;
+
+      if(range === "today"){
+        from = startOfToday();
+      }else if(range === "24h"){
+        from = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      }else if(range === "48h"){
+        from = new Date(now.getTime() - 48 * 60 * 60 * 1000);
+      }else if(range === "7d"){
+        from = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      }else if(range === "30d"){
+        from = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      }else if(range === "sinceStart"){
+        from = DATABASE_START_LOCAL;
+      }else if(range === "all"){
+        document.getElementById("fromTime").value = "";
+        document.getElementById("toTime").value = "";
+        return;
+      }else if(range === "custom"){
+        return;
+      }
+
+      document.getElementById("fromTime").value = from ? toDatetimeLocal(from) : "";
+      document.getElementById("toTime").value = toDatetimeLocal(to);
+    }
+
+    function cleanLocoNumber(value){
+      return String(value || "")
+        .toUpperCase()
+        .replace(/\s+/g, "")
+        .replace(/-/g, "")
+        .trim();
+    }
+
+    function railopsSortKey(value){
+      const cleaned = cleanLocoNumber(value);
+
+      if(cleaned.startsWith("3V")){
+        return "ZZZ3V|" + cleaned;
+      }
+
+      if(/^\d+$/.test(cleaned)){
+        return "000NUM|" + cleaned.padStart(10, "0");
+      }
+
+      const parts = cleaned.match(/[A-Z]+|\d+/g) || [cleaned];
+
+      return "100TXT|" + parts.map(part => {
+        if(/^\d+$/.test(part)) return part.padStart(10, "0");
+        return part;
+      }).join("|");
+    }
+
+    function sortLocoNumbers(numbers){
+      return numbers.sort((a, b) => railopsSortKey(a).localeCompare(railopsSortKey(b)));
+    }
+
+    function getFilteredHistory(){
+      const from = fromDatetimeLocal(document.getElementById("fromTime").value);
+      const to = fromDatetimeLocal(document.getElementById("toTime").value);
+
+      return allHistory.filter(item => {
+        const d = parseDate(item.generated);
+        if(!d) return false;
+
+        if(from && d < from) return false;
+        if(to && d > to) return false;
+
+        return true;
+      });
+    }
+
+    function earliestDate(records){
+      let best = null;
+
+      for(const item of records){
+        const d = parseDate(item.generated);
+        if(!d) continue;
+
+        if(!best || d < best) best = d;
+      }
+
+      return best;
+    }
+
+    function latestDate(records){
+      let best = null;
+
+      for(const item of records){
+        const d = parseDate(item.generated);
+        if(!d) continue;
+
+        if(!best || d > best) best = d;
+      }
+
+      return best;
+    }
+
+    function render(){
+      const filtered = getFilteredHistory();
+
+      let addedTotal = 0;
+      let latestFinal = 0;
+      let maxAddedSingleRun = 0;
+      let maxAddedRunTime = "";
+      const unique = new Set();
+
+      for(const item of filtered){
+        const newAdded = Number(item.new_added || 0);
+        addedTotal += newAdded;
+
+        if(newAdded > maxAddedSingleRun){
+          maxAddedSingleRun = newAdded;
+          maxAddedRunTime = item.generated || "";
+        }
+
+        if(Number(item.final_count || 0) > 0 && latestFinal === 0){
+          latestFinal = Number(item.final_count || 0);
+        }
+
+        if(Array.isArray(item.new_loco_numbers)){
+          for(const loco of item.new_loco_numbers){
+            const cleaned = cleanLocoNumber(loco);
+            if(cleaned) unique.add(cleaned);
+          }
+        }
+      }
+
+      const list = sortLocoNumbers(Array.from(unique));
+      currentNewLocoList = list;
+
+      document.getElementById("runCount").textContent = filtered.length;
+      document.getElementById("addedTotal").textContent = addedTotal;
+      document.getElementById("uniqueAdded").textContent = unique.size;
+      document.getElementById("latestFinal").textContent = latestFinal || "-";
+
+      document.getElementById("newLocoList").textContent =
+        list.length ? list.join("\n") : "No new loco numbers in this range.";
+
+      const first = earliestDate(filtered);
+      const last = latestDate(filtered);
+
+      document.getElementById("rangeSummary").textContent =
+        [
+          "Database starting date: 30/04/2026",
+          "",
+          "Selected range from:",
+          first ? formatLocal(first.toISOString()) : "No runs in range",
+          "",
+          "Selected range to:",
+          last ? formatLocal(last.toISOString()) : "No runs in range",
+          "",
+          "Runs in range: " + filtered.length,
+          "Total new locos added: " + addedTotal,
+          "Unique loco numbers added: " + unique.size,
+          "Latest final visible count: " + (latestFinal || "-"),
+          "Biggest single-run addition: " + maxAddedSingleRun,
+          maxAddedRunTime ? "Biggest run time: " + formatLocal(maxAddedRunTime) : ""
+        ].filter(Boolean).join("\n");
+
+      const tbody = document.getElementById("runsBody");
+      tbody.innerHTML = "";
+
+      for(const item of filtered){
+        const tr = document.createElement("tr");
+        const newAdded = Number(item.new_added || 0);
+
+        tr.innerHTML = `
+          <td>${formatLocal(item.generated)}</td>
+          <td>${item.source_trains ?? ""}</td>
+          <td>${item.seen_this_run ?? ""}</td>
+          <td class="${newAdded > 0 ? "good" : "muted"}">${item.new_added ?? 0}</td>
+          <td>${item.final_count ?? ""}</td>
+        `;
+
+        tbody.appendChild(tr);
+      }
+
+      const fromText = document.getElementById("fromTime").value || "start";
+      const toText = document.getElementById("toTime").value || "now";
+
+      document.getElementById("status").textContent =
+        `Loaded ${allHistory.length} total history records. Showing ${filtered.length}. Filter: ${fromText} to ${toText}.`;
+    }
+
+    async function loadHistory(){
+      const status = document.getElementById("status");
+
+      try{
+        status.textContent = "Loading from GitHub...";
+
+        const url = HISTORY_URL + "?t=" + Date.now();
+        const response = await fetch(url, { cache: "no-store" });
+
+        if(!response.ok){
+          throw new Error("GitHub returned HTTP " + response.status);
+        }
+
+        const data = await response.json();
+
+        if(!Array.isArray(data)){
+          throw new Error("loco_history.json is not an array");
+        }
+
+        allHistory = data
+          .filter(item => item && item.generated)
+          .sort((a, b) => new Date(b.generated) - new Date(a.generated));
+
+        render();
+      }catch(err){
+        console.error(err);
+        status.innerHTML = `<span class="danger">Failed to load history: ${err.message}</span>`;
+      }
+    }
+
+    async function copyNewLocoList(){
+      const text = currentNewLocoList.length
+        ? currentNewLocoList.join("\n")
+        : "No new loco numbers in this range.";
+
+      try{
+        await navigator.clipboard.writeText(text);
+        document.getElementById("status").textContent = "Copied loco list to clipboard.";
+      }catch(err){
+        document.getElementById("status").textContent = "Could not copy automatically. Tap and hold the list to copy manually.";
+      }
+    }
+
+    document.getElementById("backAdminBtn").addEventListener("click", () => {
+      window.location.href = ADMIN_URL;
+    });
+
+    document.getElementById("openHistoryBtn").addEventListener("click", () => {
+      window.open(GITHUB_HISTORY_URL, "_blank", "noopener,noreferrer");
+    });
+
+    document.getElementById("quickRange").addEventListener("change", function(){
+      setQuickRange(this.value);
+      render();
+    });
+
+    document.getElementById("applyBtn").addEventListener("click", render);
+    document.getElementById("refreshBtn").addEventListener("click", loadHistory);
+    document.getElementById("copyListBtn").addEventListener("click", copyNewLocoList);
+
+    setQuickRange("7d");
+    loadHistory();
+  </script>
+</body>
+</html>
