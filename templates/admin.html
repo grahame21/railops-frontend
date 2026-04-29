@@ -1,137 +1,667 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>RailOps Admin</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-</head>
-<body class="panel-body">
-  <div class="bg-photo"></div>
-  <div class="bg-overlay"></div>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Grahame’s RailOps Admin</title>
 
-  <main class="panel-shell">
-    <header class="topbar glass">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #071222;
+      --panel: #102039;
+      --panel2: #0d1a2f;
+      --line: #274569;
+      --text: #eaf2ff;
+      --muted: #9fb3d3;
+      --accent: #238cff;
+      --good: #17c964;
+      --danger: #ff5a6b;
+      --warn: #ffd166;
+      --input: #081426;
+      --pill: #123f68;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    }
+
+    body {
+      padding-bottom: 40px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 22px 24px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(3, 14, 28, 0.92);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(10px);
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 30px;
+      line-height: 1.08;
+      letter-spacing: -0.02em;
+    }
+
+    .brand .sub {
+      color: var(--muted);
+      font-size: 15px;
+      margin-top: 4px;
+    }
+
+    .user-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text);
+      font-size: 17px;
+    }
+
+    .logout {
+      display: inline-block;
+      text-decoration: none;
+      color: white;
+      background: var(--accent);
+      border-radius: 14px;
+      padding: 12px 18px;
+      font-weight: 800;
+    }
+
+    .wrap {
+      width: min(1100px, calc(100% - 28px));
+      margin: 24px auto 0;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 24px;
+      margin-bottom: 22px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.25);
+    }
+
+    .card h2 {
+      margin: 0 0 18px;
+      font-size: 30px;
+      line-height: 1.1;
+    }
+
+    .muted {
+      color: var(--muted);
+    }
+
+    .section-note {
+      color: var(--muted);
+      line-height: 1.45;
+      margin: -6px 0 16px;
+      font-size: 16px;
+    }
+
+    .admin-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .btn,
+    button.btn {
+      display: inline-block;
+      appearance: none;
+      border: 0;
+      text-decoration: none;
+      color: white;
+      background: var(--accent);
+      border-radius: 15px;
+      padding: 14px 20px;
+      font-size: 18px;
+      font-weight: 850;
+      cursor: pointer;
+      line-height: 1.15;
+      box-shadow: 0 8px 18px rgba(35, 140, 255, 0.18);
+    }
+
+    .btn:hover {
+      filter: brightness(1.06);
+    }
+
+    .btn.secondary {
+      background: var(--input);
+      color: var(--text);
+      border: 1px solid var(--line);
+      box-shadow: none;
+    }
+
+    .btn.good {
+      background: #0f8f55;
+    }
+
+    .btn.warn {
+      background: #a77800;
+    }
+
+    .btn.danger {
+      background: #b4233a;
+    }
+
+    label {
+      display: block;
+      margin: 14px 0 8px;
+      color: var(--muted);
+      font-weight: 800;
+      font-size: 16px;
+    }
+
+    input,
+    select {
+      width: 100%;
+      background: var(--input);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      padding: 14px;
+      font-size: 17px;
+      outline: none;
+    }
+
+    input[type="checkbox"] {
+      width: 28px;
+      height: 28px;
+      vertical-align: middle;
+      margin-right: 10px;
+      accent-color: var(--accent);
+    }
+
+    .check-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 16px;
+      font-weight: 800;
+      color: var(--text);
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .flash {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 16px;
+      background: #081426;
+    }
+
+    .flash.success {
+      border-color: #1f8f5f;
+      background: rgba(23, 201, 100, 0.10);
+    }
+
+    .flash.error {
+      border-color: #b4233a;
+      background: rgba(255, 90, 107, 0.10);
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 8px 0 14px;
+    }
+
+    .pill {
+      display: inline-block;
+      background: var(--pill);
+      border: 1px solid #28557f;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    .pill.good {
+      background: #113f2d;
+      border-color: #2f8f61;
+    }
+
+    .pill.warn {
+      background: #3a2a05;
+      border-color: #a77800;
+      color: #ffe39a;
+    }
+
+    .pill.danger {
+      background: #3b1018;
+      border-color: #b4233a;
+      color: #ffb8c2;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #0d1b31;
+      border-radius: 18px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 15px;
+    }
+
+    th {
+      background: #10213b;
+      color: var(--text);
+      font-weight: 900;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+    }
+
+    .small {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      word-break: break-all;
+    }
+
+    code {
+      color: #b7d7ff;
+    }
+
+    @media (max-width: 760px) {
+      .topbar {
+        align-items: flex-start;
+        padding: 18px 14px;
+      }
+
+      .brand h1 {
+        font-size: 26px;
+      }
+
+      .user-row {
+        flex-direction: column;
+        align-items: flex-end;
+        font-size: 15px;
+      }
+
+      .wrap {
+        width: calc(100% - 18px);
+        margin-top: 16px;
+      }
+
+      .card {
+        padding: 18px;
+        border-radius: 20px;
+      }
+
+      .card h2 {
+        font-size: 27px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .btn,
+      button.btn {
+        width: 100%;
+        text-align: center;
+        font-size: 17px;
+      }
+
+      th,
+      td {
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <h1>🚂 Grahame’s<br>RailOps Admin</h1>
+      <div class="sub">Admin console and database tools</div>
+    </div>
+
+    <div class="user-row">
       <div>
-        <div class="brand-pill">Admin Control Centre</div>
-        <h1>RailOps Admin Panel</h1>
-        <p class="muted">Logged in as {{ session.get('display_name') }} · {{ session.get('username') }}</p>
+        {{ session.get("display_name", "Grahame") }}
+        <span class="muted">({{ session.get("role", "admin") }} / {{ session.get("username", "admin") }})</span>
       </div>
-      <div class="topbar-actions">
-        <a class="btn btn-secondary" href="{{ url_for('dashboard_page') }}">Open train map</a>
-        <a class="btn btn-ghost" href="{{ url_for('logout') }}">Logout</a>
-      </div>
-    </header>
+      <a class="logout" href="/logout">Logout</a>
+    </div>
+  </header>
+
+  <main class="wrap">
 
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        <div class="flash-wrap panel-flashes">
-          {% for category, message in messages %}
-            <div class="flash {{ category }}">{{ message }}</div>
-          {% endfor %}
-        </div>
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
       {% endif %}
     {% endwith %}
 
-    <section class="grid two-col">
-      <article class="glass card">
-        <h2>System shortcuts</h2>
-        <div class="link-grid">
-          <a class="quick-link" href="{{ url_for('dashboard_page') }}">Live Train Tracker</a>
-          <a class="quick-link" href="{{ url_for('flight_tracker_placeholder') }}">Flight Tracker</a>
-          <a class="quick-link" href="{{ url_for('locomotive_db_placeholder') }}">Locomotive Database</a>
-          {% for file in file_links %}
-            <a class="quick-link" href="{{ file.path }}" target="_blank">{{ file.name }}</a>
-          {% endfor %}
-        </div>
-      </article>
+    <section class="card">
+      <h2>Admin Console</h2>
+      <p class="section-note">
+        Database files are stored in GitHub. Railway cron updates and commits them back to GitHub.
+      </p>
 
-      <article class="glass card">
-        <h2>Fast scraper control</h2>
-        <p class="muted">Trigger your GitHub fast scraper manually from here.</p>
-        <div class="status-box">
-          <div><strong>Repo:</strong> {{ github_repo }}</div>
-          <div><strong>Workflow:</strong> {{ github_workflow }}</div>
-        </div>
-        <form method="post" action="{{ url_for('run_fast_scraper') }}">
-          <button class="btn btn-primary" type="submit">Run Fast Scraper Now</button>
-        </form>
-      </article>
+      <div class="admin-actions">
+        <a class="btn" href="/dashboard">Open Train Dashboard</a>
+        <a class="btn" href="/flight">Open Flight Tracker</a>
+
+        <a class="btn secondary" href="https://github.com/grahame21/railops-backend/tree/main/static/downloads" target="_blank" rel="noopener">
+          Open GitHub Database Files
+        </a>
+
+        <a class="btn secondary" href="https://github.com/grahame21/railops-backend/blob/main/static/downloads/loco_database.html" target="_blank" rel="noopener">
+          Open GitHub Full Database Source
+        </a>
+
+        <a class="btn good" href="/static/loco_stats.html">
+          Loco Added Stats / Filters
+        </a>
+
+        <a class="btn secondary" href="/downloads/loco_database.html">
+          Open Rendered Database
+        </a>
+      </div>
+
+      <div class="pill-row" style="margin-top:18px;">
+        <span class="pill good">GitHub database mode</span>
+        <span class="pill">Database start: 30/04/2026</span>
+        <span class="pill">Database repo: grahame21/railops-backend</span>
+      </div>
     </section>
 
-    <section class="grid three-col">
-      <article class="glass card">
-        <h2>Create guest account</h2>
-        <form method="post" action="{{ url_for('create_guest') }}" class="stack-form">
-          <label><span>Username</span><input type="text" name="username" required></label>
-          <label><span>Password</span><input type="text" name="password" required></label>
-          <label><span>Display name</span><input type="text" name="display_name"></label>
-          <label><span>Expires in days</span><input type="number" name="expires_days" min="1" placeholder="Optional"></label>
-          <label class="checkbox-row"><input type="checkbox" name="device_lock"> Lock to first device used</label>
-          <button class="btn btn-secondary" type="submit">Create guest</button>
-        </form>
-      </article>
+    <section class="card">
+      <h2>Database Tools</h2>
+      <p class="section-note">
+        Quick links for generated database files and history.
+      </p>
 
-      <article class="glass card">
-        <h2>Generate guest token</h2>
-        <form method="post" action="{{ url_for('generate_token') }}" class="stack-form">
-          <label><span>Label</span><input type="text" name="label" placeholder="Paul 1-week link"></label>
-          <label><span>Expires in days</span><input type="number" name="expires_days" min="1" placeholder="Optional"></label>
-          <button class="btn btn-secondary" type="submit">Generate token</button>
-        </form>
-      </article>
-
-      <article class="glass card">
-        <h2>Recent access log</h2>
-        <div class="mini-list">
-          {% for item in logs %}
-            <div class="mini-item">
-              <strong>{{ item.action }}</strong>
-              <span>{{ item.user }} · {{ item.time }}</span>
-            </div>
-          {% else %}
-            <div class="mini-item">No recent log entries.</div>
-          {% endfor %}
-        </div>
-      </article>
+      <div class="admin-actions">
+        <a class="btn secondary" href="/trains.json">Live Train JSON</a>
+        <a class="btn secondary" href="/locos.json">Locos JSON</a>
+        <a class="btn secondary" href="/loco_history.json">Loco History JSON</a>
+        <a class="btn secondary" href="/loco_summary.txt">Loco Summary TXT</a>
+        <a class="btn secondary" href="/loco_export.csv">Loco Export CSV</a>
+        <a class="btn secondary" href="/downloads/recently_added.html">Recently Added</a>
+        <a class="btn secondary" href="/downloads/loco_numbers_only.html">Numbers Only</a>
+        <a class="btn good" href="/static/loco_stats.html">Filter Added Locos</a>
+      </div>
     </section>
 
-    <section class="grid two-col">
-      <article class="glass card">
-        <h2>Guest accounts</h2>
-        <div class="table-like">
-          {% for guest in guest_accounts %}
-            <div class="row-card">
-              <div>
-                <strong>{{ guest.display_name or guest.username }}</strong>
-                <div class="muted small">{{ guest.username }} · {% if guest.disabled %}Blocked{% else %}Active{% endif %}</div>
-                <div class="muted small">Expires: {{ guest.expires_at or 'Never' }}</div>
-              </div>
-              <form method="post" action="{{ url_for('toggle_guest', username=guest.username) }}">
-                <button class="btn btn-ghost" type="submit">{% if guest.disabled %}Unblock{% else %}Block{% endif %}</button>
-              </form>
-            </div>
-          {% else %}
-            <div class="row-card">No guest accounts yet.</div>
-          {% endfor %}
-        </div>
-      </article>
+    <section class="card">
+      <h2>Create Guest Token</h2>
+      <p class="section-note">
+        This creates a token link for temporary guest access.
+      </p>
 
-      <article class="glass card">
-        <h2>Guest tokens</h2>
-        <div class="table-like">
-          {% for token in tokens %}
-            <div class="row-card column">
-              <strong>{{ token.label }}</strong>
-              <div class="token-text">{{ request.host_url.rstrip('/') }}/access?token={{ token.token }}</div>
-              <div class="muted small">Created {{ token.created_at }} · Expires {{ token.expires_at or 'Never' }}</div>
-            </div>
-          {% else %}
-            <div class="row-card">No tokens yet.</div>
-          {% endfor %}
+      <form method="post" action="/admin/generate-token">
+        <label for="tokenLabel">Token label</label>
+        <input id="tokenLabel" name="label" value="guest-token" autocomplete="off" />
+
+        <label for="tokenDays">Expires in days</label>
+        <input id="tokenDays" name="expires_days" type="number" min="1" value="7" />
+
+        <label class="check-row">
+          <input id="tokenUnlimited" type="checkbox" />
+          Unlimited
+        </label>
+
+        <div class="check-row">
+          <input type="checkbox" checked disabled />
+          One device only
         </div>
-      </article>
+
+        <p class="small">
+          Note: one-device behaviour depends on your current <code>/access</code> route logic.
+        </p>
+
+        <div class="admin-actions" style="margin-top:16px;">
+          <button class="btn" type="submit">Generate Token</button>
+        </div>
+      </form>
     </section>
+
+    <section class="card">
+      <h2>Create Guest Login</h2>
+      <p class="section-note">
+        This creates a normal username/password guest login.
+      </p>
+
+      <form method="post" action="/admin/create-guest">
+        <div class="grid">
+          <div>
+            <label for="guestUsername">Username</label>
+            <input id="guestUsername" name="username" placeholder="guest-name" autocomplete="off" />
+          </div>
+
+          <div>
+            <label for="guestPassword">Password</label>
+            <input id="guestPassword" name="password" placeholder="guest-password" autocomplete="off" />
+          </div>
+        </div>
+
+        <label for="guestDisplay">Display name</label>
+        <input id="guestDisplay" name="display_name" placeholder="Guest User" autocomplete="off" />
+
+        <label for="guestDays">Expires in days</label>
+        <input id="guestDays" name="expires_days" type="number" min="1" value="7" />
+
+        <label class="check-row">
+          <input id="guestUnlimited" type="checkbox" />
+          Unlimited
+        </label>
+
+        <label class="check-row">
+          <input name="device_lock" type="checkbox" checked />
+          One device only
+        </label>
+
+        <div class="admin-actions" style="margin-top:16px;">
+          <button class="btn" type="submit">Create Guest Login</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card">
+      <h2>Guest Accounts</h2>
+
+      {% if guest_accounts %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Display name</th>
+                <th>Status</th>
+                <th>Expires</th>
+                <th>Device lock</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for guest in guest_accounts %}
+                <tr>
+                  <td class="mono">{{ guest.username }}</td>
+                  <td>{{ guest.display_name }}</td>
+                  <td>
+                    {% if guest.disabled %}
+                      <span class="pill danger">Blocked</span>
+                    {% else %}
+                      <span class="pill good">Active</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">{{ guest.expires_at or "Unlimited" }}</td>
+                  <td>
+                    {% if guest.device_lock %}
+                      <span class="pill">Locked</span>
+                    {% else %}
+                      <span class="pill warn">Not locked</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <form method="post" action="/admin/toggle-guest/{{ guest.username }}">
+                      <button class="btn secondary" type="submit">
+                        {% if guest.disabled %}Unblock{% else %}Block{% endif %}
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted">No guest accounts yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Generated Tokens</h2>
+
+      {% if tokens %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Label</th>
+                <th>Token Link</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th>Expires</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for token in tokens %}
+                <tr>
+                  <td>{{ token.label }}</td>
+                  <td class="mono">
+                    <a class="muted" href="/access?token={{ token.token }}">/access?token={{ token.token }}</a>
+                  </td>
+                  <td>
+                    {% if token.disabled %}
+                      <span class="pill danger">Disabled</span>
+                    {% else %}
+                      <span class="pill good">Active</span>
+                    {% endif %}
+                  </td>
+                  <td class="small">{{ token.created_at }}</td>
+                  <td class="small">{{ token.expires_at or "Unlimited" }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted">No generated tokens yet.</p>
+      {% endif %}
+    </section>
+
+    <section class="card">
+      <h2>Recent Activity</h2>
+
+      {% if logs %}
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>User</th>
+                <th>Role</th>
+                <th>Action</th>
+                <th>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for item in logs %}
+                <tr>
+                  <td class="small">{{ item.time }}</td>
+                  <td>{{ item.user }}</td>
+                  <td>{{ item.role }}</td>
+                  <td>{{ item.action }}</td>
+                  <td class="mono small">{{ item.details }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted">No activity yet.</p>
+      {% endif %}
+    </section>
+
   </main>
+
+  <script>
+    const tokenUnlimited = document.getElementById("tokenUnlimited");
+    const tokenDays = document.getElementById("tokenDays");
+    const guestUnlimited = document.getElementById("guestUnlimited");
+    const guestDays = document.getElementById("guestDays");
+
+    if (tokenUnlimited && tokenDays) {
+      tokenUnlimited.addEventListener("change", () => {
+        if (tokenUnlimited.checked) {
+          tokenDays.value = "";
+          tokenDays.disabled = true;
+        } else {
+          tokenDays.disabled = false;
+          tokenDays.value = tokenDays.value || "7";
+        }
+      });
+    }
+
+    if (guestUnlimited && guestDays) {
+      guestUnlimited.addEventListener("change", () => {
+        if (guestUnlimited.checked) {
+          guestDays.value = "";
+          guestDays.disabled = true;
+        } else {
+          guestDays.disabled = false;
+          guestDays.value = guestDays.value || "7";
+        }
+      });
+    }
+  </script>
 </body>
 </html>
