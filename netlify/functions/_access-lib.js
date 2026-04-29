@@ -8,10 +8,29 @@ let cachedStore = null;
 async function accessStore() {
   if (cachedStore) return cachedStore;
 
+  const siteID =
+    process.env.BLOBS_SITE_ID ||
+    process.env.NETLIFY_SITE_ID ||
+    process.env.SITE_ID ||
+    "";
+
+  const token =
+    process.env.BLOBS_TOKEN ||
+    process.env.NETLIFY_AUTH_TOKEN ||
+    "";
+
+  if (!siteID || !token) {
+    throw new Error(
+      "Netlify Blobs needs BLOBS_SITE_ID and BLOBS_TOKEN environment variables."
+    );
+  }
+
   const blobs = await import("@netlify/blobs");
 
   cachedStore = blobs.getStore({
     name: STORE_NAME,
+    siteID,
+    token,
     consistency: "strong",
   });
 
@@ -87,7 +106,7 @@ function base64url(input) {
 }
 
 function signSession(payload) {
-  const secret = process.env.JWT_SECRET || "";
+  const secret = String(process.env.JWT_SECRET || "").trim();
 
   if (!secret) {
     throw new Error("Missing JWT_SECRET");
@@ -107,7 +126,7 @@ function signSession(payload) {
 }
 
 function verifySessionToken(token) {
-  const secret = process.env.JWT_SECRET || "";
+  const secret = String(process.env.JWT_SECRET || "").trim();
 
   if (!secret || !token) return null;
 
