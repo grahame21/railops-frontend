@@ -395,7 +395,7 @@
     <section class="card">
       <h2>Admin Console</h2>
       <p>
-        Locomotive database files are stored in GitHub. Railway cron updates and commits them back to GitHub.
+        Locomotive database source files are stored in GitHub. Railway renders the HTML database pages.
       </p>
 
       <div class="button-stack">
@@ -409,23 +409,24 @@
       <div class="pill-row">
         <span class="pill green">Locomotive database mode</span>
         <span class="pill">Database start: 30/04/2026</span>
-        <span class="pill amber">Netlify static admin</span>
+        <span class="pill amber">HTML pages rendered by Railway</span>
       </div>
     </section>
 
     <section class="grid">
       <div class="card">
         <h2>Locomotive Database Tools</h2>
-        <p>Direct links to your generated locomotive database files.</p>
+        <p>Use rendered HTML buttons for phone-friendly pages, and source buttons for raw GitHub files.</p>
 
         <div class="button-stack">
-          <button class="btn secondary" type="button" id="linkTrainsJson">Live Train JSON</button>
-          <button class="btn secondary" type="button" id="linkLocosJson">Locomotive JSON</button>
-          <button class="btn secondary" type="button" id="linkLocoHistory">Locomotive History JSON</button>
-          <button class="btn secondary" type="button" id="linkLocoSummary">Locomotive Summary TXT</button>
-          <button class="btn secondary" type="button" id="linkLocoDbHtml">Locomotive Database HTML</button>
-          <button class="btn secondary" type="button" id="linkRecentlyAdded">Recently Added Locos HTML</button>
-          <button class="btn secondary" type="button" id="linkNumbersOnly">Locomotive Numbers Only HTML</button>
+          <button class="btn secondary" type="button" id="linkTrainsJson">GitHub Live Train JSON</button>
+          <button class="btn secondary" type="button" id="linkLocosJson">GitHub Locomotive JSON</button>
+          <button class="btn secondary" type="button" id="linkLocoHistory">GitHub Locomotive History JSON</button>
+          <button class="btn secondary" type="button" id="linkLocoSummary">GitHub Locomotive Summary TXT</button>
+
+          <button class="btn green" type="button" id="linkLocoDbHtml">Open Locomotive Database</button>
+          <button class="btn green" type="button" id="linkRecentlyAdded">Open Recently Added Locos</button>
+          <button class="btn green" type="button" id="linkNumbersOnly">Open Locomotive Numbers Only</button>
         </div>
       </div>
 
@@ -578,7 +579,8 @@
   <script>
     /*
       ===== RailOps Admin Links =====
-      Database links use GitHub-stored locomotive database files.
+      GitHub = source JSON/files.
+      Railway = rendered HTML database pages.
     */
 
     const TRAIN_DASHBOARD_URL = "dashboard.html";
@@ -591,6 +593,7 @@
     const GITHUB_DB_FILES_URL = "https://github.com/grahame21/railops-backend/tree/main/static/downloads";
 
     const GITHUB_BLOB_BASE = "https://github.com/grahame21/railops-backend/blob/main/";
+    const RAILWAY_RENDERED_BASE = "https://railops-backend-web-production.up.railway.app";
 
     const LINKS = {
       trains: GITHUB_BLOB_BASE + "trains.json",
@@ -599,9 +602,9 @@
       summary: GITHUB_BLOB_BASE + "loco_summary.txt",
       exportCsv: GITHUB_BLOB_BASE + "loco_export.csv",
 
-      databaseHtml: GITHUB_BLOB_BASE + "static/downloads/loco_database.html",
-      recentlyAdded: GITHUB_BLOB_BASE + "static/downloads/recently_added.html",
-      numbersOnly: GITHUB_BLOB_BASE + "static/downloads/loco_numbers_only.html",
+      databaseHtml: RAILWAY_RENDERED_BASE + "/downloads/loco_database.html",
+      recentlyAdded: RAILWAY_RENDERED_BASE + "/downloads/recently_added.html",
+      numbersOnly: RAILWAY_RENDERED_BASE + "/downloads/loco_numbers_only.html",
 
       databaseWorkbook: GITHUB_BLOB_BASE + "static/downloads/loco_database.xlsx",
       numbersWorkbook: GITHUB_BLOB_BASE + "static/downloads/loco_numbers_only.xlsx"
