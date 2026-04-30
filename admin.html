@@ -1,983 +1,411 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Grahame’s RailOps Admin</title>
+<script>
+  /*
+    ===== RailOps Admin Links =====
+    This version uses GitHub database links, not Railway database links.
+  */
 
-  <style>
-    :root{
-      --bg:#041326;
-      --panel:#071b34;
-      --panel2:#0b2342;
-      --line:#1d4577;
-      --text:#eaf3ff;
-      --muted:#a9bfdc;
-      --blue:#2f8fff;
-      --blue2:#67b2ff;
-      --green:#2ca86a;
-      --green2:#1f7f50;
-      --red:#ff5a6b;
-      --amber:#ffcc66;
-      --shadow:0 10px 30px rgba(0,0,0,.28);
+  const TRAIN_DASHBOARD_URL = "dashboard.html";
+  const FLIGHT_TRACKER_URL = "flight.html";
+  const LOCO_STATS_URL = "loco-stats.html";
+  const LOGIN_URL = "admin-login.html";
+  const ACCESS_URL_PREFIX = "access.html?token=";
+
+  const GITHUB_REPO_URL = "https://github.com/grahame21/railops-backend";
+  const GITHUB_DB_FILES_URL = "https://github.com/grahame21/railops-backend/tree/main/static/downloads";
+
+  const GITHUB_BLOB_BASE = "https://github.com/grahame21/railops-backend/blob/main/";
+  const GITHUB_RAW_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/";
+
+  const LINKS = {
+    trains: GITHUB_BLOB_BASE + "trains.json",
+    locos: GITHUB_BLOB_BASE + "locos.json",
+    history: GITHUB_BLOB_BASE + "loco_history.json",
+    summary: GITHUB_BLOB_BASE + "loco_summary.txt",
+    exportCsv: GITHUB_BLOB_BASE + "loco_export.csv",
+
+    databaseHtml: GITHUB_BLOB_BASE + "static/downloads/loco_database.html",
+    recentlyAdded: GITHUB_BLOB_BASE + "static/downloads/recently_added.html",
+    numbersOnly: GITHUB_BLOB_BASE + "static/downloads/loco_numbers_only.html",
+
+    databaseWorkbook: GITHUB_BLOB_BASE + "static/downloads/loco_database.xlsx",
+    numbersWorkbook: GITHUB_BLOB_BASE + "static/downloads/loco_numbers_only.xlsx"
+  };
+
+  const STORAGE_KEYS = {
+    tokens: "railops_admin_tokens",
+    guests: "railops_guest_accounts"
+  };
+
+  function uid(prefix){
+    const part = Math.random().toString(36).slice(2, 10);
+    const time = Date.now().toString(36);
+    return `${prefix}_${time}_${part}`;
+  }
+
+  function isoNow(){
+    return new Date().toISOString();
+  }
+
+  function addDays(days){
+    const d = new Date();
+    d.setDate(d.getDate() + Number(days || 0));
+    return d.toISOString();
+  }
+
+  function formatDate(value){
+    if(!value) return "Unlimited";
+    const d = new Date(value);
+    if(Number.isNaN(d.getTime())) return value;
+
+    return new Intl.DateTimeFormat(navigator.language || "en-AU", {
+      day:"2-digit",
+      month:"short",
+      year:"numeric",
+      hour:"numeric",
+      minute:"2-digit",
+      hour12:true,
+      timeZoneName:"short"
+    }).format(d);
+  }
+
+  function isExpired(value){
+    if(!value) return false;
+    const d = new Date(value);
+    if(Number.isNaN(d.getTime())) return false;
+    return d.getTime() < Date.now();
+  }
+
+  function loadArray(key){
+    try{
+      const raw = localStorage.getItem(key);
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed) ? parsed : [];
+    }catch(err){
+      return [];
     }
+  }
 
-    *{box-sizing:border-box}
+  function saveArray(key, value){
+    localStorage.setItem(key, JSON.stringify(value, null, 2));
+  }
 
-    html,body{
-      margin:0;
-      padding:0;
-      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
-      background:radial-gradient(circle at top,#0a2b54 0%,#041326 45%,#020b16 100%);
-      color:var(--text);
-      min-height:100%;
+  function openLink(url){
+    window.location.href = url;
+  }
+
+  function openNewTab(url){
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function getStoredValue(keys, fallback){
+    for(const key of keys){
+      const value = localStorage.getItem(key);
+      if(value && String(value).trim() !== "") return value;
     }
-
-    a{color:inherit;text-decoration:none}
-
-    .wrap{
-      width:min(1180px, calc(100% - 28px));
-      margin:18px auto 40px auto;
-    }
-
-    .topbar{
-      display:flex;
-      justify-content:space-between;
-      align-items:flex-start;
-      gap:18px;
-      background:rgba(3,15,30,.78);
-      border:1px solid rgba(111,168,255,.22);
-      border-radius:28px;
-      padding:22px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(10px);
-    }
-
-    .brand{
-      display:flex;
-      align-items:flex-start;
-      gap:16px;
-      min-width:0;
-    }
-
-    .brand-icon{
-      font-size:44px;
-      line-height:1;
-      margin-top:4px;
-    }
-
-    .brand h1{
-      margin:0;
-      font-size:clamp(30px,4vw,54px);
-      line-height:1.02;
-      font-weight:850;
-      letter-spacing:-.03em;
-    }
-
-    .brand p{
-      margin:10px 0 0 0;
-      color:var(--muted);
-      font-size:clamp(15px,2vw,20px);
-      line-height:1.35;
-    }
-
-    .userbox{
-      display:flex;
-      flex-direction:column;
-      gap:12px;
-      align-items:flex-end;
-      min-width:250px;
-    }
-
-    .user-meta{
-      text-align:right;
-      color:var(--text);
-      font-size:clamp(16px,2vw,22px);
-      line-height:1.35;
-    }
-
-    .user-meta .small{
-      color:var(--muted);
-      font-size:14px;
-      margin-top:4px;
-    }
-
-    .btn{
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      min-height:58px;
-      padding:14px 22px;
-      border-radius:20px;
-      border:1px solid rgba(111,168,255,.28);
-      background:linear-gradient(180deg,var(--blue),#2380ee);
-      color:#fff;
-      font-weight:850;
-      font-size:18px;
-      cursor:pointer;
-      box-shadow:0 10px 24px rgba(47,143,255,.22);
-      transition:transform .14s ease,filter .14s ease;
-      text-align:center;
-      width:auto;
-    }
-
-    .btn:hover{transform:translateY(-1px);filter:brightness(1.04)}
-    .btn:active{transform:translateY(0)}
-
-    .btn.secondary{
-      background:rgba(0,0,0,.18);
-      box-shadow:none;
-      border:1px solid rgba(111,168,255,.30);
-      color:var(--text);
-    }
-
-    .btn.green{
-      background:linear-gradient(180deg,var(--green),var(--green2));
-      box-shadow:0 10px 24px rgba(44,168,106,.22);
-      border-color:rgba(104,221,157,.25);
-    }
-
-    .btn.red{
-      background:linear-gradient(180deg,#e5425a,#b4233a);
-      box-shadow:0 10px 24px rgba(255,90,107,.16);
-      border-color:rgba(255,90,107,.25);
-    }
-
-    .btn.amber{
-      background:linear-gradient(180deg,#b88715,#7f5b08);
-      box-shadow:0 10px 24px rgba(255,204,102,.16);
-      border-color:rgba(255,204,102,.25);
-    }
-
-    .grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:20px;
-      margin-top:20px;
-    }
-
-    .card{
-      background:rgba(8,25,46,.88);
-      border:1px solid rgba(111,168,255,.20);
-      border-radius:28px;
-      padding:24px;
-      box-shadow:var(--shadow);
-      backdrop-filter:blur(8px);
-      margin-top:20px;
-    }
-
-    .card h2{
-      margin:0 0 10px 0;
-      font-size:clamp(28px,3vw,44px);
-      letter-spacing:-.03em;
-    }
-
-    .card p{
-      margin:0 0 20px 0;
-      color:var(--muted);
-      line-height:1.45;
-      font-size:clamp(16px,2vw,20px);
-    }
-
-    .button-stack{
-      display:grid;
-      gap:14px;
-    }
-
-    .button-row{
-      display:flex;
-      gap:12px;
-      flex-wrap:wrap;
-      margin-top:18px;
-    }
-
-    .pill-row{
-      display:flex;
-      flex-wrap:wrap;
-      gap:10px;
-      margin-top:18px;
-    }
-
-    .pill{
-      display:inline-flex;
-      align-items:center;
-      min-height:38px;
-      padding:8px 14px;
-      border-radius:999px;
-      background:rgba(47,143,255,.14);
-      border:1px solid rgba(111,168,255,.28);
-      color:var(--text);
-      font-weight:800;
-      font-size:14px;
-    }
-
-    .pill.green{
-      background:rgba(44,168,106,.18);
-      border-color:rgba(104,221,157,.28);
-    }
-
-    .pill.red{
-      background:rgba(255,90,107,.15);
-      border-color:rgba(255,90,107,.32);
-      color:#ffc8d0;
-    }
-
-    .pill.amber{
-      background:rgba(255,204,102,.13);
-      border-color:rgba(255,204,102,.30);
-      color:#ffe8b0;
-    }
-
-    label{
-      display:block;
-      margin:14px 0 8px 0;
-      color:var(--muted);
-      font-weight:850;
-      font-size:16px;
-    }
-
-    input,select{
-      width:100%;
-      min-height:56px;
-      padding:12px 14px;
-      border-radius:18px;
-      border:1px solid rgba(111,168,255,.25);
-      background:rgba(0,0,0,.18);
-      color:var(--text);
-      font-size:17px;
-      outline:none;
-    }
-
-    input[type="checkbox"]{
-      width:28px;
-      height:28px;
-      min-height:28px;
-      accent-color:var(--blue);
-    }
-
-    .check-row{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      margin-top:16px;
-      font-weight:850;
-      color:var(--text);
-      font-size:18px;
-    }
-
-    .form-grid{
-      display:grid;
-      grid-template-columns:1fr 1fr;
-      gap:14px;
-    }
-
-    .mini-grid{
-      display:grid;
-      grid-template-columns:repeat(2,minmax(0,1fr));
-      gap:14px;
-      margin-top:16px;
-    }
-
-    .mini{
-      background:rgba(10,34,63,.85);
-      border:1px solid rgba(111,168,255,.18);
-      border-radius:20px;
-      padding:16px;
-    }
-
-    .mini .label{
-      color:var(--muted);
-      font-size:13px;
-      text-transform:uppercase;
-      letter-spacing:.08em;
-      margin-bottom:6px;
-      font-weight:850;
-    }
-
-    .mini .value{
-      font-size:22px;
-      font-weight:850;
-      line-height:1.15;
-      word-break:break-word;
-    }
-
-    .table-wrap{
-      overflow:auto;
-      border:1px solid rgba(111,168,255,.20);
-      border-radius:22px;
-      background:rgba(0,0,0,.14);
-      margin-top:16px;
-    }
-
-    table{
-      width:100%;
-      border-collapse:collapse;
-      min-width:720px;
-    }
-
-    th,td{
-      text-align:left;
-      padding:14px;
-      border-bottom:1px solid rgba(111,168,255,.16);
-      vertical-align:top;
-      font-size:15px;
-    }
-
-    th{
-      background:rgba(47,143,255,.12);
-      color:var(--text);
-      font-weight:900;
-    }
-
-    .muted{color:var(--muted)}
-    .mono{
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      word-break:break-all;
-    }
-
-    .notice{
-      margin-top:16px;
-      color:var(--muted);
-      font-size:14px;
-      line-height:1.45;
-    }
-
-    .copy-box{
-      margin-top:12px;
-      padding:14px;
-      border-radius:18px;
-      background:rgba(0,0,0,.18);
-      border:1px solid rgba(111,168,255,.18);
-      font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-      word-break:break-all;
-      color:#d9ecff;
-    }
-
-    @media (max-width:920px){
-      .topbar{
-        flex-direction:column;
-        align-items:stretch;
-      }
-
-      .userbox{
-        align-items:flex-start;
-        min-width:0;
-      }
-
-      .user-meta{text-align:left}
-      .grid,.form-grid,.mini-grid{grid-template-columns:1fr}
-      .btn{width:100%}
-      .button-row{display:grid}
-    }
-  </style>
-</head>
-
-<body>
-  <div class="wrap">
-    <section class="topbar">
-      <div class="brand">
-        <div class="brand-icon">🚂</div>
-        <div>
-          <h1>Grahame’s<br>RailOps Admin</h1>
-          <p>Admin console, database tools, guest logins and token manager.</p>
-        </div>
-      </div>
-
-      <div class="userbox">
-        <div class="user-meta">
-          <div id="userDisplay">Grahame (admin / admin)</div>
-          <div class="small">Static Netlify admin page</div>
-        </div>
-        <button class="btn" id="logoutBtn" type="button">Logout</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Admin Console</h2>
-      <p>
-        Database files are stored in GitHub. Railway cron updates and commits them back to GitHub.
-      </p>
-
-      <div class="button-stack">
-        <button class="btn" type="button" id="openDashboardBtn">Open Train Dashboard</button>
-        <button class="btn" type="button" id="openFlightBtn">Open Flight Tracker</button>
-        <button class="btn secondary" type="button" id="openGitHubDbBtn">Open GitHub Database Files</button>
-        <button class="btn secondary" type="button" id="openGitHubRepoBtn">Open GitHub Full Database Source</button>
-        <button class="btn green" type="button" id="openStatsBtn">Loco Added Stats / Filters</button>
-      </div>
-
-      <div class="pill-row">
-        <span class="pill green">GitHub database mode</span>
-        <span class="pill">Database start: 30/04/2026</span>
-        <span class="pill amber">Netlify static admin</span>
-      </div>
-    </section>
-
-    <section class="grid">
-      <div class="card">
-        <h2>Database Tools</h2>
-        <p>Direct links to your generated backend files.</p>
-
-        <div class="button-stack">
-          <button class="btn secondary" type="button" id="linkTrainsJson">Live Train JSON</button>
-          <button class="btn secondary" type="button" id="linkLocosJson">Locos JSON</button>
-          <button class="btn secondary" type="button" id="linkLocoHistory">Loco History JSON</button>
-          <button class="btn secondary" type="button" id="linkLocoSummary">Loco Summary TXT</button>
-          <button class="btn secondary" type="button" id="linkLocoDbHtml">Rendered Database HTML</button>
-          <button class="btn secondary" type="button" id="linkRecentlyAdded">Recently Added HTML</button>
-          <button class="btn secondary" type="button" id="linkNumbersOnly">Numbers Only HTML</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>Session</h2>
-        <p>Quick summary of the admin user shown on this static page.</p>
-
-        <div class="mini-grid">
-          <div class="mini">
-            <div class="label">Display Name</div>
-            <div class="value" id="displayNameStat">Grahame</div>
-          </div>
-          <div class="mini">
-            <div class="label">Role</div>
-            <div class="value" id="roleStat">admin</div>
-          </div>
-          <div class="mini">
-            <div class="label">Username</div>
-            <div class="value" id="usernameStat">admin</div>
-          </div>
-          <div class="mini">
-            <div class="label">Mode</div>
-            <div class="value">Netlify Static</div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="grid">
-      <div class="card">
-        <h2>Create Guest Token</h2>
-        <p>Create a temporary guest token link. These are stored in this browser unless you also wire them into your backend later.</p>
-
-        <label for="tokenLabel">Token label</label>
-        <input id="tokenLabel" value="guest-token" autocomplete="off" />
-
-        <label for="tokenDays">Expires in days</label>
-        <input id="tokenDays" type="number" min="1" value="7" />
-
-        <label class="check-row">
-          <input id="tokenUnlimited" type="checkbox" />
-          Unlimited
-        </label>
-
-        <label class="check-row">
-          <input id="tokenDeviceOnly" type="checkbox" checked />
-          One device only
-        </label>
-
-        <div class="button-row">
-          <button class="btn green" id="generateTokenBtn" type="button">Generate Token</button>
-          <button class="btn secondary" id="clearTokensBtn" type="button">Clear Tokens</button>
-        </div>
-
-        <div id="latestTokenBox" class="copy-box" style="display:none;"></div>
-      </div>
-
-      <div class="card">
-        <h2>Create Guest Login</h2>
-        <p>Create a guest username/password. These are stored in this browser unless you wire them into your backend later.</p>
-
-        <div class="form-grid">
-          <div>
-            <label for="guestUsername">Username</label>
-            <input id="guestUsername" placeholder="guest-name" autocomplete="off" />
-          </div>
-
-          <div>
-            <label for="guestPassword">Password</label>
-            <input id="guestPassword" placeholder="guest-password" autocomplete="off" />
-          </div>
-        </div>
-
-        <label for="guestDisplay">Display name</label>
-        <input id="guestDisplay" placeholder="Guest User" autocomplete="off" />
-
-        <label for="guestDays">Expires in days</label>
-        <input id="guestDays" type="number" min="1" value="7" />
-
-        <label class="check-row">
-          <input id="guestUnlimited" type="checkbox" />
-          Unlimited
-        </label>
-
-        <label class="check-row">
-          <input id="guestDeviceOnly" type="checkbox" checked />
-          One device only
-        </label>
-
-        <div class="button-row">
-          <button class="btn green" id="createGuestBtn" type="button">Create Guest Login</button>
-          <button class="btn secondary" id="clearGuestsBtn" type="button">Clear Guests</button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Generated Tokens</h2>
-      <p>Saved token links created from this admin page.</p>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Label</th>
-              <th>Token Link</th>
-              <th>Status</th>
-              <th>Created</th>
-              <th>Expires</th>
-              <th>Device</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="tokensTable"></tbody>
-        </table>
-      </div>
-
-      <div class="notice">
-        Static note: These tokens are stored in the browser’s localStorage. If your real access system uses a backend file or Netlify function, that backend must also know about the token.
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Guest Accounts</h2>
-      <p>Saved guest username/password entries created from this admin page.</p>
-
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Username</th>
-              <th>Password</th>
-              <th>Display Name</th>
-              <th>Status</th>
-              <th>Expires</th>
-              <th>Device</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="guestsTable"></tbody>
-        </table>
-      </div>
-
-      <div class="notice">
-        Static note: These accounts are stored in this browser’s localStorage. For real shared logins across devices, they need to be written to your auth backend or a JSON file your frontend reads.
-      </div>
-    </section>
-  </div>
-
-  <script>
-    /*
-      ===== EDIT THESE LINKS IF NEEDED =====
-    */
-    const TRAIN_DASHBOARD_URL = "dashboard.html";
-    const FLIGHT_TRACKER_URL = "flight.html";
-    const LOCO_STATS_URL = "loco-stats.html";
-    const LOGIN_URL = "admin-login.html";
-    const ACCESS_URL_PREFIX = "access.html?token=";
-
-    const GITHUB_REPO_URL = "https://github.com/grahame21/railops-backend";
-    const GITHUB_DB_FILES_URL = "https://github.com/grahame21/railops-backend/tree/main/static/downloads";
-
-    const BACKEND_BASE = "https://railops-backend-web-production.up.railway.app";
-    const RAW_BASE = "https://raw.githubusercontent.com/grahame21/railops-backend/main/";
-
-    const LINKS = {
-      trains: RAW_BASE + "trains.json",
-      locos: RAW_BASE + "locos.json",
-      history: RAW_BASE + "loco_history.json",
-      summary: RAW_BASE + "loco_summary.txt",
-      databaseHtml: BACKEND_BASE + "/downloads/loco_database.html",
-      recentlyAdded: BACKEND_BASE + "/downloads/recently_added.html",
-      numbersOnly: BACKEND_BASE + "/downloads/loco_numbers_only.html"
+    return fallback;
+  }
+
+  function setupUserInfo(){
+    const displayName = getStoredValue(
+      ["display_name", "railops_display_name", "admin_display_name", "name"],
+      "Grahame"
+    );
+
+    const role = getStoredValue(
+      ["role", "railops_role", "admin_role"],
+      "admin"
+    );
+
+    const username = getStoredValue(
+      ["username", "railops_username", "admin_username"],
+      "admin"
+    );
+
+    document.getElementById("userDisplay").textContent =
+      `${displayName} (${role} / ${username})`;
+
+    document.getElementById("displayNameStat").textContent = displayName;
+    document.getElementById("roleStat").textContent = role;
+    document.getElementById("usernameStat").textContent = username;
+  }
+
+  function logout(){
+    [
+      "display_name",
+      "railops_display_name",
+      "admin_display_name",
+      "name",
+      "role",
+      "railops_role",
+      "admin_role",
+      "username",
+      "railops_username",
+      "admin_username",
+      "session",
+      "railops_session",
+      "logged_in",
+      "railops_logged_in",
+      "token",
+      "guest_token"
+    ].forEach(k => localStorage.removeItem(k));
+
+    window.location.href = LOGIN_URL;
+  }
+
+  function generateToken(){
+    const label = document.getElementById("tokenLabel").value.trim() || "guest-token";
+    const days = document.getElementById("tokenDays").value.trim();
+    const unlimited = document.getElementById("tokenUnlimited").checked;
+    const deviceOnly = document.getElementById("tokenDeviceOnly").checked;
+
+    const token = uid("guest");
+    const expiresAt = unlimited ? null : addDays(days || 7);
+
+    const tokens = loadArray(STORAGE_KEYS.tokens);
+
+    const item = {
+      id: uid("tokenrow"),
+      label,
+      token,
+      createdAt: isoNow(),
+      expiresAt,
+      disabled: false,
+      deviceOnly
     };
 
-    const STORAGE_KEYS = {
-      tokens: "railops_admin_tokens",
-      guests: "railops_guest_accounts"
-    };
+    tokens.unshift(item);
+    saveArray(STORAGE_KEYS.tokens, tokens);
 
-    function uid(prefix){
-      const part = Math.random().toString(36).slice(2, 10);
-      const time = Date.now().toString(36);
-      return `${prefix}_${time}_${part}`;
-    }
+    const fullLink = `${location.origin}/${ACCESS_URL_PREFIX}${encodeURIComponent(token)}`;
 
-    function isoNow(){
-      return new Date().toISOString();
-    }
+    const box = document.getElementById("latestTokenBox");
+    box.style.display = "block";
+    box.textContent = fullLink;
 
-    function addDays(days){
-      const d = new Date();
-      d.setDate(d.getDate() + Number(days || 0));
-      return d.toISOString();
-    }
-
-    function formatDate(value){
-      if(!value) return "Unlimited";
-      const d = new Date(value);
-      if(Number.isNaN(d.getTime())) return value;
-
-      return new Intl.DateTimeFormat(navigator.language || "en-AU", {
-        day:"2-digit",
-        month:"short",
-        year:"numeric",
-        hour:"numeric",
-        minute:"2-digit",
-        hour12:true,
-        timeZoneName:"short"
-      }).format(d);
-    }
-
-    function isExpired(value){
-      if(!value) return false;
-      const d = new Date(value);
-      if(Number.isNaN(d.getTime())) return false;
-      return d.getTime() < Date.now();
-    }
-
-    function loadArray(key){
-      try{
-        const raw = localStorage.getItem(key);
-        const parsed = raw ? JSON.parse(raw) : [];
-        return Array.isArray(parsed) ? parsed : [];
-      }catch(err){
-        return [];
-      }
-    }
-
-    function saveArray(key, value){
-      localStorage.setItem(key, JSON.stringify(value, null, 2));
-    }
-
-    function openLink(url){
-      window.location.href = url;
-    }
-
-    function openNewTab(url){
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
-
-    function getStoredValue(keys, fallback){
-      for(const key of keys){
-        const value = localStorage.getItem(key);
-        if(value && String(value).trim() !== "") return value;
-      }
-      return fallback;
-    }
-
-    function setupUserInfo(){
-      const displayName = getStoredValue(
-        ["display_name", "railops_display_name", "admin_display_name", "name"],
-        "Grahame"
-      );
-
-      const role = getStoredValue(
-        ["role", "railops_role", "admin_role"],
-        "admin"
-      );
-
-      const username = getStoredValue(
-        ["username", "railops_username", "admin_username"],
-        "admin"
-      );
-
-      document.getElementById("userDisplay").textContent =
-        `${displayName} (${role} / ${username})`;
-
-      document.getElementById("displayNameStat").textContent = displayName;
-      document.getElementById("roleStat").textContent = role;
-      document.getElementById("usernameStat").textContent = username;
-    }
-
-    function logout(){
-      [
-        "display_name",
-        "railops_display_name",
-        "admin_display_name",
-        "name",
-        "role",
-        "railops_role",
-        "admin_role",
-        "username",
-        "railops_username",
-        "admin_username",
-        "session",
-        "railops_session",
-        "logged_in",
-        "railops_logged_in",
-        "token",
-        "guest_token"
-      ].forEach(k => localStorage.removeItem(k));
-
-      window.location.href = LOGIN_URL;
-    }
-
-    function generateToken(){
-      const label = document.getElementById("tokenLabel").value.trim() || "guest-token";
-      const days = document.getElementById("tokenDays").value.trim();
-      const unlimited = document.getElementById("tokenUnlimited").checked;
-      const deviceOnly = document.getElementById("tokenDeviceOnly").checked;
-
-      const token = uid("guest");
-      const expiresAt = unlimited ? null : addDays(days || 7);
-
-      const tokens = loadArray(STORAGE_KEYS.tokens);
-
-      const item = {
-        id: uid("tokenrow"),
-        label,
-        token,
-        createdAt: isoNow(),
-        expiresAt,
-        disabled: false,
-        deviceOnly
-      };
-
-      tokens.unshift(item);
-      saveArray(STORAGE_KEYS.tokens, tokens);
-
-      const fullLink = `${location.origin}/${ACCESS_URL_PREFIX}${encodeURIComponent(token)}`;
-
-      const box = document.getElementById("latestTokenBox");
-      box.style.display = "block";
-      box.textContent = fullLink;
-
-      navigator.clipboard?.writeText(fullLink).catch(() => {});
-      renderTokens();
-    }
-
-    function createGuest(){
-      const username = document.getElementById("guestUsername").value.trim();
-      const password = document.getElementById("guestPassword").value.trim();
-      const displayName = document.getElementById("guestDisplay").value.trim() || username || "Guest User";
-      const days = document.getElementById("guestDays").value.trim();
-      const unlimited = document.getElementById("guestUnlimited").checked;
-      const deviceOnly = document.getElementById("guestDeviceOnly").checked;
-
-      if(!username || !password){
-        alert("Guest username and password are required.");
-        return;
-      }
-
-      const guests = loadArray(STORAGE_KEYS.guests);
-
-      if(guests.some(g => String(g.username).toLowerCase() === username.toLowerCase())){
-        alert("That guest username already exists.");
-        return;
-      }
-
-      guests.unshift({
-        id: uid("guestrow"),
-        username,
-        password,
-        displayName,
-        createdAt: isoNow(),
-        expiresAt: unlimited ? null : addDays(days || 7),
-        disabled: false,
-        deviceOnly
-      });
-
-      saveArray(STORAGE_KEYS.guests, guests);
-
-      document.getElementById("guestUsername").value = "";
-      document.getElementById("guestPassword").value = "";
-      document.getElementById("guestDisplay").value = "";
-
-      renderGuests();
-    }
-
-    function toggleToken(id){
-      const tokens = loadArray(STORAGE_KEYS.tokens);
-      const item = tokens.find(t => t.id === id);
-      if(item) item.disabled = !item.disabled;
-      saveArray(STORAGE_KEYS.tokens, tokens);
-      renderTokens();
-    }
-
-    function deleteToken(id){
-      const tokens = loadArray(STORAGE_KEYS.tokens).filter(t => t.id !== id);
-      saveArray(STORAGE_KEYS.tokens, tokens);
-      renderTokens();
-    }
-
-    function copyToken(token){
-      const fullLink = `${location.origin}/${ACCESS_URL_PREFIX}${encodeURIComponent(token)}`;
-      navigator.clipboard?.writeText(fullLink).then(
-        () => alert("Token link copied."),
-        () => alert(fullLink)
-      );
-    }
-
-    function toggleGuest(id){
-      const guests = loadArray(STORAGE_KEYS.guests);
-      const item = guests.find(g => g.id === id);
-      if(item) item.disabled = !item.disabled;
-      saveArray(STORAGE_KEYS.guests, guests);
-      renderGuests();
-    }
-
-    function deleteGuest(id){
-      const guests = loadArray(STORAGE_KEYS.guests).filter(g => g.id !== id);
-      saveArray(STORAGE_KEYS.guests, guests);
-      renderGuests();
-    }
-
-    function renderTokens(){
-      const tbody = document.getElementById("tokensTable");
-      const tokens = loadArray(STORAGE_KEYS.tokens);
-
-      if(tokens.length === 0){
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" class="muted">No tokens created yet.</td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = tokens.map(item => {
-        const expired = isExpired(item.expiresAt);
-        const status = item.disabled
-          ? `<span class="pill red">Disabled</span>`
-          : expired
-            ? `<span class="pill amber">Expired</span>`
-            : `<span class="pill green">Active</span>`;
-
-        const tokenLink = `${ACCESS_URL_PREFIX}${encodeURIComponent(item.token)}`;
-
-        return `
-          <tr>
-            <td>${escapeHtml(item.label)}</td>
-            <td class="mono">${escapeHtml(tokenLink)}</td>
-            <td>${status}</td>
-            <td>${escapeHtml(formatDate(item.createdAt))}</td>
-            <td>${escapeHtml(formatDate(item.expiresAt))}</td>
-            <td>${item.deviceOnly ? "One device" : "Any device"}</td>
-            <td>
-              <div class="button-row" style="margin-top:0;">
-                <button class="btn secondary" type="button" onclick="copyToken('${item.token}')">Copy</button>
-                <button class="btn amber" type="button" onclick="toggleToken('${item.id}')">${item.disabled ? "Enable" : "Disable"}</button>
-                <button class="btn red" type="button" onclick="deleteToken('${item.id}')">Delete</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    function renderGuests(){
-      const tbody = document.getElementById("guestsTable");
-      const guests = loadArray(STORAGE_KEYS.guests);
-
-      if(guests.length === 0){
-        tbody.innerHTML = `
-          <tr>
-            <td colspan="7" class="muted">No guest accounts created yet.</td>
-          </tr>
-        `;
-        return;
-      }
-
-      tbody.innerHTML = guests.map(item => {
-        const expired = isExpired(item.expiresAt);
-        const status = item.disabled
-          ? `<span class="pill red">Blocked</span>`
-          : expired
-            ? `<span class="pill amber">Expired</span>`
-            : `<span class="pill green">Active</span>`;
-
-        return `
-          <tr>
-            <td class="mono">${escapeHtml(item.username)}</td>
-            <td class="mono">${escapeHtml(item.password)}</td>
-            <td>${escapeHtml(item.displayName)}</td>
-            <td>${status}</td>
-            <td>${escapeHtml(formatDate(item.expiresAt))}</td>
-            <td>${item.deviceOnly ? "One device" : "Any device"}</td>
-            <td>
-              <div class="button-row" style="margin-top:0;">
-                <button class="btn amber" type="button" onclick="toggleGuest('${item.id}')">${item.disabled ? "Unblock" : "Block"}</button>
-                <button class="btn red" type="button" onclick="deleteGuest('${item.id}')">Delete</button>
-              </div>
-            </td>
-          </tr>
-        `;
-      }).join("");
-    }
-
-    function escapeHtml(value){
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-
-    function bindUnlimitedCheckbox(checkId, inputId){
-      const check = document.getElementById(checkId);
-      const input = document.getElementById(inputId);
-
-      check.addEventListener("change", () => {
-        if(check.checked){
-          input.value = "";
-          input.disabled = true;
-        }else{
-          input.disabled = false;
-          input.value = input.value || "7";
-        }
-      });
-    }
-
-    document.getElementById("logoutBtn").addEventListener("click", logout);
-
-    document.getElementById("openDashboardBtn").addEventListener("click", () => openLink(TRAIN_DASHBOARD_URL));
-    document.getElementById("openFlightBtn").addEventListener("click", () => openLink(FLIGHT_TRACKER_URL));
-    document.getElementById("openGitHubDbBtn").addEventListener("click", () => openNewTab(GITHUB_DB_FILES_URL));
-    document.getElementById("openGitHubRepoBtn").addEventListener("click", () => openNewTab(GITHUB_REPO_URL));
-    document.getElementById("openStatsBtn").addEventListener("click", () => openLink(LOCO_STATS_URL));
-
-    document.getElementById("linkTrainsJson").addEventListener("click", () => openNewTab(LINKS.trains));
-    document.getElementById("linkLocosJson").addEventListener("click", () => openNewTab(LINKS.locos));
-    document.getElementById("linkLocoHistory").addEventListener("click", () => openNewTab(LINKS.history));
-    document.getElementById("linkLocoSummary").addEventListener("click", () => openNewTab(LINKS.summary));
-    document.getElementById("linkLocoDbHtml").addEventListener("click", () => openNewTab(LINKS.databaseHtml));
-    document.getElementById("linkRecentlyAdded").addEventListener("click", () => openNewTab(LINKS.recentlyAdded));
-    document.getElementById("linkNumbersOnly").addEventListener("click", () => openNewTab(LINKS.numbersOnly));
-
-    document.getElementById("generateTokenBtn").addEventListener("click", generateToken);
-    document.getElementById("createGuestBtn").addEventListener("click", createGuest);
-
-    document.getElementById("clearTokensBtn").addEventListener("click", () => {
-      if(confirm("Clear all locally saved tokens?")){
-        localStorage.removeItem(STORAGE_KEYS.tokens);
-        renderTokens();
-      }
-    });
-
-    document.getElementById("clearGuestsBtn").addEventListener("click", () => {
-      if(confirm("Clear all locally saved guests?")){
-        localStorage.removeItem(STORAGE_KEYS.guests);
-        renderGuests();
-      }
-    });
-
-    bindUnlimitedCheckbox("tokenUnlimited", "tokenDays");
-    bindUnlimitedCheckbox("guestUnlimited", "guestDays");
-
-    setupUserInfo();
+    navigator.clipboard?.writeText(fullLink).catch(() => {});
     renderTokens();
+  }
+
+  function createGuest(){
+    const username = document.getElementById("guestUsername").value.trim();
+    const password = document.getElementById("guestPassword").value.trim();
+    const displayName = document.getElementById("guestDisplay").value.trim() || username || "Guest User";
+    const days = document.getElementById("guestDays").value.trim();
+    const unlimited = document.getElementById("guestUnlimited").checked;
+    const deviceOnly = document.getElementById("guestDeviceOnly").checked;
+
+    if(!username || !password){
+      alert("Guest username and password are required.");
+      return;
+    }
+
+    const guests = loadArray(STORAGE_KEYS.guests);
+
+    if(guests.some(g => String(g.username).toLowerCase() === username.toLowerCase())){
+      alert("That guest username already exists.");
+      return;
+    }
+
+    guests.unshift({
+      id: uid("guestrow"),
+      username,
+      password,
+      displayName,
+      createdAt: isoNow(),
+      expiresAt: unlimited ? null : addDays(days || 7),
+      disabled: false,
+      deviceOnly
+    });
+
+    saveArray(STORAGE_KEYS.guests, guests);
+
+    document.getElementById("guestUsername").value = "";
+    document.getElementById("guestPassword").value = "";
+    document.getElementById("guestDisplay").value = "";
+
     renderGuests();
-  </script>
-</body>
-</html>
+  }
+
+  function toggleToken(id){
+    const tokens = loadArray(STORAGE_KEYS.tokens);
+    const item = tokens.find(t => t.id === id);
+    if(item) item.disabled = !item.disabled;
+    saveArray(STORAGE_KEYS.tokens, tokens);
+    renderTokens();
+  }
+
+  function deleteToken(id){
+    const tokens = loadArray(STORAGE_KEYS.tokens).filter(t => t.id !== id);
+    saveArray(STORAGE_KEYS.tokens, tokens);
+    renderTokens();
+  }
+
+  function copyToken(token){
+    const fullLink = `${location.origin}/${ACCESS_URL_PREFIX}${encodeURIComponent(token)}`;
+    navigator.clipboard?.writeText(fullLink).then(
+      () => alert("Token link copied."),
+      () => alert(fullLink)
+    );
+  }
+
+  function toggleGuest(id){
+    const guests = loadArray(STORAGE_KEYS.guests);
+    const item = guests.find(g => g.id === id);
+    if(item) item.disabled = !item.disabled;
+    saveArray(STORAGE_KEYS.guests, guests);
+    renderGuests();
+  }
+
+  function deleteGuest(id){
+    const guests = loadArray(STORAGE_KEYS.guests).filter(g => g.id !== id);
+    saveArray(STORAGE_KEYS.guests, guests);
+    renderGuests();
+  }
+
+  function renderTokens(){
+    const tbody = document.getElementById("tokensTable");
+    const tokens = loadArray(STORAGE_KEYS.tokens);
+
+    if(tokens.length === 0){
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="muted">No tokens created yet.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = tokens.map(item => {
+      const expired = isExpired(item.expiresAt);
+      const status = item.disabled
+        ? `<span class="pill red">Disabled</span>`
+        : expired
+          ? `<span class="pill amber">Expired</span>`
+          : `<span class="pill green">Active</span>`;
+
+      const tokenLink = `${ACCESS_URL_PREFIX}${encodeURIComponent(item.token)}`;
+
+      return `
+        <tr>
+          <td>${escapeHtml(item.label)}</td>
+          <td class="mono">${escapeHtml(tokenLink)}</td>
+          <td>${status}</td>
+          <td>${escapeHtml(formatDate(item.createdAt))}</td>
+          <td>${escapeHtml(formatDate(item.expiresAt))}</td>
+          <td>${item.deviceOnly ? "One device" : "Any device"}</td>
+          <td>
+            <div class="button-row" style="margin-top:0;">
+              <button class="btn secondary" type="button" onclick="copyToken('${item.token}')">Copy</button>
+              <button class="btn amber" type="button" onclick="toggleToken('${item.id}')">${item.disabled ? "Enable" : "Disable"}</button>
+              <button class="btn red" type="button" onclick="deleteToken('${item.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function renderGuests(){
+    const tbody = document.getElementById("guestsTable");
+    const guests = loadArray(STORAGE_KEYS.guests);
+
+    if(guests.length === 0){
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="7" class="muted">No guest accounts created yet.</td>
+        </tr>
+      `;
+      return;
+    }
+
+    tbody.innerHTML = guests.map(item => {
+      const expired = isExpired(item.expiresAt);
+      const status = item.disabled
+        ? `<span class="pill red">Blocked</span>`
+        : expired
+          ? `<span class="pill amber">Expired</span>`
+          : `<span class="pill green">Active</span>`;
+
+      return `
+        <tr>
+          <td class="mono">${escapeHtml(item.username)}</td>
+          <td class="mono">${escapeHtml(item.password)}</td>
+          <td>${escapeHtml(item.displayName)}</td>
+          <td>${status}</td>
+          <td>${escapeHtml(formatDate(item.expiresAt))}</td>
+          <td>${item.deviceOnly ? "One device" : "Any device"}</td>
+          <td>
+            <div class="button-row" style="margin-top:0;">
+              <button class="btn amber" type="button" onclick="toggleGuest('${item.id}')">${item.disabled ? "Unblock" : "Block"}</button>
+              <button class="btn red" type="button" onclick="deleteGuest('${item.id}')">Delete</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  function escapeHtml(value){
+    return String(value ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function bindUnlimitedCheckbox(checkId, inputId){
+    const check = document.getElementById(checkId);
+    const input = document.getElementById(inputId);
+
+    check.addEventListener("change", () => {
+      if(check.checked){
+        input.value = "";
+        input.disabled = true;
+      }else{
+        input.disabled = false;
+        input.value = input.value || "7";
+      }
+    });
+  }
+
+  document.getElementById("logoutBtn").addEventListener("click", logout);
+
+  document.getElementById("openDashboardBtn").addEventListener("click", () => openLink(TRAIN_DASHBOARD_URL));
+  document.getElementById("openFlightBtn").addEventListener("click", () => openLink(FLIGHT_TRACKER_URL));
+  document.getElementById("openGitHubDbBtn").addEventListener("click", () => openNewTab(GITHUB_DB_FILES_URL));
+  document.getElementById("openGitHubRepoBtn").addEventListener("click", () => openNewTab(GITHUB_REPO_URL));
+  document.getElementById("openStatsBtn").addEventListener("click", () => openLink(LOCO_STATS_URL));
+
+  document.getElementById("linkTrainsJson").addEventListener("click", () => openNewTab(LINKS.trains));
+  document.getElementById("linkLocosJson").addEventListener("click", () => openNewTab(LINKS.locos));
+  document.getElementById("linkLocoHistory").addEventListener("click", () => openNewTab(LINKS.history));
+  document.getElementById("linkLocoSummary").addEventListener("click", () => openNewTab(LINKS.summary));
+  document.getElementById("linkLocoDbHtml").addEventListener("click", () => openNewTab(LINKS.databaseHtml));
+  document.getElementById("linkRecentlyAdded").addEventListener("click", () => openNewTab(LINKS.recentlyAdded));
+  document.getElementById("linkNumbersOnly").addEventListener("click", () => openNewTab(LINKS.numbersOnly));
+
+  document.getElementById("generateTokenBtn").addEventListener("click", generateToken);
+  document.getElementById("createGuestBtn").addEventListener("click", createGuest);
+
+  document.getElementById("clearTokensBtn").addEventListener("click", () => {
+    if(confirm("Clear all locally saved tokens?")){
+      localStorage.removeItem(STORAGE_KEYS.tokens);
+      renderTokens();
+    }
+  });
+
+  document.getElementById("clearGuestsBtn").addEventListener("click", () => {
+    if(confirm("Clear all locally saved guests?")){
+      localStorage.removeItem(STORAGE_KEYS.guests);
+      renderGuests();
+    }
+  });
+
+  bindUnlimitedCheckbox("tokenUnlimited", "tokenDays");
+  bindUnlimitedCheckbox("guestUnlimited", "guestDays");
+
+  setupUserInfo();
+  renderTokens();
+  renderGuests();
+</script>
