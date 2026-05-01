@@ -355,7 +355,7 @@
           <h1>RailOps<br>Loco Added Stats</h1>
           <p>Filter recently added loco counts from GitHub database history.</p>
           <div class="pill-row">
-            <span class="pill green">Database starting date: 1/5/2026 00:00</span>
+            <span class="pill green">Database started: 1/5/2026 20:00</span>
             <span class="pill">Phone/browser local time</span>
             <span class="pill amber">Source: GitHub</span>
           </div>
@@ -382,7 +382,7 @@
         <option value="48h">Last 48 hours</option>
         <option value="7d" selected>Last 7 days</option>
         <option value="30d">Last 30 days</option>
-        <option value="sinceStart">Since database start: 1/5/2026</option>
+        <option value="sinceStart">Since database started: 1/5/2026 20:00</option>
         <option value="all">All history</option>
         <option value="custom">Custom time range</option>
       </select>
@@ -439,12 +439,12 @@
 
       <div class="card">
         <h2>Range Summary</h2>
-        <p>Useful for checking what was added between times, days, or since the database restarted.</p>
+        <p>Useful for checking what was added between times, days, or since the database started.</p>
 
         <div class="list" id="rangeSummary">Waiting for history...</div>
 
         <div class="small-note">
-          The database restart date is shown as <strong>1/5/2026 00:00</strong>. This page only reports what exists in
+          The database start date is shown as <strong>1/5/2026 20:00</strong>. This page only reports what exists in
           <strong>loco_history.json</strong>.
         </div>
       </div>
@@ -472,23 +472,17 @@
   </div>
 
   <script>
-    /*
-      ===== EDIT THESE IF NEEDED =====
-    */
     const ADMIN_URL = "admin.html";
     const HISTORY_URL = "https://raw.githubusercontent.com/grahame21/railops-backend/main/loco_history.json";
     const GITHUB_HISTORY_URL = "https://github.com/grahame21/railops-backend/blob/main/loco_history.json";
 
     /*
-      Database restart/start date:
-      JavaScript month numbers start at zero:
-      0 = January
-      3 = April
-      4 = May
-
-      This is 1/5/2026 at 00:00 in the phone/browser local timezone.
+      Database start date:
+      JavaScript month numbers start at zero.
+      4 = May.
+      This is 1/5/2026 at 20:00 in the phone/browser local timezone.
     */
-    const DATABASE_START_LOCAL = new Date(2026, 4, 1, 0, 0, 0);
+    const DATABASE_START_LOCAL = new Date(2026, 4, 1, 20, 0, 0);
 
     let allHistory = [];
     let currentNewLocoList = [];
@@ -691,7 +685,7 @@
 
       document.getElementById("rangeSummary").textContent =
         [
-          "Database restart date: 1/5/2026 00:00",
+          "Database started: 1/5/2026 20:00",
           "",
           "Selected range from:",
           first ? formatLocal(first.toISOString()) : "No runs in range",
