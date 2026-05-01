@@ -19,6 +19,7 @@
       --green2:#1f7f50;
       --red:#ff5a6b;
       --amber:#ffcc66;
+      --purple:#8b5cf6;
       --shadow:0 10px 30px rgba(0,0,0,.28);
     }
 
@@ -137,6 +138,12 @@
       border-color:rgba(104,221,157,.25);
     }
 
+    .btn.purple{
+      background:linear-gradient(180deg,var(--purple),#6240d8);
+      box-shadow:0 10px 24px rgba(139,92,246,.22);
+      border-color:rgba(181,154,255,.25);
+    }
+
     .btn.red{
       background:linear-gradient(180deg,#e5425a,#b4233a);
       box-shadow:0 10px 24px rgba(255,90,107,.16);
@@ -214,6 +221,11 @@
     .pill.green{
       background:rgba(44,168,106,.18);
       border-color:rgba(104,221,157,.28);
+    }
+
+    .pill.purple{
+      background:rgba(139,92,246,.18);
+      border-color:rgba(181,154,255,.28);
     }
 
     .pill.red{
@@ -330,6 +342,7 @@
     }
 
     .muted{color:var(--muted)}
+
     .mono{
       font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
       word-break:break-all;
@@ -379,7 +392,7 @@
         <div class="brand-icon">🚂</div>
         <div>
           <h1>Grahame’s<br>RailOps Admin</h1>
-          <p>Admin console, locomotive database tools, guest logins and token manager.</p>
+          <p>Admin console, locomotive database tools, V/Line services, guest logins and token manager.</p>
         </div>
       </div>
 
@@ -396,11 +409,13 @@
       <h2>Admin Console</h2>
       <p>
         Locomotive database source files are stored in GitHub. Railway renders the HTML database pages.
+        V/Line regional passenger service IDs are separated into their own database.
       </p>
 
       <div class="button-stack">
         <button class="btn" type="button" id="openDashboardBtn">Open Train Dashboard</button>
         <button class="btn" type="button" id="openFlightBtn">Open Flight Tracker</button>
+        <button class="btn purple" type="button" id="openVlineBtn">Open V/Line Services</button>
         <button class="btn secondary" type="button" id="openGitHubDbBtn">Open Locomotive Database Files</button>
         <button class="btn secondary" type="button" id="openGitHubRepoBtn">Open Locomotive Database Source</button>
         <button class="btn green" type="button" id="openStatsBtn">Loco Added Stats / Filters</button>
@@ -408,7 +423,8 @@
 
       <div class="pill-row">
         <span class="pill green">Locomotive database mode</span>
-        <span class="pill">Database start: 30/04/2026</span>
+        <span class="pill purple">V/Line services separated</span>
+        <span class="pill">Database start: 1/5/2026 20:00</span>
         <span class="pill amber">HTML pages rendered by Railway</span>
       </div>
     </section>
@@ -431,6 +447,24 @@
       </div>
 
       <div class="card">
+        <h2>V/Line Regional Services</h2>
+        <p>V/Line passenger train IDs are stored separately so they do not clutter the locomotive database.</p>
+
+        <div class="button-stack">
+          <button class="btn purple" type="button" id="linkVlineServices">Open V/Line Services</button>
+          <button class="btn secondary" type="button" id="linkVlineJson">GitHub V/Line JSON</button>
+          <button class="btn secondary" type="button" id="linkVlineCsv">GitHub V/Line CSV</button>
+        </div>
+
+        <div class="pill-row">
+          <span class="pill purple">Blocks VLINE* from loco database</span>
+          <span class="pill">Saved from trains.json</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid">
+      <div class="card">
         <h2>Session</h2>
         <p>Quick summary of the admin user shown on this static page.</p>
 
@@ -451,6 +485,20 @@
             <div class="label">Mode</div>
             <div class="value">Netlify Static</div>
           </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Notes</h2>
+        <p>
+          For the V/Line split to work, your backend repo must contain <strong>vline_database.py</strong>,
+          and your blocklist should include <strong>VLINE*</strong> under blocked locos.
+        </p>
+
+        <div class="pill-row">
+          <span class="pill green">Run order: scraper</span>
+          <span class="pill purple">then V/Line database</span>
+          <span class="pill amber">then loco database</span>
         </div>
       </div>
     </section>
@@ -607,7 +655,11 @@
       numbersOnly: RAILWAY_RENDERED_BASE + "/downloads/loco_numbers_only.html",
 
       databaseWorkbook: GITHUB_BLOB_BASE + "static/downloads/loco_database.xlsx",
-      numbersWorkbook: GITHUB_BLOB_BASE + "static/downloads/loco_numbers_only.xlsx"
+      numbersWorkbook: GITHUB_BLOB_BASE + "static/downloads/loco_numbers_only.xlsx",
+
+      vlineServices: RAILWAY_RENDERED_BASE + "/downloads/vline_services.html",
+      vlineJson: GITHUB_BLOB_BASE + "vline_services.json",
+      vlineCsv: GITHUB_BLOB_BASE + "vline_services.csv"
     };
 
     const STORAGE_KEYS = {
@@ -952,6 +1004,7 @@
 
     document.getElementById("openDashboardBtn").addEventListener("click", () => openLink(TRAIN_DASHBOARD_URL));
     document.getElementById("openFlightBtn").addEventListener("click", () => openLink(FLIGHT_TRACKER_URL));
+    document.getElementById("openVlineBtn").addEventListener("click", () => openNewTab(LINKS.vlineServices));
     document.getElementById("openGitHubDbBtn").addEventListener("click", () => openNewTab(GITHUB_DB_FILES_URL));
     document.getElementById("openGitHubRepoBtn").addEventListener("click", () => openNewTab(GITHUB_REPO_URL));
     document.getElementById("openStatsBtn").addEventListener("click", () => openLink(LOCO_STATS_URL));
@@ -963,6 +1016,10 @@
     document.getElementById("linkLocoDbHtml").addEventListener("click", () => openNewTab(LINKS.databaseHtml));
     document.getElementById("linkRecentlyAdded").addEventListener("click", () => openNewTab(LINKS.recentlyAdded));
     document.getElementById("linkNumbersOnly").addEventListener("click", () => openNewTab(LINKS.numbersOnly));
+
+    document.getElementById("linkVlineServices").addEventListener("click", () => openNewTab(LINKS.vlineServices));
+    document.getElementById("linkVlineJson").addEventListener("click", () => openNewTab(LINKS.vlineJson));
+    document.getElementById("linkVlineCsv").addEventListener("click", () => openNewTab(LINKS.vlineCsv));
 
     document.getElementById("generateTokenBtn").addEventListener("click", generateToken);
     document.getElementById("createGuestBtn").addEventListener("click", createGuest);
