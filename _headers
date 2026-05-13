@@ -1,18 +1,5 @@
 /*
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
-  Referrer-Policy: no-referrer
-  Permissions-Policy: geolocation=(self)
-  Cache-Control: no-store
-
-/dashboard.html
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/admin.html
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/flight.html
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
-
-/database.html
-  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Referrer-Policy: strict-origin-when-cross-origin
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: blob: https://*.tile.openstreetmap.org https://*.tiles.openrailwaymap.org https://tiles.openrailwaymap.org https://spatial.infrastructure.gov.au https://*.arcgisonline.com https://server.arcgisonline.com; connect-src 'self' https://railops-backend-production.up.railway.app https://nominatim.openstreetmap.org https://*.tile.openstreetmap.org https://*.tiles.openrailwaymap.org https://tiles.openrailwaymap.org https://spatial.infrastructure.gov.au; font-src 'self' data:; worker-src 'self' blob:;
