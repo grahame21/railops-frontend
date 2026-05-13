@@ -583,6 +583,68 @@ body { overscroll-behavior: none; }
   cursor: pointer;
 }
 
+/* Desktop layout fix: keep toolbar, search and status from overlapping. */
+@media (min-width: 901px) {
+  .toolbar {
+    max-width: 450px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    scrollbar-width: thin;
+  }
+
+  .toolbar::-webkit-scrollbar {
+    height: 6px;
+  }
+
+  .toolbar::-webkit-scrollbar-thumb {
+    background: #2b4f80;
+    border-radius: 999px;
+  }
+
+  .search-container {
+    width: min(430px, 31vw);
+    z-index: 1002;
+  }
+
+  .status-bar {
+    max-width: 430px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .status-bar #lastUpdate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1450px) {
+  .toolbar {
+    max-width: calc(100vw - 40px);
+    right: calc(var(--safe-right) + 10px);
+    flex-wrap: wrap;
+  }
+
+  .search-container {
+    top: calc(var(--safe-top) + 72px);
+    width: min(520px, calc(100vw - 40px));
+  }
+
+  .status-bar {
+    top: calc(var(--safe-top) + 124px);
+    left: calc(var(--safe-left) + 10px);
+    right: auto;
+    max-width: calc(100vw - 20px);
+  }
+
+  .operator-panel,
+  .route-panel {
+    top: calc(var(--safe-top) + 132px);
+  }
+}
+
 @media (max-width: 900px) {
   .top-card { display: block; }
   .toolbar, .search-container, .status-bar { display: none !important; }
@@ -1357,7 +1419,12 @@ const map = new ol.Map({
 map.getView().on("change:rotation", () => map.getView().setRotation(0));
 
 const railLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({ url: "https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png" }),
+  source: new ol.source.XYZ({
+    url: "https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+    crossOrigin: "anonymous",
+    transition: 0
+  }),
+  opacity: 0.92,
   visible: true,
   zIndex: 1
 });
@@ -1366,7 +1433,12 @@ railLayer.on("prerender", (e)=>{ if (e.context) e.context.filter="hue-rotate(200
 railLayer.on("postrender", (e)=>{ if (e.context) e.context.filter="none"; });
 
 const stationsLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({ url: "https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png" }),
+  source: new ol.source.XYZ({
+    url: "https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png",
+    crossOrigin: "anonymous",
+    transition: 0
+  }),
+  opacity: 0.9,
   visible: true,
   zIndex: 2
 });
@@ -1918,6 +1990,99 @@ function wireSearchBox(inputId, buttonId, listId, isMobile) {
   button.addEventListener("click", () => searchTrainsFromInput(input, isMobile));
 }
 
+async function geocodeLocationInAustralia(query) {
+  const q = String(query || "").trim();
+  if (!q) return null;
+
+  const cacheKey = `geocode:${normalizeSearchText(q)}`;
+  if (reverseGeoCache.has(cacheKey)) return reverseGeoCache.get(cacheKey);
+
+  try {
+    const params = new URLSearchParams({
+      format: "jsonv2",
+      q: `${q}, Australia`,
+      limit: "1",
+      addressdetails: "1",
+      countrycodes: "au",
+      bounded: "1",
+      viewbox: "110,-9,155,-45"
+    });
+
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+      headers: { "Accept": "application/json" },
+      cache: "force-cache"
+    });
+
+    if (!res.ok) throw new Error(`Location search HTTP ${res.status}`);
+
+    const data = await res.json();
+    const first = Array.isArray(data) ? data[0] : null;
+    if (!first) {
+      reverseGeoCache.set(cacheKey, null);
+      return null;
+    }
+
+    const lat = Number(first.lat);
+    const lon = Number(first.lon);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+      reverseGeoCache.set(cacheKey, null);
+      return null;
+    }
+
+    const result = {
+      lat,
+      lon,
+      label: first.display_name || q
+    };
+
+    reverseGeoCache.set(cacheKey, result);
+    return result;
+  } catch (e) {
+    console.warn("Location search failed", e);
+    reverseGeoCache.set(cacheKey, null);
+    return null;
+  }
+}
+
+function flyToLocation(lat, lon, label) {
+  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return;
+
+  const center = ol.proj.fromLonLat([Number(lon), Number(lat)]);
+
+  map.getView().animate({
+    center,
+    zoom: 10,
+    duration: 850
+  });
+
+  removePopup();
+
+  const div = document.createElement("div");
+  div.className = "train-popup";
+  div.innerHTML = `
+    <button class="popup-close" id="popupCloseBtn" type="button">×</button>
+    <div class="popup-header">📍 ${esc(label || "Location")}</div>
+    <div class="popup-subheader">Location search result</div>
+    <div class="popup-grid">
+      <div class="popup-label">Latitude</div><div class="popup-value">${esc(Number(lat).toFixed(5))}</div>
+      <div class="popup-label">Longitude</div><div class="popup-value">${esc(Number(lon).toFixed(5))}</div>
+    </div>
+  `;
+
+  popupOverlay = new ol.Overlay({
+    element: div,
+    position: center,
+    positioning: "bottom-center",
+    offset: [0, -12]
+  });
+
+  map.addOverlay(popupOverlay);
+
+  const closeBtn = div.querySelector("#popupCloseBtn");
+  if (closeBtn) closeBtn.addEventListener("click", removePopup);
+}
+
 function flyToMatches(trains){
   const valid = trains.filter(t => Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lon)));
   if (valid.length === 0) return;
@@ -1954,8 +2119,9 @@ function flyToMatches(trains){
   });
 }
 
-function searchTrainsFromInput(inputEl, isMobile) {
-  const query = normalizeSearchText(inputEl.value);
+async function searchTrainsFromInput(inputEl, isMobile) {
+  const originalText = String(inputEl.value || "").trim();
+  const query = normalizeSearchText(originalText);
   if (!query) return;
 
   const matches = [];
@@ -1970,13 +2136,23 @@ function searchTrainsFromInput(inputEl, isMobile) {
     }
   }
 
-  if (matches.length === 0) {
-    alert("No trains or locations found matching: " + inputEl.value);
-    return;
-  }
-
   hideAutocomplete();
-  flyToMatches(matches);
+
+  if (matches.length > 0) {
+    flyToMatches(matches);
+  } else {
+    setStatusUI("Searching location...", "location lookup", document.getElementById("trainCount").textContent || "0");
+    const place = await geocodeLocationInAustralia(originalText);
+
+    if (!place) {
+      alert("No trains or Australian locations found matching: " + originalText);
+      updateTrainLayer();
+      return;
+    }
+
+    flyToLocation(place.lat, place.lon, place.label);
+    updateTrainLayer();
+  }
 
   if (isMobile) {
     mobileControlsExpanded = false;
