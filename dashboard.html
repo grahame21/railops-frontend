@@ -1165,6 +1165,34 @@ function getSpeed(train){
   return Number.isFinite(n) ? n : 0;
 }
 
+function getTrainTime(train){
+  const candidates = [
+    train.trainTime,
+    train.train_time,
+    train.TrainTime,
+    train.time,
+    train.Time,
+    train.reportTime,
+    train.report_time,
+    train.lastTrainTime,
+    train.last_train_time
+  ];
+
+  for (const c of candidates) {
+    const s = String(c || "").trim();
+    if (!s) continue;
+
+    const parsed = new Date(s);
+    if (isFinite(parsed.getTime()) && /[-T:Z]/.test(s)) {
+      return formatLocal(parsed);
+    }
+
+    return s;
+  }
+
+  return "";
+}
+
 function getDescription(train){
   return String(
     train.vehicle_description ||
@@ -1511,33 +1539,40 @@ const map = new ol.Map({
 map.getView().on("change:rotation", () => map.getView().setRotation(0));
 
 function createOpenRailwayMapSource(kind) {
-  return new ol.source.XYZ({
-    crossOrigin: "anonymous",
+  /*
+    OpenRailwayMap tiles use normal XYZ URLs.
+    The previous version manually inverted the Y tile coordinate, which can make
+    RailwayMap request the wrong tiles and show no blue rail overlay.
+  */
+  const template = `https://{a-c}.tiles.openrailwaymap.org/${kind}/{z}/{x}/{y}.png`;
+
+  const source = new ol.source.XYZ({
+    url: template,
     maxZoom: 19,
-    tilePixelRatio: 1,
-    tileUrlFunction: function(tileCoord) {
-      if (!tileCoord) return "";
-      const z = tileCoord[0];
-      const x = tileCoord[1];
-      const y = -tileCoord[2] - 1;
-      const subdomains = ["a", "b", "c"];
-      const sub = subdomains[Math.abs(x + y) % subdomains.length];
-      return `https://${sub}.tiles.openrailwaymap.org/${kind}/${z}/${x}/${y}.png`;
-    },
+    transition: 0,
     attributions: "© OpenRailwayMap contributors"
   });
+
+  source.on("tileloaderror", function(evt) {
+    try {
+      console.warn("OpenRailwayMap tile failed", kind, evt && evt.tile && evt.tile.getKey ? evt.tile.getKey() : evt);
+    } catch (e) {}
+  });
+
+  return source;
 }
 
 const railLayer = new ol.layer.Tile({
   source: createOpenRailwayMapSource("standard"),
   visible: true,
-  opacity: 0.98,
-  zIndex: 6
+  opacity: 1,
+  zIndex: 50,
+  className: "railops-openrailwaymap-blue"
 });
 
 /* Re-colour OpenRailwayMap's orange rail lines toward bright blue. */
 railLayer.on("prerender", (e)=>{
-  if (e.context) e.context.filter = "hue-rotate(200deg) saturate(2.4) brightness(1.12) contrast(1.18)";
+  if (e.context) e.context.filter = "hue-rotate(205deg) saturate(3.2) brightness(1.22) contrast(1.35)";
 });
 railLayer.on("postrender", (e)=>{ if (e.context) e.context.filter="none"; });
 
@@ -1545,11 +1580,19 @@ const stationsLayer = new ol.layer.Tile({
   source: createOpenRailwayMapSource("stations"),
   visible: true,
   opacity: 0.95,
-  zIndex: 7
+  zIndex: 51
 });
 
 map.addLayer(railLayer);
 map.addLayer(stationsLayer);
+
+function refreshRailOverlays() {
+  try { railLayer.getSource().refresh(); } catch (e) {}
+  try { stationsLayer.getSource().refresh(); } catch (e) {}
+  try { map.renderSync(); } catch (e) {}
+}
+
+setTimeout(refreshRailOverlays, 1200);
 
 const locationSource = new ol.source.Vector();
 const locationLayer = new ol.layer.Vector({
@@ -1935,6 +1978,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
       <div class="popup-label">Route / service</div><div class="popup-value">${esc(route || "Unknown")}</div>
       <div class="popup-label">Vehicle description</div><div class="popup-value">${esc(desc || "Unknown")}</div>
       <div class="popup-label">KM / post</div><div class="popup-value">${esc(km || "Unknown")}</div>
+      <div class="popup-label">Train time</div><div class="popup-value">${esc(getTrainTime(train) || "Unknown")}</div>
       <div class="popup-label">Latitude</div><div class="popup-value">${Number.isFinite(lat) ? esc(lat.toFixed(5)) : "Unknown"}</div>
       <div class="popup-label">Longitude</div><div class="popup-value">${Number.isFinite(lon) ? esc(lon.toFixed(5)) : "Unknown"}</div>
     </div>
@@ -2451,7 +2495,10 @@ document.getElementById("routeSearchInput").addEventListener("input", (e) => {
 });
 
 document.getElementById("trainLayerChk").addEventListener("change", e => trainLayer.setVisible(e.target.checked));
-document.getElementById("railLayerChk").addEventListener("change", e => railLayer.setVisible(e.target.checked));
+document.getElementById("railLayerChk").addEventListener("change", e => {
+  railLayer.setVisible(e.target.checked);
+  refreshRailOverlays();
+});
 document.getElementById("stationsLayerChk").addEventListener("change", e => stationsLayer.setVisible(e.target.checked));
 document.getElementById("covTelstraChk").addEventListener("change", e => covTelstra.setVisible(e.target.checked));
 document.getElementById("covOptusChk").addEventListener("change", e => covOptus.setVisible(e.target.checked));
