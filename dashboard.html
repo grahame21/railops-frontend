@@ -133,7 +133,8 @@ body { overscroll-behavior: none; }
 #mobileOperatorBtn,
 #mobileRouteBtn,
 #mobileClearFiltersBtn,
-#mobileFilterToggleBtn { grid-column: 1 / -1; }
+#mobileFilterToggleBtn,
+#mobileDatabaseBtn { grid-column: 1 / -1; }
 
 .mobile-search-wrap { margin-bottom: 8px; }
 
@@ -802,6 +803,7 @@ body { overscroll-behavior: none; }
 
       <button id="mobileLocateBtn">📍 My Location</button>
       <button id="mobileLayersBtn">🗺️ Layers</button>
+      <button id="mobileDatabaseBtn">📚 Loco Database</button>
       <button id="mobileOperatorBtn">🚫 Hide Operators (0)</button>
       <button id="mobileRouteBtn">🧭 Hide Routes/Services (0)</button>
       <button id="mobileClearFiltersBtn" class="clear-filters-btn">🧹 Clear All Filters</button>
@@ -845,6 +847,7 @@ body { overscroll-behavior: none; }
   </select>
   <button id="locateBtn">📍 My Location</button>
   <button id="layersToggleBtn">🗺️ Layers</button>
+  <button id="databaseBtn">📚 Database</button>
   <button id="operatorBtn">🚫 Hide Operators (0)</button>
   <button id="routeBtn">🧭 Hide Routes/Services (0)</button>
   <button id="clearFiltersBtn" class="clear-filters-btn">🧹 Clear All Filters</button>
@@ -901,12 +904,13 @@ body { overscroll-behavior: none; }
 
 <div class="map-legend" id="mapLegend">
   <h4>RailOps Map</h4>
-  <div class="legend-row"><span class="legend-dot" style="background:#ff4444"></span> Fast / high speed</div>
-  <div class="legend-row"><span class="legend-dot" style="background:#00cc00"></span> Moving</div>
-  <div class="legend-row"><span class="legend-dot" style="background:#ffaa00"></span> Stopped / unknown</div>
+  <div class="legend-row"><span class="legend-dot" style="background:rgba(128,0,0,0.9)"></span> TrainFinder slow / shunt colour</div>
+  <div class="legend-row"><span class="legend-dot" style="background:rgba(255,102,0,0.9)"></span> TrainFinder moving colour</div>
+  <div class="legend-row"><span class="legend-dot" style="background:rgba(242,242,242,0.9); border:1px solid #333"></span> TrainFinder passenger / special colour</div>
   <div class="legend-row"><span class="legend-blue-line"></span> Rail lines overlay</div>
   <div class="legend-actions">
     <button id="refreshNowBtn" type="button">↻ Refresh trains now</button>
+    <button id="openDatabaseLegendBtn" type="button">📚 Open database</button>
     <button id="toggleLegendBtn" type="button">Hide legend</button>
   </div>
 </div>
@@ -922,6 +926,8 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL = "https://railops-backend-production.up.railway.app/trains.json";
+const LOCO_DATABASE_URL = "https://railops-backend-production.up.railway.app/downloads/loco_database.html";
+const RECENTLY_ADDED_URL = "https://railops-backend-production.up.railway.app/downloads/recently_added.html";
 const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v6";
 const HIDDEN_ROUTES_STORAGE_KEY = "railops_hidden_routes_v4";
 const MOBILE_FILTER_SECTION_KEY = "railops_mobile_filter_section_open_v2";
@@ -1115,6 +1121,122 @@ function buildLabel(train){
   if (!loco && !tid) return "";
   if (loco && tid && loco !== tid) return `${loco} • ${tid}`;
   return loco || tid;
+}
+
+function buildMapLabel(train){
+  const base = buildLabel(train);
+  const speed = getSpeed(train);
+  if (!base) return "";
+  if (Number.isFinite(speed) && speed > 0) return `${base} • ${Math.round(speed)}km/h`;
+  return base;
+}
+
+function getTrainFinderHTML(train) {
+  return String(
+    train.tooltipHTML ||
+    train.tooltipHtml ||
+    train.tooltip ||
+    train.labelHTML ||
+    train.labelHtml ||
+    ""
+  );
+}
+
+function normaliseCssColour(raw) {
+  const s = String(raw || "").trim().replace(/;$/, "");
+  if (!s) return "";
+
+  // Already a normal CSS colour.
+  if (/^rgba?\(/i.test(s) || /^#[0-9a-f]{3,8}$/i.test(s) || /^[a-z]+$/i.test(s)) {
+    return s;
+  }
+
+  // TrainFinder sometimes stores colours as: 33,33,33,0.8
+  if (/^\d+\s*,\s*\d+\s*,\s*\d+/.test(s)) {
+    return `rgba(${s})`;
+  }
+
+  return "";
+}
+
+function getTrainFinderLabelColour(train) {
+  const html = getTrainFinderHTML(train);
+
+  const bgMatch = html.match(/background-color\s*:\s*(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|[a-zA-Z]+|\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[0-9.]+)?)/i);
+  if (bgMatch && bgMatch[1]) {
+    const c = normaliseCssColour(bgMatch[1]);
+    if (c) return c;
+  }
+
+  const backgroundMatch = html.match(/background\s*:\s*(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|[a-zA-Z]+|\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[0-9.]+)?)/i);
+  if (backgroundMatch && backgroundMatch[1]) {
+    const c = normaliseCssColour(backgroundMatch[1]);
+    if (c) return c;
+  }
+
+  return "";
+}
+
+function getTrainFinderTextColour(train) {
+  const html = getTrainFinderHTML(train);
+
+  // Match colour, but avoid accidentally matching the word "background-color".
+  const colorMatch = html.match(/(?:^|[;\s"])color\s*:\s*(rgba?\([^)]+\)|#[0-9a-fA-F]{3,8}|[a-zA-Z]+|\d+\s*,\s*\d+\s*,\s*\d+(?:\s*,\s*[0-9.]+)?)/i);
+  if (colorMatch && colorMatch[1]) {
+    const c = normaliseCssColour(colorMatch[1]);
+    if (c) return c;
+  }
+
+  return "";
+}
+
+function getSpeedNumber(train) {
+  const candidates = [
+    train.trainSpeed,
+    train.speed,
+    train.kmh,
+    train.kph,
+    train.velocity
+  ];
+
+  for (const value of candidates) {
+    const text = String(value ?? "").trim();
+    const match = text.match(/-?\d+(?:\.\d+)?/);
+    if (match) return Number(match[0]);
+  }
+
+  return null;
+}
+
+function getTrainColour(train) {
+  // Best option: copy TrainFinder's own marker/tooltip colour from the scraped tooltipHTML.
+  const trainFinderColour = getTrainFinderLabelColour(train);
+  if (trainFinderColour) return trainFinderColour;
+
+  // Fallback only when TrainFinder did not provide a colour.
+  const speed = getSpeedNumber(train);
+  if (speed === null) return "rgba(255,170,0,0.92)";
+  if (speed <= 0) return "rgba(255,170,0,0.92)";
+  if (speed < 10) return "rgba(128,0,0,0.92)";
+  if (speed < 40) return "rgba(255,102,0,0.92)";
+  if (speed < 80) return "rgba(255,61,0,0.92)";
+  return "rgba(255,0,0,0.92)";
+}
+
+function getTrainTextColour(train) {
+  const trainFinderTextColour = getTrainFinderTextColour(train);
+  if (trainFinderTextColour) return trainFinderTextColour;
+
+  const bg = getTrainColour(train).toLowerCase();
+  if (bg.includes("242") || bg.includes("255,255,255") || bg.includes("white") || bg === "#fff" || bg === "#ffffff") {
+    return "#101820";
+  }
+
+  return "#ffffff";
+}
+
+function getSpeedDotColor(train){
+  return getTrainColour(train);
 }
 
 function formatLocal(dt){
@@ -1781,14 +1903,13 @@ const trainLayer = new ol.layer.Vector({
   declutter: false,
   style: function(feature){
     const train = feature.get("train_data") || {};
-    const label = buildLabel(train);
+    const label = buildMapLabel(train);
     const speed = getSpeed(train);
     const isSelected = feature === selectedFeatureRef;
 
-    let dotColor = "#ffaa00";
-    if (speed > 80) dotColor = "#ff4444";
-    else if (speed > 30) dotColor = "#00cc00";
-    else if (speed > 0) dotColor = "#44ff44";
+    let dotColor = getSpeedDotColor(train);
+    const labelTextColour = getTrainTextColour(train);
+    const labelBackgroundColour = getTrainColour(train);
 
     const radius = isSelected ? 8 : 6;
 
@@ -1813,10 +1934,10 @@ const trainLayer = new ol.layer.Vector({
           textAlign: "center",
           justify: "center",
           font: "bold 10px monospace",
-          fill: new ol.style.Fill({ color: "#ffaa00" }),
-          stroke: new ol.style.Stroke({ color: "#000000", width: 3 }),
+          fill: new ol.style.Fill({ color: labelTextColour }),
+          stroke: new ol.style.Stroke({ color: "rgba(0,0,0,0.85)", width: 3 }),
           offsetY: -16,
-          backgroundFill: new ol.style.Fill({ color: "rgba(0,0,0,0.92)" }),
+          backgroundFill: new ol.style.Fill({ color: labelBackgroundColour }),
           padding: [2, 6, 2, 6],
           overflow: true
         }),
@@ -2493,6 +2614,13 @@ document.getElementById("mobileStateSelect").addEventListener("change", e => {
 document.getElementById("locateBtn").addEventListener("click", zoomToCurrent);
 document.getElementById("mobileLocateBtn").addEventListener("click", zoomToCurrent);
 
+function openLocoDatabase(){
+  window.open(LOCO_DATABASE_URL, "_blank", "noopener");
+}
+
+document.getElementById("databaseBtn")?.addEventListener("click", openLocoDatabase);
+document.getElementById("mobileDatabaseBtn")?.addEventListener("click", openLocoDatabase);
+
 document.getElementById("mobileCompactToggle").addEventListener("click", () => {
   mobileControlsExpanded = !mobileControlsExpanded;
   updateMobileControlsUI();
@@ -2708,6 +2836,11 @@ if (refreshNowBtn) {
     locationSource.clear();
     loadRealTrains();
   });
+}
+
+const openDatabaseLegendBtn = document.getElementById("openDatabaseLegendBtn");
+if (openDatabaseLegendBtn) {
+  openDatabaseLegendBtn.addEventListener("click", openLocoDatabase);
 }
 
 const toggleLegendBtn = document.getElementById("toggleLegendBtn");
