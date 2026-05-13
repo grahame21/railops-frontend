@@ -484,8 +484,9 @@ body { overscroll-behavior: none; }
 
 .train-popup {
   position: absolute;
-  background: rgba(9, 20, 38, 0.98);
+  background: #091426;
   color: white;
+  isolation: isolate;
   padding: 12px;
   border-radius: 14px;
   border: 1px solid var(--panel-border);
@@ -720,8 +721,32 @@ body { overscroll-behavior: none; }
   text-shadow: 0 1px 2px #000;
 }
 
+/* Keep HTML popups above all map/canvas/tile layers. */
+.ol-overlaycontainer,
+.ol-overlaycontainer-stopevent {
+  z-index: 12000 !important;
+  pointer-events: none;
+}
+
+.ol-overlaycontainer .train-popup,
+.ol-overlaycontainer-stopevent .train-popup {
+  pointer-events: auto;
+}
+
 @media (max-width: 900px) {
   .map-legend { display: none; }
+}
+
+/* Keep HTML popups above all map/canvas/tile layers. */
+.ol-overlaycontainer,
+.ol-overlaycontainer-stopevent {
+  z-index: 12000 !important;
+  pointer-events: none;
+}
+
+.ol-overlaycontainer .train-popup,
+.ol-overlaycontainer-stopevent .train-popup {
+  pointer-events: auto;
 }
 
 @media (max-width: 900px) {
@@ -1165,6 +1190,66 @@ function getSpeed(train){
   return Number.isFinite(n) ? n : 0;
 }
 
+function parseDatePartForTrainTime(value) {
+  const s = String(value || "").trim();
+  if (!s) return null;
+
+  // dd/mm/yyyy or dd-mm-yyyy
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) {
+    let y = Number(m[3]);
+    if (y < 100) y += 2000;
+    return { year: y, month: Number(m[2]) - 1, day: Number(m[1]) };
+  }
+
+  // yyyy-mm-dd or yyyy/mm/dd
+  m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (m) {
+    return { year: Number(m[1]), month: Number(m[2]) - 1, day: Number(m[3]) };
+  }
+
+  const d = new Date(s);
+  if (isFinite(d.getTime())) {
+    return { year: d.getFullYear(), month: d.getMonth(), day: d.getDate() };
+  }
+
+  return null;
+}
+
+function parseTimePart(value) {
+  const s = String(value || "").trim();
+  if (!s) return null;
+
+  const m = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+  if (!m) return null;
+
+  let hour = Number(m[1]);
+  const minute = Number(m[2]);
+  const second = Number(m[3] || 0);
+  const ampm = String(m[4] || "").toUpperCase();
+
+  if (ampm === "PM" && hour < 12) hour += 12;
+  if (ampm === "AM" && hour === 12) hour = 0;
+
+  return { hour, minute, second };
+}
+
+function formatLocalTrainTimeFromDate(dateObj) {
+  try {
+    if (!dateObj || !isFinite(dateObj.getTime())) return "";
+    return dateObj.toLocaleString("en-AU", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit"
+    });
+  } catch {
+    return "";
+  }
+}
+
 function getTrainTime(train){
   const candidates = [
     train.trainTime,
@@ -1178,13 +1263,59 @@ function getTrainTime(train){
     train.last_train_time
   ];
 
+  const dateCandidates = [
+    train.trainDate,
+    train.train_date,
+    train.TrainDate,
+    train.date,
+    train.Date,
+    train.reportDate,
+    train.report_date,
+    train.lastUpdated,
+    lastGoodUpdatedISO
+  ];
+
   for (const c of candidates) {
     const s = String(c || "").trim();
     if (!s) continue;
 
+    // Unix timestamp support.
+    if (/^\d{10,13}$/.test(s)) {
+      const n = Number(s);
+      const d = new Date(s.length === 10 ? n * 1000 : n);
+      const out = formatLocalTrainTimeFromDate(d);
+      if (out) return out;
+    }
+
+    // ISO / full date-time string support. Browser converts to local time if TZ is present.
     const parsed = new Date(s);
     if (isFinite(parsed.getTime()) && /[-T:Z]/.test(s)) {
-      return formatLocal(parsed);
+      const out = formatLocalTrainTimeFromDate(parsed);
+      if (out) return out;
+    }
+
+    // Time-only support: combine with train.date when available and display as local browser time.
+    const timePart = parseTimePart(s);
+    if (timePart) {
+      for (const dc of dateCandidates) {
+        const datePart = parseDatePartForTrainTime(dc);
+        if (!datePart) continue;
+
+        const d = new Date(
+          datePart.year,
+          datePart.month,
+          datePart.day,
+          timePart.hour,
+          timePart.minute,
+          timePart.second
+        );
+
+        const out = formatLocalTrainTimeFromDate(d);
+        if (out) return out;
+      }
+
+      // If there is no date field, still show the clock time and label it as local display.
+      return `${s} local`;
     }
 
     return s;
@@ -1566,7 +1697,7 @@ const railLayer = new ol.layer.Tile({
   source: createOpenRailwayMapSource("standard"),
   visible: true,
   opacity: 1,
-  zIndex: 50,
+  zIndex: 4,
   className: "railops-openrailwaymap-blue"
 });
 
@@ -1580,7 +1711,7 @@ const stationsLayer = new ol.layer.Tile({
   source: createOpenRailwayMapSource("stations"),
   visible: true,
   opacity: 0.95,
-  zIndex: 51
+  zIndex: 5
 });
 
 map.addLayer(railLayer);
@@ -1597,7 +1728,7 @@ setTimeout(refreshRailOverlays, 1200);
 const locationSource = new ol.source.Vector();
 const locationLayer = new ol.layer.Vector({
   source: locationSource,
-  zIndex: 12,
+  zIndex: 35,
   style: function(feature) {
     return new ol.style.Style({
       image: new ol.style.Circle({
@@ -1646,7 +1777,7 @@ const trainSource = new ol.source.Vector();
 const trainLayer = new ol.layer.Vector({
   source: trainSource,
   visible: true,
-  zIndex: 10,
+  zIndex: 30,
   declutter: false,
   style: function(feature){
     const train = feature.get("train_data") || {};
@@ -1671,7 +1802,7 @@ const trainLayer = new ol.layer.Vector({
             width: isSelected ? 3 : 2
           })
         }),
-        zIndex: isSelected ? 999 : 10
+        zIndex: isSelected ? 999 : 31
       })
     ];
 
@@ -1689,7 +1820,7 @@ const trainLayer = new ol.layer.Vector({
           padding: [2, 6, 2, 6],
           overflow: true
         }),
-        zIndex: isSelected ? 1000 : 11
+        zIndex: isSelected ? 1000 : 32
       }));
     }
 
@@ -1978,7 +2109,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
       <div class="popup-label">Route / service</div><div class="popup-value">${esc(route || "Unknown")}</div>
       <div class="popup-label">Vehicle description</div><div class="popup-value">${esc(desc || "Unknown")}</div>
       <div class="popup-label">KM / post</div><div class="popup-value">${esc(km || "Unknown")}</div>
-      <div class="popup-label">Train time</div><div class="popup-value">${esc(getTrainTime(train) || "Unknown")}</div>
+      <div class="popup-label">Train time (local)</div><div class="popup-value">${esc(getTrainTime(train) || "Unknown")}</div>
       <div class="popup-label">Latitude</div><div class="popup-value">${Number.isFinite(lat) ? esc(lat.toFixed(5)) : "Unknown"}</div>
       <div class="popup-label">Longitude</div><div class="popup-value">${Number.isFinite(lon) ? esc(lon.toFixed(5)) : "Unknown"}</div>
     </div>
