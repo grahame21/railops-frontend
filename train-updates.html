@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#071326" />
+  <title>RailOps — Train Update Filters</title>
+  <script src="./app-auth.js"></script>
+  <script>
+    try { railopsCheckSession(); } catch(e) {}
+  </script>
+  <style>
+    :root{
+      --bg:#041326;--panel:#071b34;--panel2:#0b2342;--line:#1d4577;--text:#eaf3ff;--muted:#a9bfdc;
+      --blue:#2f8fff;--green:#2ca86a;--red:#ff5a6b;--amber:#ffcc66;--purple:#8b5cf6;--cyan:#3ee7ff;
+      --shadow:0 10px 30px rgba(0,0,0,.28);--safe-bottom:env(safe-area-inset-bottom,0px)
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;min-height:100%;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:radial-gradient(circle at top,#0a2b54 0%,#041326 45%,#020b16 100%);color:var(--text)}
+    body{padding-bottom:calc(30px + var(--safe-bottom))}
+    .wrap{width:min(1420px,calc(100% - 28px));margin:18px auto 40px}
+    .topbar,.card{background:rgba(8,25,46,.92);border:1px solid rgba(111,168,255,.22);border-radius:28px;box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+    .topbar{padding:22px;display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+    h1{font-size:clamp(34px,5vw,64px);line-height:1;letter-spacing:-.05em;margin:0}
+    h2{font-size:clamp(26px,3vw,42px);letter-spacing:-.035em;margin:0 0 10px}
+    p{color:var(--muted);font-size:clamp(16px,2vw,20px);line-height:1.45;margin:10px 0 0}
+    .brand{display:flex;gap:16px;align-items:flex-start}.icon{font-size:46px;line-height:1}.card{padding:24px;margin-top:20px}
+    .buttons{display:flex;flex-wrap:wrap;gap:12px;margin-top:16px}.btn{border:1px solid rgba(111,168,255,.28);background:linear-gradient(180deg,var(--blue),#2380ee);color:#fff;border-radius:20px;min-height:54px;padding:13px 18px;font-weight:900;font-size:17px;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+    .btn.secondary{background:rgba(0,0,0,.18);box-shadow:none}.btn.green{background:linear-gradient(180deg,var(--green),#1f7f50)}.btn.amber{background:linear-gradient(180deg,#b88715,#7f5b08)}.btn.red{background:linear-gradient(180deg,#e5425a,#b4233a)}
+    .grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:16px}.field{display:grid;gap:8px}.field.wide{grid-column:span 2}
+    label{font-weight:900;color:var(--muted);font-size:14px}input,select{width:100%;min-height:54px;border-radius:18px;border:1px solid rgba(111,168,255,.25);background:rgba(0,0,0,.20);color:var(--text);font-size:16px;padding:12px 14px;outline:none}option{background:#071b34;color:#fff}
+    .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:20px}.stat{background:#0b2342;border:1px solid rgba(111,168,255,.18);border-radius:22px;padding:18px}.stat .num{font-size:44px;font-weight:1000;line-height:1}.stat .label{color:#b8c9e6;font-weight:800;margin-top:6px}
+    .pillrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.pill{background:rgba(47,143,255,.14);border:1px solid rgba(111,168,255,.25);border-radius:999px;padding:8px 12px;font-weight:800;color:#dbeaff}.pill.green{background:rgba(44,168,106,.16)}.pill.amber{background:rgba(255,204,102,.12)}
+    .table-wrap{overflow:auto;border:1px solid rgba(111,168,255,.20);border-radius:22px;background:rgba(0,0,0,.14);margin-top:16px;max-height:70vh}table{width:100%;border-collapse:collapse;min-width:1250px}th,td{text-align:left;padding:12px 14px;border-bottom:1px solid rgba(111,168,255,.14);vertical-align:top;font-size:14px}th{position:sticky;top:0;background:#0b2342;z-index:5;font-weight:1000}tr:hover{background:rgba(47,143,255,.08)}.muted{color:var(--muted)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}.small{font-size:13px}.right{text-align:right}.hide{display:none!important}
+    @media(max-width:1050px){.topbar{flex-direction:column}.grid{grid-template-columns:1fr 1fr}.stats{grid-template-columns:1fr 1fr}.field.wide{grid-column:span 2}}
+    @media(max-width:680px){.grid,.stats{grid-template-columns:1fr}.field.wide{grid-column:span 1}.btn{width:100%}.table-wrap{max-height:none}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <section class="topbar">
+    <div class="brand"><div class="icon">🚂</div><div><h1>Train Update Filters</h1><p>Filter the live RailOps train feed by last scrape, last-seen time, TrainFinder train time, operator, route/service and timeframe.</p></div></div>
+    <div class="buttons"><a class="btn secondary" href="admin.html">← Admin</a><a class="btn secondary" href="dashboard.html">Open Map</a><button class="btn green" id="refreshBtn">Refresh Data</button></div>
+  </section>
+
+  <section class="card">
+    <h2>Filters</h2>
+    <p>“Last updated” uses each train’s <b>lastSeen</b> when available. “Train time” uses <b>trainTime</b> with <b>trainDate</b> where possible. Current scrape data comes from <span class="mono">trains.json</span>.</p>
+    <div class="grid">
+      <div class="field"><label>Quick range</label><select id="quickRange"><option value="last-scrape">Last scrape only</option><option value="15m">Last 15 minutes</option><option value="30m">Last 30 minutes</option><option value="1h">Last hour</option><option value="6h">Last 6 hours</option><option value="24h">Last 24 hours</option><option value="today">Today</option><option value="all">All current trains</option><option value="custom">Custom range</option></select></div>
+      <div class="field"><label>Time field</label><select id="timeMode"><option value="lastSeen">Last updated / lastSeen</option><option value="trainTime">Train time</option><option value="either">Either lastSeen or trainTime</option></select></div>
+      <div class="field"><label>From</label><input id="fromTime" type="datetime-local" /></div>
+      <div class="field"><label>To</label><input id="toTime" type="datetime-local" /></div>
+      <div class="field wide"><label>Search all fields</label><input id="searchBox" placeholder="Search loco, train, operator, route, origin, destination, location…" /></div>
+      <div class="field"><label>Operator</label><select id="operatorFilter"><option value="">All operators</option></select></div>
+      <div class="field"><label>Route / service</label><select id="routeFilter"><option value="">All routes/services</option></select></div>
+    </div>
+    <div class="buttons"><button class="btn green" id="applyBtn">Apply Filter</button><button class="btn secondary" id="clearBtn">Clear</button><button class="btn amber" id="copyBtn">Copy Filtered List</button><button class="btn amber" id="csvBtn">Download CSV</button></div>
+    <div class="pillrow"><span class="pill" id="sourcePill">Source: loading…</span><span class="pill green" id="lastPill">Last scrape: loading…</span><span class="pill amber" id="notePill">Status: loading…</span></div>
+  </section>
+
+  <section class="stats">
+    <div class="stat"><div class="num" id="totalCount">0</div><div class="label">Current trains loaded</div></div>
+    <div class="stat"><div class="num" id="filteredCount">0</div><div class="label">Showing after filter</div></div>
+    <div class="stat"><div class="num" id="operatorCount">0</div><div class="label">Operators in result</div></div>
+    <div class="stat"><div class="num" id="routeCount">0</div><div class="label">Routes/services in result</div></div>
+    <div class="stat"><div class="num" id="latestCount">-</div><div class="label">Latest train time</div></div>
+  </section>
+
+  <section class="card">
+    <h2>Filtered trains</h2>
+    <p id="rangeText">Waiting for data…</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Loco</th><th>Train</th><th>Operator</th><th>Route / service</th><th>Origin</th><th>Destination</th><th>Last updated</th><th>Train time</th><th>KM / post</th><th>Speed</th><th>Location</th><th>Lat/Lon</th></tr></thead>
+        <tbody id="rows"><tr><td colspan="12" class="muted">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+<script>
+const BACKEND_BASE = "https://railops-backend-production.up.railway.app";
+const TRAINS_URL = BACKEND_BASE + "/trains.json";
+let payload = null;
+let trains = [];
+let filtered = [];
+function esc(v){return String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")}
+function asText(v){return String(v??"").trim()}
+function get(v,...keys){for(const k of keys){if(v && v[k]!==undefined && v[k]!==null && String(v[k]).trim()!=="")return v[k]}return ""}
+function getLoco(t){return asText(get(t,"trKey","loco","trainName","train_name","vehicleNumber","vehicle_number","name"))}
+function getTrain(t){return asText(get(t,"trainNumber","train_number","train","serviceName","service_name","id"))}
+function getOperator(t){return asText(get(t,"current_operator","currentOperator","operator","Operator","company","owner")) || inferOperator(t)}
+function getRoute(t){return asText(get(t,"serviceDesc","service_description","vehicle_description","description","lineName","line_name","routeName","route_name","serviceName","train"))}
+function getOrigin(t){return asText(get(t,"origin","serviceFrom","from"))}
+function getDest(t){return asText(get(t,"destination","serviceTo","to"))}
+function getKm(t){return asText(get(t,"km","trainKM","km_post","kmPost"))}
+function getSpeed(t){return asText(get(t,"speed","trainSpeed","kmh","kph"))}
+function getLocation(t){return asText(get(t,"location","currentLocation","place","town","suburb","region"))}
+function inferOperator(t){const h=[getRoute(t),getOrigin(t),getDest(t),getLoco(t),getTrain(t)].join(" ").toUpperCase(); if(h.includes("AURIZON"))return"Aurizon"; if(h.includes("PACIFIC NATIONAL")||h.includes(" PN "))return"Pacific National"; if(h.includes("QUBE"))return"QUBE Logistics"; if(h.includes("VLINE")||h.includes("V/LINE"))return"V/Line"; if(h.includes("SYDNEY")||h.includes("TNSW"))return"Transport for NSW"; return""}
+function parseAusDate(d){const s=asText(d); const m=s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(!m)return null; return {y:+m[3],m:+m[2]-1,d:+m[1]}}
+function parseTrainDateTime(t){const time=asText(get(t,"trainTime","train_time","TrainTime","time","Time","reportTime","report_time","lastTrainTime","last_train_time")); if(!time)return null; if(/^\d{4}-\d{2}-\d{2}T/.test(time)){const d=new Date(time); return isFinite(d)?d:null} const dateBits=parseAusDate(get(t,"trainDate","date","Date")); const mm=time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/); if(dateBits&&mm){const d=new Date(dateBits.y,dateBits.m,dateBits.d,+mm[1],+mm[2],+(mm[3]||0)); return isFinite(d)?d:null} return null}
+function parseLastSeen(t){const raw=get(t,"lastSeen","last_seen","lastUpdated","updated","updatedAt","last_update"); if(!raw)return null; const d=new Date(raw); return isFinite(d)?d:null}
+function fmt(d){if(!d||!isFinite(d))return""; return d.toLocaleString("en-AU",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"})}
+function fmtShort(d){if(!d||!isFinite(d))return"-"; return d.toLocaleTimeString("en-AU",{hour:"2-digit",minute:"2-digit"})}
+function localInputValue(d){const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`}
+function fromInput(v){if(!v)return null; const d=new Date(v); return isFinite(d)?d:null}
+function setQuickRange(){const q=document.getElementById("quickRange").value; const now=new Date(); let from=null,to=now; if(q==="last-scrape"){const updated=payload?.lastUpdated?new Date(payload.lastUpdated):now; from=new Date(updated.getTime()-5*60000); to=new Date(updated.getTime()+5*60000)} else if(q==="15m") from=new Date(now-15*60000); else if(q==="30m") from=new Date(now-30*60000); else if(q==="1h") from=new Date(now-60*60000); else if(q==="6h") from=new Date(now-6*3600000); else if(q==="24h") from=new Date(now-24*3600000); else if(q==="today"){from=new Date(now.getFullYear(),now.getMonth(),now.getDate());} else if(q==="all"){from=null; to=null;} else return; document.getElementById("fromTime").value=from?localInputValue(from):""; document.getElementById("toTime").value=to?localInputValue(to):"";}
+function trainMatchesTime(t,from,to){const mode=document.getElementById("timeMode").value; const dates=[]; if(mode==="lastSeen"||mode==="either")dates.push(parseLastSeen(t)); if(mode==="trainTime"||mode==="either")dates.push(parseTrainDateTime(t)); const usable=dates.filter(d=>d&&isFinite(d)); if(!usable.length)return !from&&!to; return usable.some(d=>(!from||d>=from)&&(!to||d<=to));}
+function buildFilters(){const ops=new Set(), routes=new Set(); trains.forEach(t=>{const o=getOperator(t);const r=getRoute(t); if(o)ops.add(o); if(r)routes.add(r)}); fillSelect("operatorFilter",ops,"All operators"); fillSelect("routeFilter",routes,"All routes/services");}
+function fillSelect(id,set,label){const el=document.getElementById(id); const old=el.value; el.innerHTML=`<option value="">${label}</option>`; [...set].sort((a,b)=>a.localeCompare(b)).forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;el.appendChild(o)}); if([...el.options].some(o=>o.value===old))el.value=old;}
+function applyFilter(){const from=fromInput(document.getElementById("fromTime").value); const to=fromInput(document.getElementById("toTime").value); const q=asText(document.getElementById("searchBox").value).toLowerCase(); const op=document.getElementById("operatorFilter").value; const route=document.getElementById("routeFilter").value; filtered=trains.filter(t=>{if(!trainMatchesTime(t,from,to))return false; if(op&&getOperator(t)!==op)return false; if(route&&getRoute(t)!==route)return false; if(q){const hay=[getLoco(t),getTrain(t),getOperator(t),getRoute(t),getOrigin(t),getDest(t),getKm(t),getLocation(t),t.lat,t.lon,t.lng].join(" | ").toLowerCase(); if(!hay.includes(q))return false;} return true;}); render();}
+function render(){document.getElementById("totalCount").textContent=trains.length; document.getElementById("filteredCount").textContent=filtered.length; document.getElementById("operatorCount").textContent=new Set(filtered.map(getOperator).filter(Boolean)).size; document.getElementById("routeCount").textContent=new Set(filtered.map(getRoute).filter(Boolean)).size; const latest=filtered.map(parseTrainDateTime).filter(Boolean).sort((a,b)=>b-a)[0]; document.getElementById("latestCount").textContent=fmtShort(latest); const from=document.getElementById("fromTime").value||"start"; const to=document.getElementById("toTime").value||"now"; document.getElementById("rangeText").textContent=`Showing ${filtered.length} of ${trains.length}. Range: ${from} to ${to}.`; const rows=document.getElementById("rows"); if(!filtered.length){rows.innerHTML='<tr><td colspan="12" class="muted">No trains match this filter.</td></tr>';return;} rows.innerHTML=filtered.map(t=>`<tr><td><b>${esc(getLoco(t))}</b></td><td>${esc(getTrain(t))}</td><td>${esc(getOperator(t))}</td><td>${esc(getRoute(t))}</td><td>${esc(getOrigin(t))}</td><td>${esc(getDest(t))}</td><td>${esc(fmt(parseLastSeen(t)))}</td><td>${esc(fmt(parseTrainDateTime(t))||asText(get(t,"trainTime","time")))}</td><td>${esc(getKm(t))}</td><td>${esc(getSpeed(t))}</td><td>${esc(getLocation(t))}</td><td class="mono small">${esc(t.lat)}, ${esc(t.lon||t.lng)}</td></tr>`).join("");}
+function rowsToCsv(list){const heads=["Loco","Train","Operator","RouteService","Origin","Destination","LastUpdated","TrainTime","KM","Speed","Location","Lat","Lon"]; const lines=[heads.join(",")]; list.forEach(t=>{const row=[getLoco(t),getTrain(t),getOperator(t),getRoute(t),getOrigin(t),getDest(t),fmt(parseLastSeen(t)),fmt(parseTrainDateTime(t))||asText(get(t,"trainTime","time")),getKm(t),getSpeed(t),getLocation(t),t.lat,t.lon||t.lng].map(v=>'"'+String(v??"").replaceAll('"','""')+'"'); lines.push(row.join(","));}); return lines.join("\n");}
+async function copyList(){const text=filtered.map(t=>`${getLoco(t)} | ${getTrain(t)} | ${getOperator(t)} | ${getRoute(t)} | ${fmt(parseLastSeen(t))} | ${fmt(parseTrainDateTime(t))}`).join("\n"); await navigator.clipboard.writeText(text); alert(`Copied ${filtered.length} trains.`)}
+function downloadCsv(){const blob=new Blob([rowsToCsv(filtered)],{type:"text/csv"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`railops_filtered_trains_${Date.now()}.csv`; a.click(); URL.revokeObjectURL(a.href)}
+async function loadData(){document.getElementById("notePill").textContent="Status: loading…"; try{const res=await fetch(TRAINS_URL,{cache:"no-store"}); if(!res.ok)throw new Error(`HTTP ${res.status}`); payload=await res.json(); trains=Array.isArray(payload.trains)?payload.trains:[]; document.getElementById("sourcePill").textContent=`Source: ${payload.source||"trains.json"}`; document.getElementById("lastPill").textContent=`Last scrape: ${payload.lastUpdated?fmt(new Date(payload.lastUpdated)):"unknown"}`; document.getElementById("notePill").textContent=`Status: ${payload.note||payload.scrapeStatus||"ok"}`; buildFilters(); setQuickRange(); applyFilter();}catch(e){document.getElementById("notePill").textContent=`Status: error ${e.message}`; document.getElementById("rows").innerHTML=`<tr><td colspan="12" class="muted">Failed to load ${esc(TRAINS_URL)} — ${esc(e.message)}</td></tr>`;}}
+document.getElementById("quickRange").addEventListener("change",()=>{setQuickRange();applyFilter()}); document.getElementById("applyBtn").addEventListener("click",applyFilter); document.getElementById("clearBtn").addEventListener("click",()=>{document.getElementById("quickRange").value="all";document.getElementById("timeMode").value="lastSeen";document.getElementById("searchBox").value="";document.getElementById("operatorFilter").value="";document.getElementById("routeFilter").value="";setQuickRange();applyFilter()}); ["fromTime","toTime","timeMode","searchBox","operatorFilter","routeFilter"].forEach(id=>document.getElementById(id).addEventListener("input",applyFilter)); document.getElementById("refreshBtn").addEventListener("click",loadData); document.getElementById("copyBtn").addEventListener("click",copyList); document.getElementById("csvBtn").addEventListener("click",downloadCsv); loadData();
+</script>
+</body>
+</html>
