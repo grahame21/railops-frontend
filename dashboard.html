@@ -903,10 +903,14 @@ body { overscroll-behavior: none; }
 
 
 <div class="map-legend" id="mapLegend">
-  <h4>RailOps Map</h4>
-  <div class="legend-row"><span class="legend-dot" style="background:rgba(128,0,0,0.9)"></span> TrainFinder slow / shunt colour</div>
-  <div class="legend-row"><span class="legend-dot" style="background:rgba(255,102,0,0.9)"></span> TrainFinder moving colour</div>
-  <div class="legend-row"><span class="legend-dot" style="background:rgba(242,242,242,0.9); border:1px solid #333"></span> TrainFinder passenger / special colour</div>
+  <h4>RailOps Legend</h4>
+  <div class="legend-row"><span class="legend-dot" style="background:#003399"></span> 120+ km/h · very fast</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#00bfff"></span> 100–119 km/h · fast</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#006400"></span> 80–99 km/h · high speed</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#4cd137"></span> 60–79 km/h · moving</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#ff9900"></span> 20–59 km/h · medium</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#e00000"></span> 1–19 km/h · slow</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#000000; border:1px solid #fff"></span> 0 km/h / stopped / unknown</div>
   <div class="legend-row"><span class="legend-blue-line"></span> Rail lines overlay</div>
   <div class="legend-actions">
     <button id="refreshNowBtn" type="button">↻ Refresh trains now</button>
@@ -1125,9 +1129,9 @@ function buildLabel(train){
 
 function buildMapLabel(train){
   const base = buildLabel(train);
-  const speed = getSpeed(train);
+  const speed = getSpeedNumber(train);
   if (!base) return "";
-  if (Number.isFinite(speed) && speed > 0) return `${base} • ${Math.round(speed)}km/h`;
+  if (Number.isFinite(speed)) return `${base} (${Math.round(speed)} km/h)`;
   return base;
 }
 
@@ -1209,30 +1213,45 @@ function getSpeedNumber(train) {
 }
 
 function getTrainColour(train) {
-  // Best option: copy TrainFinder's own marker/tooltip colour from the scraped tooltipHTML.
-  const trainFinderColour = getTrainFinderLabelColour(train);
-  if (trainFinderColour) return trainFinderColour;
-
-  // Fallback only when TrainFinder did not provide a colour.
+  /*
+    RailOps speed colour index, matching the TrainFinder-style brackets/colour logic:
+      120+ km/h  = dark blue
+      100-119    = bright blue
+      80-99      = dark green
+      60-79      = green
+      20-59      = orange
+      1-19       = red
+      0/unknown  = black
+  */
   const speed = getSpeedNumber(train);
-  if (speed === null) return "rgba(255,170,0,0.92)";
-  if (speed <= 0) return "rgba(255,170,0,0.92)";
-  if (speed < 10) return "rgba(128,0,0,0.92)";
-  if (speed < 40) return "rgba(255,102,0,0.92)";
-  if (speed < 80) return "rgba(255,61,0,0.92)";
-  return "rgba(255,0,0,0.92)";
+
+  if (!Number.isFinite(speed)) return "#000000";
+  if (speed <= 0) return "#000000";
+  if (speed >= 120) return "#003399";
+  if (speed >= 100) return "#00bfff";
+  if (speed >= 80) return "#006400";
+  if (speed >= 60) return "#4cd137";
+  if (speed >= 20) return "#ff9900";
+  return "#e00000";
+}
+
+function hexToRgb(hex) {
+  const s = String(hex || "").trim();
+  const m = s.match(/^#?([0-9a-f]{6})$/i);
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
+function contrastTextForColour(colour) {
+  const rgb = hexToRgb(colour);
+  if (!rgb) return "#ffffff";
+  const luminance = (0.299 * rgb.r + 0.587 * rgb.g + 0.114 * rgb.b);
+  return luminance > 145 ? "#071222" : "#ffffff";
 }
 
 function getTrainTextColour(train) {
-  const trainFinderTextColour = getTrainFinderTextColour(train);
-  if (trainFinderTextColour) return trainFinderTextColour;
-
-  const bg = getTrainColour(train).toLowerCase();
-  if (bg.includes("242") || bg.includes("255,255,255") || bg.includes("white") || bg === "#fff" || bg === "#ffffff") {
-    return "#101820";
-  }
-
-  return "#ffffff";
+  return contrastTextForColour(getTrainColour(train));
 }
 
 function getSpeedDotColor(train){
@@ -1308,8 +1327,14 @@ function getCurrentPlaceFromTrain(train){
 }
 
 function getSpeed(train){
-  const n = Number(train.speed || train.kph || train.kmh || 0);
+  const n = getSpeedNumber(train);
   return Number.isFinite(n) ? n : 0;
+}
+
+function getSpeedDisplay(train){
+  const n = getSpeedNumber(train);
+  if (!Number.isFinite(n)) return "Unknown";
+  return `${Math.round(n)} km/h`;
 }
 
 function parseDatePartForTrainTime(value) {
@@ -1933,9 +1958,9 @@ const trainLayer = new ol.layer.Vector({
           text: label,
           textAlign: "center",
           justify: "center",
-          font: "bold 10px monospace",
+          font: "bold 11px Arial, sans-serif",
           fill: new ol.style.Fill({ color: labelTextColour }),
-          stroke: new ol.style.Stroke({ color: "rgba(0,0,0,0.85)", width: 3 }),
+          stroke: new ol.style.Stroke({ color: "rgba(0,0,0,0.35)", width: 1 }),
           offsetY: -16,
           backgroundFill: new ol.style.Fill({ color: labelBackgroundColour }),
           padding: [2, 6, 2, 6],
@@ -2218,7 +2243,7 @@ function renderPopupHTML(train, placeText, popupUpdated) {
 
   return `
     <button class="popup-close" id="popupCloseBtn" type="button">×</button>
-    <div class="popup-header">${esc(label || "Train")} — ${esc(speed)} km/h</div>
+    <div class="popup-header">${esc(label || "Train")} — ${esc(getSpeedDisplay(train))}</div>
     <div class="popup-subheader">Updated: ${esc(popupUpdated || "Unknown")}</div>
     ${desc ? `<div class="popup-subheader">${esc(desc)}</div>` : ""}
 
