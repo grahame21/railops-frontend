@@ -583,66 +583,145 @@ body { overscroll-behavior: none; }
   cursor: pointer;
 }
 
-/* Desktop layout fix: keep toolbar, search and status from overlapping. */
+
+/* ===== RailOps dashboard v3 layout fixes: no scrolling/overlap on desktop bars ===== */
 @media (min-width: 901px) {
+  .top-card { display: none !important; }
+
   .toolbar {
-    max-width: 450px;
+    top: calc(var(--safe-top) + 10px);
+    left: calc(var(--safe-left) + 10px);
+    right: calc(var(--safe-right) + 10px);
+    width: auto;
+    max-width: none;
+    min-height: 56px;
     flex-wrap: nowrap;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: visible;
     white-space: nowrap;
-    scrollbar-width: thin;
+    align-items: center;
   }
 
-  .toolbar::-webkit-scrollbar {
-    height: 6px;
+  .toolbar button,
+  .toolbar select {
+    flex: 0 0 auto;
   }
 
-  .toolbar::-webkit-scrollbar-thumb {
-    background: #2b4f80;
-    border-radius: 999px;
+  .toolbar-chip-wrap {
+    display: none !important;
   }
 
   .search-container {
-    width: min(430px, 31vw);
-    z-index: 1002;
+    top: calc(var(--safe-top) + 76px);
+    left: calc(var(--safe-left) + 12px);
+    transform: none;
+    width: min(720px, calc(100vw - 470px));
+    z-index: 1000;
   }
 
   .status-bar {
-    max-width: 430px;
+    top: calc(var(--safe-top) + 76px);
+    right: calc(var(--safe-right) + 12px);
+    max-width: 440px;
+    overflow: visible;
     white-space: nowrap;
-    overflow: hidden;
   }
 
-  .status-bar #lastUpdate {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
+  .layers-panel { bottom: calc(var(--safe-bottom) + 16px); }
+  .operator-panel, .route-panel { top: calc(var(--safe-top) + 140px); }
 }
 
-@media (min-width: 901px) and (max-width: 1450px) {
-  .toolbar {
-    max-width: calc(100vw - 40px);
-    right: calc(var(--safe-right) + 10px);
-    flex-wrap: wrap;
-  }
+@media (min-width: 901px) and (max-width: 1320px) {
+  .toolbar { gap: 6px; padding: 7px 8px; }
+  .toolbar button,
+  .toolbar select { padding: 7px 8px; font-size: 12px; }
+  .search-container { width: min(580px, calc(100vw - 390px)); }
+  .status-bar { font-size: 11px; max-width: 365px; }
+}
 
-  .search-container {
-    top: calc(var(--safe-top) + 72px);
-    width: min(520px, calc(100vw - 40px));
-  }
+/* Keep mobile top card from becoming a scrolling bar */
+.top-card {
+  overflow: visible;
+}
 
-  .status-bar {
-    top: calc(var(--safe-top) + 124px);
-    left: calc(var(--safe-left) + 10px);
-    right: auto;
-    max-width: calc(100vw - 20px);
-  }
+/* ===== RailOps dashboard v3 extras ===== */
+.map-legend {
+  position: absolute;
+  right: calc(var(--safe-right) + 14px);
+  bottom: calc(var(--safe-bottom) + 68px);
+  z-index: 1000;
+  background: rgba(8, 20, 38, 0.94);
+  color: #fff;
+  border: 1px solid var(--panel-border);
+  box-shadow: var(--shadow);
+  border-radius: 16px;
+  padding: 10px 12px;
+  font-size: 12px;
+  min-width: 190px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
 
-  .operator-panel,
-  .route-panel {
-    top: calc(var(--safe-top) + 132px);
-  }
+.map-legend h4 {
+  margin: 0 0 8px 0;
+  color: var(--accent);
+  font-size: 13px;
+}
+
+.legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+  white-space: nowrap;
+}
+
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  display: inline-block;
+}
+
+.legend-blue-line {
+  width: 28px;
+  height: 4px;
+  border-radius: 999px;
+  background: #00aaff;
+  box-shadow: 0 0 8px rgba(0, 170, 255, .7);
+  display: inline-block;
+}
+
+.legend-actions {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.legend-actions button {
+  border: 1px solid var(--panel-btn-border);
+  background: var(--panel-btn);
+  color: white;
+  border-radius: 10px;
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.location-pin-label {
+  color: #fff;
+  background: rgba(0, 88, 180, .94);
+  border: 1px solid #7fc8ff;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 900;
+  text-shadow: 0 1px 2px #000;
+}
+
+@media (max-width: 900px) {
+  .map-legend { display: none; }
 }
 
 @media (max-width: 900px) {
@@ -792,6 +871,19 @@ body { overscroll-behavior: none; }
     <button id="routeHideAllBtn" type="button">Hide All Listed</button>
   </div>
   <div id="routeChecklist"></div>
+</div>
+
+
+<div class="map-legend" id="mapLegend">
+  <h4>RailOps Map</h4>
+  <div class="legend-row"><span class="legend-dot" style="background:#ff4444"></span> Fast / high speed</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#00cc00"></span> Moving</div>
+  <div class="legend-row"><span class="legend-dot" style="background:#ffaa00"></span> Stopped / unknown</div>
+  <div class="legend-row"><span class="legend-blue-line"></span> Rail lines overlay</div>
+  <div class="legend-actions">
+    <button id="refreshNowBtn" type="button">↻ Refresh trains now</button>
+    <button id="toggleLegendBtn" type="button">Hide legend</button>
+  </div>
 </div>
 
 <div id="map"></div>
@@ -1418,33 +1510,73 @@ const map = new ol.Map({
 
 map.getView().on("change:rotation", () => map.getView().setRotation(0));
 
-const railLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({
-    url: "https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png",
+function createOpenRailwayMapSource(kind) {
+  return new ol.source.XYZ({
     crossOrigin: "anonymous",
-    transition: 0
-  }),
-  opacity: 0.92,
+    maxZoom: 19,
+    tilePixelRatio: 1,
+    tileUrlFunction: function(tileCoord) {
+      if (!tileCoord) return "";
+      const z = tileCoord[0];
+      const x = tileCoord[1];
+      const y = -tileCoord[2] - 1;
+      const subdomains = ["a", "b", "c"];
+      const sub = subdomains[Math.abs(x + y) % subdomains.length];
+      return `https://${sub}.tiles.openrailwaymap.org/${kind}/${z}/${x}/${y}.png`;
+    },
+    attributions: "© OpenRailwayMap contributors"
+  });
+}
+
+const railLayer = new ol.layer.Tile({
+  source: createOpenRailwayMapSource("standard"),
   visible: true,
-  zIndex: 1
+  opacity: 0.98,
+  zIndex: 6
 });
 
-railLayer.on("prerender", (e)=>{ if (e.context) e.context.filter="hue-rotate(200deg) brightness(0.95) saturate(1.6)"; });
+/* Re-colour OpenRailwayMap's orange rail lines toward bright blue. */
+railLayer.on("prerender", (e)=>{
+  if (e.context) e.context.filter = "hue-rotate(200deg) saturate(2.4) brightness(1.12) contrast(1.18)";
+});
 railLayer.on("postrender", (e)=>{ if (e.context) e.context.filter="none"; });
 
 const stationsLayer = new ol.layer.Tile({
-  source: new ol.source.XYZ({
-    url: "https://{a-c}.tiles.openrailwaymap.org/stations/{z}/{x}/{y}.png",
-    crossOrigin: "anonymous",
-    transition: 0
-  }),
-  opacity: 0.9,
+  source: createOpenRailwayMapSource("stations"),
   visible: true,
-  zIndex: 2
+  opacity: 0.95,
+  zIndex: 7
 });
 
 map.addLayer(railLayer);
 map.addLayer(stationsLayer);
+
+const locationSource = new ol.source.Vector();
+const locationLayer = new ol.layer.Vector({
+  source: locationSource,
+  zIndex: 12,
+  style: function(feature) {
+    return new ol.style.Style({
+      image: new ol.style.Circle({
+        radius: 8,
+        fill: new ol.style.Fill({ color: "#0077ff" }),
+        stroke: new ol.style.Stroke({ color: "#ffffff", width: 3 })
+      }),
+      text: new ol.style.Text({
+        text: feature.get("label") || "Location",
+        offsetY: -22,
+        font: "bold 13px Segoe UI, Arial, sans-serif",
+        fill: new ol.style.Fill({ color: "#ffffff" }),
+        stroke: new ol.style.Stroke({ color: "#003b73", width: 5 }),
+        backgroundFill: new ol.style.Fill({ color: "rgba(0, 88, 180, 0.92)" }),
+        backgroundStroke: new ol.style.Stroke({ color: "#7fc8ff", width: 1 }),
+        padding: [4, 8, 4, 8]
+      })
+    });
+  }
+});
+map.addLayer(locationLayer);
+
 
 const ACCC_URL = "https://spatial.infrastructure.gov.au/server/rest/services/ACCC_Mobile_Sites_and_Coverages/MapServer";
 
@@ -1990,99 +2122,6 @@ function wireSearchBox(inputId, buttonId, listId, isMobile) {
   button.addEventListener("click", () => searchTrainsFromInput(input, isMobile));
 }
 
-async function geocodeLocationInAustralia(query) {
-  const q = String(query || "").trim();
-  if (!q) return null;
-
-  const cacheKey = `geocode:${normalizeSearchText(q)}`;
-  if (reverseGeoCache.has(cacheKey)) return reverseGeoCache.get(cacheKey);
-
-  try {
-    const params = new URLSearchParams({
-      format: "jsonv2",
-      q: `${q}, Australia`,
-      limit: "1",
-      addressdetails: "1",
-      countrycodes: "au",
-      bounded: "1",
-      viewbox: "110,-9,155,-45"
-    });
-
-    const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-      headers: { "Accept": "application/json" },
-      cache: "force-cache"
-    });
-
-    if (!res.ok) throw new Error(`Location search HTTP ${res.status}`);
-
-    const data = await res.json();
-    const first = Array.isArray(data) ? data[0] : null;
-    if (!first) {
-      reverseGeoCache.set(cacheKey, null);
-      return null;
-    }
-
-    const lat = Number(first.lat);
-    const lon = Number(first.lon);
-
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-      reverseGeoCache.set(cacheKey, null);
-      return null;
-    }
-
-    const result = {
-      lat,
-      lon,
-      label: first.display_name || q
-    };
-
-    reverseGeoCache.set(cacheKey, result);
-    return result;
-  } catch (e) {
-    console.warn("Location search failed", e);
-    reverseGeoCache.set(cacheKey, null);
-    return null;
-  }
-}
-
-function flyToLocation(lat, lon, label) {
-  if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lon))) return;
-
-  const center = ol.proj.fromLonLat([Number(lon), Number(lat)]);
-
-  map.getView().animate({
-    center,
-    zoom: 10,
-    duration: 850
-  });
-
-  removePopup();
-
-  const div = document.createElement("div");
-  div.className = "train-popup";
-  div.innerHTML = `
-    <button class="popup-close" id="popupCloseBtn" type="button">×</button>
-    <div class="popup-header">📍 ${esc(label || "Location")}</div>
-    <div class="popup-subheader">Location search result</div>
-    <div class="popup-grid">
-      <div class="popup-label">Latitude</div><div class="popup-value">${esc(Number(lat).toFixed(5))}</div>
-      <div class="popup-label">Longitude</div><div class="popup-value">${esc(Number(lon).toFixed(5))}</div>
-    </div>
-  `;
-
-  popupOverlay = new ol.Overlay({
-    element: div,
-    position: center,
-    positioning: "bottom-center",
-    offset: [0, -12]
-  });
-
-  map.addOverlay(popupOverlay);
-
-  const closeBtn = div.querySelector("#popupCloseBtn");
-  if (closeBtn) closeBtn.addEventListener("click", removePopup);
-}
-
 function flyToMatches(trains){
   const valid = trains.filter(t => Number.isFinite(Number(t.lat)) && Number.isFinite(Number(t.lon)));
   if (valid.length === 0) return;
@@ -2119,9 +2158,68 @@ function flyToMatches(trains){
   });
 }
 
+
+async function geocodeAustralianLocation(queryText) {
+  const q = String(queryText || "").trim();
+  if (!q) return null;
+
+  const candidates = [
+    `${q}, Australia`,
+    q
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=au&addressdetails=1&q=${encodeURIComponent(candidate)}`;
+      const res = await fetch(url, { headers: { "Accept": "application/json" }, cache: "force-cache" });
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) continue;
+
+      const place = data[0];
+      const lat = Number(place.lat);
+      const lon = Number(place.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      if (!(lat >= -45.5 && lat <= -9 && lon >= 110 && lon <= 160)) continue;
+
+      return {
+        lat,
+        lon,
+        label: place.display_name || q,
+        bbox: Array.isArray(place.boundingbox) ? place.boundingbox.map(Number) : null
+      };
+    } catch (e) {
+      console.warn("Location search failed", e);
+    }
+  }
+
+  return null;
+}
+
+function flyToLocation(place) {
+  if (!place) return;
+  const coord = ol.proj.fromLonLat([place.lon, place.lat]);
+
+  locationSource.clear();
+  locationSource.addFeature(new ol.Feature({
+    geometry: new ol.geom.Point(coord),
+    label: String(place.label || "Location").split(",")[0]
+  }));
+
+  if (place.bbox && place.bbox.length === 4 && place.bbox.every(Number.isFinite)) {
+    const south = place.bbox[0];
+    const north = place.bbox[1];
+    const west = place.bbox[2];
+    const east = place.bbox[3];
+    const extent = ol.proj.transformExtent([west, south, east, north], "EPSG:4326", "EPSG:3857");
+    map.getView().fit(extent, { duration: 900, padding: [110, 110, 110, 110], maxZoom: 12 });
+  } else {
+    map.getView().animate({ center: coord, zoom: 10, duration: 900 });
+  }
+}
+
 async function searchTrainsFromInput(inputEl, isMobile) {
-  const originalText = String(inputEl.value || "").trim();
-  const query = normalizeSearchText(originalText);
+  const query = normalizeSearchText(inputEl.value);
   if (!query) return;
 
   const matches = [];
@@ -2136,23 +2234,29 @@ async function searchTrainsFromInput(inputEl, isMobile) {
     }
   }
 
-  hideAutocomplete();
-
-  if (matches.length > 0) {
-    flyToMatches(matches);
-  } else {
-    setStatusUI("Searching location...", "location lookup", document.getElementById("trainCount").textContent || "0");
-    const place = await geocodeLocationInAustralia(originalText);
-
+  if (matches.length === 0) {
+    setStatusUI("Searching location...", "location lookup", String(getVisibleTrains().length));
+    const place = await geocodeAustralianLocation(inputEl.value);
     if (!place) {
-      alert("No trains or Australian locations found matching: " + originalText);
-      updateTrainLayer();
+      alert("No trains or Australian locations found matching: " + inputEl.value);
       return;
     }
 
-    flyToLocation(place.lat, place.lon, place.label);
-    updateTrainLayer();
+    hideAutocomplete();
+    flyToLocation(place);
+    setStatusUI("Location found: " + String(place.label || inputEl.value).split(",")[0], "location", String(getVisibleTrains().length));
+
+    if (isMobile) {
+      mobileControlsExpanded = false;
+      updateMobileControlsUI();
+      saveStateToStorage();
+    }
+    return;
   }
+
+  hideAutocomplete();
+  locationSource.clear();
+  flyToMatches(matches);
 
   if (isMobile) {
     mobileControlsExpanded = false;
@@ -2417,6 +2521,29 @@ window.addEventListener("resize", () => {
   hideAutocomplete();
   removePopup();
 });
+
+
+const refreshNowBtn = document.getElementById("refreshNowBtn");
+if (refreshNowBtn) {
+  refreshNowBtn.addEventListener("click", () => {
+    removePopup();
+    locationSource.clear();
+    loadRealTrains();
+  });
+}
+
+const toggleLegendBtn = document.getElementById("toggleLegendBtn");
+if (toggleLegendBtn) {
+  toggleLegendBtn.addEventListener("click", () => {
+    const legend = document.getElementById("mapLegend");
+    if (!legend) return;
+    const rows = legend.querySelectorAll(".legend-row, .legend-actions button:first-child");
+    const hidden = legend.getAttribute("data-collapsed") === "1";
+    rows.forEach(el => el.style.display = hidden ? "" : "none");
+    legend.setAttribute("data-collapsed", hidden ? "0" : "1");
+    toggleLegendBtn.textContent = hidden ? "Hide legend" : "Show legend";
+  });
+}
 
 loadStateFromStorage();
 updateFilterButtonLabels();
