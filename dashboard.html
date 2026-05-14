@@ -777,6 +777,71 @@ body { overscroll-behavior: none; }
     max-width: calc(100vw - 20px);
   }
 }
+
+
+/* ===== RailOps ARTC mini panel - added without changing existing layout ===== */
+.artc-mini-panel {
+  position: absolute;
+  top: calc(var(--safe-top) + 130px);
+  right: calc(var(--safe-right) + 12px);
+  z-index: 1000;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: 360px;
+  overflow: auto;
+  background: var(--panel-bg);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.artc-mini-panel.collapsed .artc-mini-body { display: none; }
+
+.artc-mini-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--accent);
+  font-weight: 900;
+  font-size: 14px;
+  margin-bottom: 8px;
+}
+
+.artc-mini-toggle {
+  background: var(--panel-btn);
+  color: white;
+  border: 1px solid var(--panel-btn-border);
+  border-radius: 10px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.artc-mini-status { color: #cfe2ff; margin-bottom: 8px; }
+.artc-mini-section-title { color: #9ab0d0; font-weight: 900; margin: 10px 0 4px; }
+.artc-mini-item { padding: 6px 0; border-top: 1px solid #1e3a5f; }
+.artc-mini-item a { color: #8cc8ff; text-decoration: none; }
+.artc-mini-item a:hover { text-decoration: underline; }
+
+@media (max-width: 900px) {
+  .artc-mini-panel {
+    top: auto;
+    left: calc(var(--safe-left) + 10px);
+    right: calc(var(--safe-right) + 10px);
+    bottom: calc(var(--safe-bottom) + 72px);
+    width: auto;
+    max-height: 220px;
+  }
+}
+
 </style>
 </head>
 
@@ -919,6 +984,18 @@ body { overscroll-behavior: none; }
   </div>
 </div>
 
+
+<div class="artc-mini-panel collapsed" id="artcMiniPanel">
+  <div class="artc-mini-header">
+    <span>ARTC Data</span>
+    <button class="artc-mini-toggle" id="artcMiniToggle" type="button">Show</button>
+  </div>
+  <div class="artc-mini-body" id="artcMiniBody">
+    <div class="artc-mini-status" id="artcMiniStatus">Loading ARTC data...</div>
+    <div id="artcMiniContent"></div>
+  </div>
+</div>
+
 <div id="map"></div>
 
 <script src="./ol/ol.js"></script>
@@ -930,6 +1007,7 @@ if (typeof window.ol === "undefined") {
 
 <script>
 const TRAINS_URL = "https://railops-backend-production.up.railway.app/trains.json";
+const RAILOPS_ARTC_DATA_URL = "https://raw.githubusercontent.com/grahame21/railops-backend/main/artc_data.json";
 const LOCO_DATABASE_URL = "https://railops-backend-production.up.railway.app/downloads/loco_database.html";
 const RECENTLY_ADDED_URL = "https://railops-backend-production.up.railway.app/downloads/recently_added.html";
 const HIDDEN_OPERATORS_STORAGE_KEY = "railops_hidden_operators_v6";
@@ -2301,7 +2379,10 @@ async function showTrainPopup(feature) {
   map.addOverlay(popupOverlay);
 
   const closeBtn = popupDiv.querySelector("#popupCloseBtn");
-  if (closeBtn) closeBtn.addEventListener("click", removePopup);
+  if (closeBtn) closeBtn.addEventListener("click", () => {
+    railOpsPopupPinned = false;
+    removePopup();
+  });
 
   if (!directPlace && Number.isFinite(lat) && Number.isFinite(lon)) {
     const reqId = ++popupRequestId;
@@ -2313,6 +2394,10 @@ async function showTrainPopup(feature) {
   }
 }
 
+let railOpsHoverFeature = null;
+let railOpsHoverTimer = null;
+let railOpsPopupPinned = false;
+
 map.on("singleclick", function(evt){
   const feature = map.forEachFeatureAtPixel(
     evt.pixel,
@@ -2322,8 +2407,51 @@ map.on("singleclick", function(evt){
     { hitTolerance: 18 }
   );
 
-  if (feature) showTrainPopup(feature);
-  else removePopup();
+  if (feature) {
+    railOpsPopupPinned = true;
+    showTrainPopup(feature);
+  } else {
+    railOpsPopupPinned = false;
+    railOpsHoverFeature = null;
+    removePopup();
+  }
+});
+
+// Desktop hover popup: keeps the same existing popup design and train_data logic.
+// Click/tap above still pins the popup for mobile/iPad.
+map.on("pointermove", function(evt){
+  if (evt.dragging) return;
+
+  const feature = map.forEachFeatureAtPixel(
+    evt.pixel,
+    function(f, layer){
+      return layer === trainLayer ? f : null;
+    },
+    { hitTolerance: 14 }
+  );
+
+  const target = map.getTargetElement();
+
+  if (feature) {
+    target.style.cursor = "pointer";
+    clearTimeout(railOpsHoverTimer);
+
+    if (feature !== railOpsHoverFeature || !popupOverlay) {
+      railOpsPopupPinned = false;
+      railOpsHoverFeature = feature;
+      showTrainPopup(feature);
+    }
+  } else {
+    target.style.cursor = "";
+    railOpsHoverFeature = null;
+
+    if (!railOpsPopupPinned) {
+      clearTimeout(railOpsHoverTimer);
+      railOpsHoverTimer = setTimeout(() => {
+        if (!railOpsPopupPinned) removePopup();
+      }, 180);
+    }
+  }
 });
 
 function displayId(train){ return buildLabel(train); }
@@ -2881,13 +3009,81 @@ if (toggleLegendBtn) {
   });
 }
 
+
+// ======================================================
+// RailOps ARTC public data mini panel
+// This does not touch the train layer or existing map layout.
+// ======================================================
+function renderRailOpsARTCLinkItem(item) {
+  const title = item && (item.title || item.filename || item.url) ? (item.title || item.filename || item.url) : "ARTC item";
+  const url = item && item.url ? item.url : "#";
+  return `<div class="artc-mini-item"><a href="${esc(url)}" target="_blank" rel="noopener">${esc(title)}</a></div>`;
+}
+
+async function loadRailOpsARTCData() {
+  const statusEl = document.getElementById("artcMiniStatus");
+  const contentEl = document.getElementById("artcMiniContent");
+  if (!statusEl || !contentEl) return;
+
+  try {
+    const response = await fetch(RAILOPS_ARTC_DATA_URL + "?t=" + Date.now(), {
+      cache: "no-store",
+      headers: { "Accept": "application/json" }
+    });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    if (!data || data.ok === false) throw new Error(data && data.error ? data.error : "Invalid ARTC payload");
+
+    const generated = data.generated_at ? formatLocal(data.generated_at) : "Unknown";
+    const mtp = data.sources && data.sources.mtp ? data.sources.mtp : {};
+    const taa = data.sources && data.sources.taa ? data.sources.taa : {};
+    const notices = data.sources && data.sources.notices_waivers_alerts ? data.sources.notices_waivers_alerts : {};
+
+    statusEl.innerHTML = `
+      <strong>Last checked:</strong> ${esc(generated)}<br>
+      <strong>MTP versions:</strong> ${esc(mtp.count_versions || 0)} ·
+      <strong>MTP PDFs:</strong> ${esc(mtp.count_pdfs || 0)}<br>
+      <strong>TAA:</strong> ${esc(taa.count || 0)} ·
+      <strong>Notices:</strong> ${esc(notices.count || 0)}
+    `;
+
+    const mtpVersions = Array.isArray(mtp.versions) ? mtp.versions.slice(0, 5) : [];
+    const taaItems = Array.isArray(taa.items) ? taa.items.slice(0, 6) : [];
+
+    contentEl.innerHTML = `
+      <div class="artc-mini-section-title">Master Train Plan</div>
+      ${mtpVersions.length ? mtpVersions.map(renderRailOpsARTCLinkItem).join("") : `<div class="artc-mini-item">No MTP versions found yet.</div>`}
+
+      <div class="artc-mini-section-title">Train Alteration Advice</div>
+      ${taaItems.length ? taaItems.map(renderRailOpsARTCLinkItem).join("") : `<div class="artc-mini-item">No TAA items found yet.</div>`}
+    `;
+  } catch (err) {
+    statusEl.textContent = "ARTC data not available yet: " + err.message;
+    contentEl.innerHTML = "";
+  }
+}
+
+const artcMiniToggle = document.getElementById("artcMiniToggle");
+if (artcMiniToggle) {
+  artcMiniToggle.addEventListener("click", () => {
+    const panel = document.getElementById("artcMiniPanel");
+    if (!panel) return;
+    const collapsed = panel.classList.toggle("collapsed");
+    artcMiniToggle.textContent = collapsed ? "Show" : "Hide";
+  });
+}
+
 loadStateFromStorage();
 updateFilterButtonLabels();
 updateMobileFilterSectionUI();
 updateMobileControlsUI();
 renderFilterChips();
 loadRealTrains();
+loadRailOpsARTCData();
 setInterval(loadRealTrains, 30000);
+setInterval(loadRailOpsARTCData, 15 * 60 * 1000);
 zoomTo("au");
 </script>
 
