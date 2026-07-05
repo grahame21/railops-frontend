@@ -1,223 +1,697 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>A7-BAF Arrow</title>
-<style>
-*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-body{margin:0;background:#0b1a2e;font-family:Arial;display:flex;justify-content:center;padding:10px}
-.game{max-width:450px;width:100%;background:white;border-radius:30px;padding:20px}
-.header{display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid #003366;padding-bottom:10px}
-.oneworld{background:#003366;color:white;padding:4px 14px;border-radius:30px;font-weight:bold}
-.reg{font-weight:bold;font-size:18px;color:#003366;background:#e6edf5;padding:4px 12px;border-radius:20px}
-.info{display:flex;justify-content:space-between;padding:10px 0;font-weight:bold}
-.level{background:#ff6600;color:white;padding:4px 18px;border-radius:40px}
-.hearts{font-size:22px}
-.grid{display:grid;gap:8px;padding:10px 0;aspect-ratio:1/1;max-width:400px;margin:auto}
-.cell{background:#eef3f9;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:bold;aspect-ratio:1/1;cursor:pointer;border:2px solid transparent}
-.cell.arrow{background:white;border-color:#8aa3b9;box-shadow:0 4px 0 #b0c7db}
-.cell.empty{background:#d3dfeb}
-.controls{display:flex;gap:8px;padding:10px 0}
-button{background:#003366;color:white;border:none;padding:12px;border-radius:40px;font-size:14px;font-weight:bold;flex:1;cursor:pointer}
-.hint{background:#ff6600}
-.reset{background:#4a5f72}
-.msg{text-align:center;font-weight:bold;font-size:16px;padding:8px 0;color:#003366}
-.foot{text-align:center;font-size:12px;color:#6a7f92;padding-top:8px}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>A7-BAF Arrow Escape</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        body {
+            margin: 0;
+            min-height: 100vh;
+            background: linear-gradient(145deg, #0b1a2e 0%, #1a2f44 100%);
+            font-family: -apple-system, 'Helvetica Neue', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 12px;
+        }
+        .game-container {
+            max-width: 420px;
+            width: 100%;
+            background: white;
+            border-radius: 40px 40px 30px 30px;
+            padding: 20px 20px 25px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+        /* Header with A7-BAF and OneWorld */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 4px 12px 4px;
+            border-bottom: 3px solid #003366;
+        }
+        .livery {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .oneworld-badge {
+            background: #003366;
+            color: white;
+            font-weight: 700;
+            font-size: 13px;
+            padding: 4px 14px 4px 10px;
+            border-radius: 30px;
+            letter-spacing: 0.5px;
+        }
+        .oneworld-badge::after {
+            content: " O";
+            color: #ff6600;
+            font-size: 16px;
+            font-weight: 900;
+        }
+        .reg {
+            font-family: 'Courier New', monospace;
+            font-weight: 800;
+            font-size: 16px;
+            color: #003366;
+            background: #e6edf5;
+            padding: 4px 12px;
+            border-radius: 20px;
+            letter-spacing: 1px;
+            border: 1px solid #b0c7db;
+        }
+        .plane-icon {
+            font-size: 24px;
+            transform: rotate(-10deg);
+        }
+        /* Level info */
+        .info-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 4px 8px;
+        }
+        .level-badge {
+            background: #ff6600;
+            color: white;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-size: 15px;
+            font-weight: 700;
+            box-shadow: 0 3px 0 #b34700;
+        }
+        .stars {
+            font-size: 20px;
+            letter-spacing: 2px;
+        }
+        .difficulty-tag {
+            font-size: 12px;
+            color: #6a7f92;
+            font-weight: 600;
+            padding: 4px 12px;
+            background: #e6edf5;
+            border-radius: 20px;
+        }
+        /* Grid wrapper with 777 shape */
+        .grid-wrapper {
+            background: #d9e3ed;
+            border-radius: 28px;
+            padding: 14px 8px;
+            margin: 6px 0 10px;
+            box-shadow: inset 0 0 0 2px #b0c7db, 0 6px 0 #7a8fa3;
+        }
+        .plane-shape {
+            background: linear-gradient(180deg, #f5f9ff 0%, #dce6f2 100%);
+            border-radius: 36px 36px 18px 18px;
+            padding: 8px 4px;
+            clip-path: polygon(0% 28%, 6% 14%, 22% 7%, 50% 0%, 78% 7%, 94% 14%, 100% 28%, 100% 72%, 94% 86%, 78% 93%, 50% 100%, 22% 93%, 6% 86%, 0% 72%);
+            box-shadow: 0 4px 0 #7a8fa3;
+        }
+        .grid {
+            display: grid;
+            gap: 6px;
+            padding: 10px 6px;
+            aspect-ratio: 1/1;
+            max-width: 360px;
+            margin: 0 auto;
+        }
+        .cell {
+            background: #eef3f9;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 30px;
+            font-weight: 700;
+            box-shadow: inset 0 -3px 0 #b8c9db, 0 2px 6px rgba(0,0,0,0.08);
+            transition: all 0.1s;
+            aspect-ratio: 1/1;
+            cursor: pointer;
+            color: #003366;
+            border: 2px solid transparent;
+            position: relative;
+        }
+        .cell.arrow {
+            background: white;
+            box-shadow: 0 4px 0 #b0c7db, 0 6px 10px rgba(0,0,0,0.1);
+            border-color: #8aa3b9;
+        }
+        .cell.arrow:active {
+            transform: scale(0.90);
+            box-shadow: 0 1px 0 #b0c7db;
+        }
+        .cell.empty {
+            background: #d3dfeb;
+            box-shadow: inset 0 -2px 0 #b0c7db;
+        }
+        .cell.removing {
+            animation: popOut 0.3s ease-out forwards;
+        }
+        @keyframes popOut {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.3); opacity: 0; }
+        }
+        .cell.blocked {
+            background: #e8d0d0;
+            box-shadow: inset 0 -2px 0 #c4a0a0;
+            color: #cc5555;
+        }
+        .cell.hint-highlight {
+            border-color: #ff6600;
+            box-shadow: 0 0 0 3px #ff660066, 0 4px 0 #b0c7db;
+        }
+        /* Controls */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 6px;
+            padding: 10px 2px 4px;
+        }
+        button {
+            background: #003366;
+            border: none;
+            color: white;
+            font-weight: 700;
+            padding: 10px 12px;
+            border-radius: 40px;
+            font-size: 13px;
+            letter-spacing: 0.3px;
+            box-shadow: 0 4px 0 #001a33;
+            transition: 0.05s linear;
+            flex: 1;
+            text-align: center;
+            cursor: pointer;
+            border: 1px solid #1a4a7a;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+        }
+        button:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #001a33;
+        }
+        .hint-btn {
+            background: #ff6600;
+            box-shadow: 0 4px 0 #b34700;
+            border-color: #ff8833;
+            flex: 0.5;
+        }
+        .reset-btn {
+            background: #4a5f72;
+            box-shadow: 0 4px 0 #2d3d4d;
+            border-color: #6a7f92;
+            flex: 0.5;
+        }
+        .nav-btn {
+            flex: 0.7;
+        }
+        .progress-text {
+            font-size: 11px;
+            color: #6a7f92;
+            text-align: center;
+            padding: 4px 0 0;
+        }
+        .message {
+            text-align: center;
+            font-weight: 700;
+            font-size: 16px;
+            padding: 10px 0 4px;
+            color: #003366;
+            min-height: 40px;
+        }
+        .message.win {
+            color: #28a745;
+        }
+        .message.lose {
+            color: #dc3545;
+        }
+        .footer {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            font-size: 11px;
+            color: #6a7f92;
+            padding-top: 8px;
+            letter-spacing: 0.3px;
+        }
+        .footer span {
+            background: #e6edf5;
+            padding: 2px 12px;
+            border-radius: 40px;
+        }
+        .difficulty-selector {
+            display: flex;
+            gap: 6px;
+            justify-content: center;
+            padding: 4px 0 8px;
+            flex-wrap: wrap;
+        }
+        .diff-btn {
+            background: #e6edf5;
+            color: #1a2f44;
+            box-shadow: none;
+            font-size: 11px;
+            padding: 4px 12px;
+            flex: 0 1 auto;
+            min-height: 28px;
+            border: 1px solid #b0c7db;
+            box-shadow: 0 2px 0 #7a8fa3;
+        }
+        .diff-btn.active {
+            background: #003366;
+            color: white;
+            border-color: #003366;
+            box-shadow: 0 2px 0 #001a33;
+        }
+        .diff-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 0px 0 #7a8fa3;
+        }
+        @media (max-width: 400px) {
+            .game-container { padding: 14px; }
+            .cell { font-size: 24px; }
+            .grid { gap: 4px; padding: 6px 4px; }
+            button { font-size: 11px; padding: 8px 8px; min-height: 38px; }
+            .reg { font-size: 13px; }
+        }
+    </style>
 </head>
 <body>
-<div class="game">
-<div class="header">
-<span><span class="oneworld">oneworld</span></span>
-<span class="reg">A7-BAF</span>
-</div>
-<div class="info">
-<span class="level" id="lvl">LEVEL 1</span>
-<span class="hearts" id="hrt">❤️❤️❤️</span>
-</div>
-<div class="grid" id="grid"></div>
-<div class="controls">
-<button class="reset" id="reset">↺</button>
-<button id="prev">◀ PREV</button>
-<button id="next">NEXT ▶</button>
-<button class="hint" id="hint">💡</button>
-</div>
-<div class="msg" id="msg">Clear the grid!</div>
-<div class="foot">B777 · A7-BAF</div>
-</div>
-<script>
-const arrows = ['⬆️','⬇️','⬅️','➡️'];
-const dirs = {'⬆️':[-1,0],'⬇️':[1,0],'⬅️':[0,-1],'➡️':[0,1]};
+<div class="game-container">
+    <!-- Header -->
+    <div class="header">
+        <div class="livery">
+            <span class="plane-icon">✈️</span>
+            <span class="oneworld-badge">oneworld</span>
+        </div>
+        <span class="reg">A7-BAF</span>
+    </div>
 
-function generateLevels() {
-    let levels = [];
-    for (let i = 0; i < 100; i++) {
-        let diff = Math.floor(i / 20);
-        let size = 4 + Math.min(diff, 3);
-        let count = 3 + Math.floor(i / 10) + Math.floor(diff * 1.2);
-        let grid = Array(size).fill().map(() => Array(size).fill(null));
-        let placed = 0;
-        let attempts = 0;
-        while (placed < Math.min(count, size*size-2) && attempts < 200) {
-            attempts++;
-            let r = Math.floor(Math.random() * size);
-            let c = Math.floor(Math.random() * size);
-            if (grid[r][c] !== null) continue;
-            let dir = arrows[Math.floor(Math.random() * arrows.length)];
-            let [dr, dc] = dirs[dir];
-            let nr = r + dr, nc = c + dc;
-            if (nr < 0 || nr >= size || nc < 0 || nc >= size) continue;
-            if (grid[nr] && grid[nr][nc] !== null) continue;
-            grid[r][c] = dir;
-            placed++;
-        }
-        if (placed < 2) {
-            for (let r = 0; r < size && placed < 3; r++) {
-                for (let c = 0; c < size && placed < 3; c++) {
-                    if (grid[r][c] === null) {
-                        grid[r][c] = arrows[Math.floor(Math.random() * arrows.length)];
-                        placed++;
+    <!-- Info Bar -->
+    <div class="info-bar">
+        <span class="level-badge" id="levelDisplay">LEVEL 1</span>
+        <span class="difficulty-tag" id="diffDisplay">EASY</span>
+        <span class="stars" id="starsDisplay">⭐⭐⭐</span>
+    </div>
+
+    <!-- Difficulty Selector -->
+    <div class="difficulty-selector" id="diffSelector">
+        <button class="diff-btn active" data-diff="0">EASY</button>
+        <button class="diff-btn" data-diff="1">MEDIUM</button>
+        <button class="diff-btn" data-diff="2">HARD</button>
+        <button class="diff-btn" data-diff="3">EXPERT</button>
+        <button class="diff-btn" data-diff="4">INSANE</button>
+    </div>
+
+    <!-- Grid -->
+    <div class="grid-wrapper">
+        <div class="plane-shape">
+            <div class="grid" id="gridContainer"></div>
+        </div>
+    </div>
+
+    <!-- Message -->
+    <div class="message" id="messageDisplay">🛫 Tap an arrow to remove it</div>
+
+    <!-- Controls -->
+    <div class="controls">
+        <button class="reset-btn" id="resetBtn">↺</button>
+        <button class="nav-btn" id="prevBtn">◀</button>
+        <button class="nav-btn" id="nextBtn">▶</button>
+        <button class="hint-btn" id="hintBtn">💡</button>
+    </div>
+
+    <div class="progress-text" id="progressText">Level 1 of 100</div>
+
+    <div class="footer">
+        <span>B777 · A7-BAF</span>
+        <span id="arrowCount">⬆️ 0 left</span>
+    </div>
+</div>
+
+<script>
+    // ============ LEVEL GENERATOR ============
+    const ARROWS = ['⬆️', '⬇️', '⬅️', '➡️'];
+    const DIR = { '⬆️': [-1, 0], '⬇️': [1, 0], '⬅️': [0, -1], '➡️': [0, 1] };
+    const DIFFICULTY_NAMES = ['EASY', 'MEDIUM', 'HARD', 'EXPERT', 'INSANE'];
+    const DIFFICULTY_COLORS = ['#28a745', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1'];
+
+    function generateLevels(count = 100) {
+        const levels = [];
+        for (let i = 0; i < count; i++) {
+            const difficulty = Math.floor(i / 20); // 0-4
+            const size = 4 + Math.min(difficulty, 3);
+            let arrowCount = 3 + Math.floor(i / 8) + Math.floor(difficulty * 1.5);
+            arrowCount = Math.min(arrowCount, size * size - 2);
+
+            // Build grid with proper arrow placements
+            const grid = Array(size).fill().map(() => Array(size).fill(null));
+            let placed = 0;
+            let attempts = 0;
+
+            // Place arrows that point toward edges or other arrows (creates puzzles)
+            while (placed < arrowCount && attempts < 500) {
+                attempts++;
+                const r = Math.floor(Math.random() * size);
+                const c = Math.floor(Math.random() * size);
+                if (grid[r][c] !== null) continue;
+
+                // Pick a direction that doesn't immediately point to another arrow
+                const shuffledDirs = [...ARROWS].sort(() => Math.random() - 0.5);
+                for (const dir of shuffledDirs) {
+                    const [dr, dc] = DIR[dir];
+                    const nr = r + dr, nc = c + dc;
+                    // Can't point outside (that would make it too easy)
+                    if (nr < 0 || nr >= size || nc < 0 || nc >= size) continue;
+                    // Don't point directly at another arrow (creates chain puzzles)
+                    if (grid[nr] && grid[nr][nc] !== null) continue;
+                    grid[r][c] = dir;
+                    placed++;
+                    break;
+                }
+            }
+
+            // Ensure minimum arrows
+            if (placed < 2) {
+                for (let r = 0; r < size && placed < 3; r++) {
+                    for (let c = 0; c < size && placed < 3; c++) {
+                        if (grid[r][c] === null) {
+                            const dir = ARROWS[Math.floor(Math.random() * ARROWS.length)];
+                            const [dr, dc] = DIR[dir];
+                            const nr = r + dr, nc = c + dc;
+                            if (nr >= 0 && nr < size && nc >= 0 && nc < size) {
+                                grid[r][c] = dir;
+                                placed++;
+                            }
+                        }
                     }
                 }
             }
+
+            // Calculate solution steps (for hint system)
+            const solution = solvePuzzle(grid, size);
+
+            levels.push({
+                grid: grid,
+                size: size,
+                difficulty: difficulty,
+                solution: solution,
+                arrowCount: placed
+            });
         }
-        levels.push({grid: grid, size: size, difficulty: diff});
+        return levels;
     }
-    return levels;
-}
 
-const levels = generateLevels();
-let current = 0;
-let grid = [];
-let size = 5;
-let hearts = 3;
-let gameOver = false;
-let moves = 0;
-let maxMoves = 15;
+    // Simple solver: returns array of moves to clear the board
+    function solvePuzzle(grid, size) {
+        const moves = [];
+        // Clone grid
+        const g = grid.map(row => [...row]);
 
-function loadLevel(index) {
-    let l = levels[index % levels.length];
-    size = l.size;
-    grid = l.grid.map(row => [...row]);
-    hearts = 3;
-    gameOver = false;
-    moves = 0;
-    maxMoves = 10 + Math.floor(l.difficulty * 3);
-    render();
-    document.getElementById('msg').innerText = 'Level ' + (index + 1) + ' · Moves: 0/' + maxMoves;
-}
+        let changed = true;
+        let iterations = 0;
+        while (changed && iterations < 50) {
+            changed = false;
+            iterations++;
+            for (let r = 0; r < size; r++) {
+                for (let c = 0; c < size; c++) {
+                    const val = g[r][c];
+                    if (!val || !ARROWS.includes(val)) continue;
+                    const [dr, dc] = DIR[val];
+                    const nr = r + dr, nc = c + dc;
+                    // Can it be removed? (points to edge or empty space)
+                    if (nr < 0 || nr >= size || nc < 0 || nc >= size || g[nr][nc] === null) {
+                        moves.push({ r, c, dir: val });
+                        g[r][c] = null;
+                        changed = true;
+                        break;
+                    }
+                }
+                if (changed) break;
+            }
+        }
+        return moves;
+    }
 
-function render() {
-    let container = document.getElementById('grid');
-    container.style.gridTemplateColumns = 'repeat(' + size + ', 1fr)';
-    container.innerHTML = '';
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            let cell = document.createElement('div');
-            cell.className = 'cell';
-            let val = grid[r][c];
-            if (val && arrows.includes(val)) {
-                cell.classList.add('arrow');
-                cell.innerText = val;
+    // ============ GAME STATE ============
+    const LEVELS = generateLevels(100);
+    let currentLevel = 0;
+    let currentDifficulty = 0;
+    let grid = [];
+    let size = 5;
+    let moves = 0;
+    let maxMoves = 20;
+    let gameOver = false;
+    let won = false;
+    let hintMoves = [];
+    let hintIndex = 0;
+
+    // ============ DOM REFS ============
+    const gridContainer = document.getElementById('gridContainer');
+    const levelDisplay = document.getElementById('levelDisplay');
+    const diffDisplay = document.getElementById('diffDisplay');
+    const starsDisplay = document.getElementById('starsDisplay');
+    const messageDisplay = document.getElementById('messageDisplay');
+    const progressText = document.getElementById('progressText');
+    const arrowCountEl = document.getElementById('arrowCount');
+    const resetBtn = document.getElementById('resetBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const hintBtn = document.getElementById('hintBtn');
+
+    // ============ LOAD LEVEL ============
+    function loadLevel(index) {
+        const lvl = LEVELS[index % LEVELS.length];
+        size = lvl.size;
+        grid = lvl.grid.map(row => [...row]);
+        moves = 0;
+        gameOver = false;
+        won = false;
+        hintMoves = lvl.solution || [];
+        hintIndex = 0;
+        maxMoves = 10 + Math.floor(lvl.difficulty * 5);
+
+        render();
+        updateInfo();
+        messageDisplay.textContent = '🛫 Tap an arrow to remove it';
+        messageDisplay.className = 'message';
+        arrowCountEl.textContent = `⬆️ ${countArrows()} left`;
+    }
+
+    function countArrows() {
+        let count = 0;
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                if (grid[r][c] && ARROWS.includes(grid[r][c])) count++;
+            }
+        }
+        return count;
+    }
+
+    function updateInfo() {
+        const lvl = LEVELS[currentLevel % LEVELS.length];
+        levelDisplay.textContent = `LEVEL ${currentLevel + 1}`;
+        diffDisplay.textContent = DIFFICULTY_NAMES[lvl.difficulty];
+        diffDisplay.style.color = DIFFICULTY_COLORS[lvl.difficulty];
+        const stars = lvl.difficulty + 1;
+        starsDisplay.textContent = '⭐'.repeat(Math.min(stars, 5));
+        progressText.textContent = `Level ${currentLevel + 1} of ${LEVELS.length}`;
+    }
+
+    function render() {
+        gridContainer.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+        gridContainer.innerHTML = '';
+
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                const val = grid[r][c];
+                if (val && ARROWS.includes(val)) {
+                    cell.classList.add('arrow');
+                    cell.textContent = val;
+                } else if (val === null) {
+                    cell.classList.add('empty');
+                } else {
+                    cell.classList.add('blocked');
+                    cell.textContent = val;
+                }
+                cell.dataset.r = r;
+                cell.dataset.c = c;
+                cell.addEventListener('click', () => onCellClick(r, c));
+                gridContainer.appendChild(cell);
+            }
+        }
+        arrowCountEl.textContent = `⬆️ ${countArrows()} left`;
+    }
+
+    // ============ CLICK HANDLER ============
+    function onCellClick(r, c) {
+        if (gameOver || won) {
+            if (won) {
+                messageDisplay.textContent = '🎉 Level complete! Go to next level.';
             } else {
-                cell.classList.add('empty');
+                messageDisplay.textContent = '💔 Game over. Reset or try next level.';
             }
-            cell.addEventListener('click', () => onClick(r, c));
-            container.appendChild(cell);
+            return;
+        }
+
+        const val = grid[r][c];
+        if (!val || !ARROWS.includes(val)) {
+            messageDisplay.textContent = 'Tap an arrow (⬆️⬇️⬅️➡️)';
+            return;
+        }
+
+        const [dr, dc] = DIR[val];
+        const nr = r + dr, nc = c + dc;
+
+        // Check if arrow can be removed
+        if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
+            // Arrow points to edge - remove it!
+            grid[r][c] = null;
+            moves++;
+            animateCell(r, c);
+            checkWin();
+            render();
+            return;
+        }
+
+        // Check if arrow points to empty space
+        if (grid[nr][nc] === null) {
+            // Arrow can move into empty space
+            grid[nr][nc] = val;
+            grid[r][c] = null;
+            moves++;
+            render();
+            messageDisplay.textContent = `⬆️ Arrow moved to (${nr+1},${nc+1})`;
+            checkWin();
+            return;
+        }
+
+        // Arrow points to another arrow - blocked!
+        if (ARROWS.includes(grid[nr][nc])) {
+            messageDisplay.textContent = '🚫 Blocked by another arrow!';
+            return;
+        }
+
+        // Something else blocking
+        messageDisplay.textContent = '🚫 Cannot move there!';
+    }
+
+    function animateCell(r, c) {
+        const cells = gridContainer.children;
+        const idx = r * size + c;
+        if (cells[idx]) {
+            cells[idx].classList.add('removing');
         }
     }
-    document.getElementById('hrt').innerHTML = '❤️'.repeat(Math.max(0, hearts)) + '🖤'.repeat(Math.max(0, 3 - hearts));
-    document.getElementById('lvl').innerText = 'LEVEL ' + (current + 1);
-}
 
-function onClick(r, c) {
-    if (gameOver || hearts <= 0) {
-        document.getElementById('msg').innerText = 'Game over! Reset or next level.';
-        return;
-    }
-    let val = grid[r][c];
-    if (!val || !arrows.includes(val)) return;
-    let [dr, dc] = dirs[val];
-    let nr = r + dr, nc = c + dc;
-    if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
-        grid[r][c] = null;
-        moves++;
-        checkWin();
-        render();
-        return;
-    }
-    if (grid[nr][nc] !== null && arrows.includes(grid[nr][nc])) {
-        hearts--;
-        grid[r][c] = null;
-        grid[nr][nc] = null;
-        moves++;
-        render();
-        if (hearts <= 0) {
+    function checkWin() {
+        const remaining = countArrows();
+        if (remaining === 0) {
+            won = true;
             gameOver = true;
-            document.getElementById('msg').innerText = '💥 CRASH! No hearts left.';
+            messageDisplay.textContent = `✨ CLEARED! ✨ 🛫 A7-BAF in ${moves} moves!`;
+            messageDisplay.className = 'message win';
+            arrowCountEl.textContent = '⬆️ 0 left 🎉';
+            // Check if perfect (under max moves)
+            if (moves <= maxMoves) {
+                messageDisplay.textContent += ' ⭐ Perfect!';
+            }
+            return;
+        }
+
+        if (moves >= maxMoves) {
+            gameOver = true;
+            messageDisplay.textContent = `⏰ Out of moves! (${moves}/${maxMoves})`;
+            messageDisplay.className = 'message lose';
         } else {
-            document.getElementById('msg').innerText = '💥 Collision! ' + hearts + ' hearts left.';
-        }
-        return;
-    }
-    grid[nr][nc] = val;
-    grid[r][c] = null;
-    moves++;
-    render();
-    if (moves > maxMoves) {
-        gameOver = true;
-        document.getElementById('msg').innerText = '⏰ Too many moves!';
-    } else {
-        checkWin();
-    }
-}
-
-function checkWin() {
-    let remaining = 0;
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            if (grid[r][c] && arrows.includes(grid[r][c])) remaining++;
+            messageDisplay.textContent = `⬆️ ${remaining} arrows left · Moves: ${moves}/${maxMoves}`;
         }
     }
-    if (remaining === 0 && hearts > 0) {
-        gameOver = true;
-        document.getElementById('msg').innerText = '✨ CLEARED! ✨ 🛫 A7-BAF';
-    } else {
-        document.getElementById('msg').innerText = 'Arrows left: ' + remaining + ' · Moves: ' + moves + '/' + maxMoves;
-    }
-}
 
-document.getElementById('reset').addEventListener('click', () => loadLevel(current));
-document.getElementById('prev').addEventListener('click', () => {
-    current = (current - 1 + levels.length) % levels.length;
-    loadLevel(current);
-});
-document.getElementById('next').addEventListener('click', () => {
-    current = (current + 1) % levels.length;
-    loadLevel(current);
-});
-document.getElementById('hint').addEventListener('click', () => {
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            let v = grid[r][c];
-            if (v && arrows.includes(v)) {
-                let [dr, dc] = dirs[v];
-                let nr = r + dr, nc = c + dc;
-                if (nr < 0 || nr >= size || nc < 0 || nc >= size) {
-                    document.getElementById('msg').innerText = '💡 Arrow at (' + (r+1) + ',' + (c+1) + ') can escape!';
-                    return;
-                }
-                if (grid[nr] && grid[nr][nc] === null) {
-                    document.getElementById('msg').innerText = '💡 Move arrow at (' + (r+1) + ',' + (c+1) + ')';
+    // ============ HINT SYSTEM ============
+    function showHint() {
+        if (won || gameOver) {
+            if (won) messageDisplay.textContent = '🎉 You already won! Go next level.';
+            else messageDisplay.textContent = '💔 Game over. Reset or next level.';
+            return;
+        }
+
+        // Find first removable arrow
+        for (let r = 0; r < size; r++) {
+            for (let c = 0; c < size; c++) {
+                const val = grid[r][c];
+                if (!val || !ARROWS.includes(val)) continue;
+                const [dr, dc] = DIR[val];
+                const nr = r + dr, nc = c + dc;
+                if (nr < 0 || nr >= size || nc < 0 || nc >= size || grid[nr][nc] === null) {
+                    // Highlight this cell
+                    const cells = gridContainer.children;
+                    const idx = r * size + c;
+                    if (cells[idx]) {
+                        cells[idx].classList.add('hint-highlight');
+                        setTimeout(() => {
+                            cells[idx].classList.remove('hint-highlight');
+                        }, 1500);
+                    }
+                    messageDisplay.textContent = `💡 Remove arrow at (${r+1},${c+1})`;
                     return;
                 }
             }
         }
+        messageDisplay.textContent = '💡 Try moving arrows toward empty spaces or edges';
     }
-    document.getElementById('msg').innerText = '💡 Try moving any arrow toward the edge.';
-});
 
-loadLevel(0);
+    // ============ CONTROLS ============
+    resetBtn.addEventListener('click', () => {
+        loadLevel(currentLevel);
+    });
+
+    prevBtn.addEventListener('click', () => {
+        currentLevel = (currentLevel - 1 + LEVELS.length) % LEVELS.length;
+        loadLevel(currentLevel);
+    });
+
+    nextBtn.addEventListener('click', () => {
+        currentLevel = (currentLevel + 1) % LEVELS.length;
+        loadLevel(currentLevel);
+    });
+
+    hintBtn.addEventListener('click', showHint);
+
+    // Difficulty buttons
+    document.querySelectorAll('.diff-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+            const diff = parseInt(this.dataset.diff);
+            currentDifficulty = diff;
+            // Find first level with this difficulty
+            for (let i = 0; i < LEVELS.length; i++) {
+                if (LEVELS[i].difficulty === diff) {
+                    currentLevel = i;
+                    loadLevel(currentLevel);
+                    break;
+                }
+            }
+        });
+    });
+
+    // ============ START ============
+    loadLevel(0);
 </script>
 </body>
 </html>
