@@ -23,60 +23,49 @@
         .game-container {
             max-width: 420px;
             width: 100%;
-            background: linear-gradient(180deg, #ffffff 0%, #f0f4fa 100%);
-            border-radius: 40px 40px 30px 30px;
+            background: white;
+            border-radius: 40px;
             padding: 18px 18px 22px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-            position: relative;
-            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
-        /* OneWorld header */
+        /* Header */
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0 4px 12px 4px;
+            padding: 0 4px 10px 4px;
             border-bottom: 3px solid #003366;
         }
         .brand {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
-        .oneworld-logo {
+        .oneworld {
             background: #003366;
             color: white;
             font-weight: 800;
-            font-size: 14px;
-            padding: 5px 16px 5px 12px;
+            font-size: 13px;
+            padding: 4px 14px 4px 10px;
             border-radius: 30px;
             letter-spacing: 0.5px;
-            display: flex;
-            align-items: center;
-            gap: 4px;
         }
-        .oneworld-logo::after {
-            content: "●";
+        .oneworld::after {
+            content: " ●";
             color: #ff6600;
-            font-size: 18px;
-            margin-left: 2px;
+            font-size: 16px;
         }
-        .tail-icon {
-            font-size: 22px;
-            transform: rotate(-10deg);
-        }
-        .registration {
+        .reg {
             font-family: 'Courier New', monospace;
             font-weight: 900;
-            font-size: 17px;
+            font-size: 16px;
             color: #003366;
             background: #e6edf5;
-            padding: 4px 14px;
+            padding: 3px 12px;
             border-radius: 20px;
-            letter-spacing: 2px;
             border: 1px solid #b0c7db;
         }
-        /* Level info */
+        /* Level bar */
         .level-bar {
             display: flex;
             justify-content: space-between;
@@ -84,42 +73,70 @@
             padding: 10px 4px 6px;
         }
         .level-badge {
-            background: linear-gradient(135deg, #ff6600, #e65500);
+            background: #ff6600;
             color: white;
-            padding: 6px 20px;
+            padding: 5px 18px;
             border-radius: 40px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 800;
             box-shadow: 0 3px 0 #b34700;
         }
-        .difficulty-tag {
-            font-size: 12px;
+        .diff-tag {
+            font-size: 11px;
             font-weight: 700;
-            padding: 4px 14px;
+            padding: 3px 12px;
             border-radius: 20px;
             background: #e6edf5;
-            color: #1a2f44;
         }
         .stars {
-            font-size: 18px;
-            letter-spacing: 1px;
+            font-size: 16px;
         }
-        /* 777 Shape Grid */
+        /* Difficulty buttons */
+        .diff-row {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+            padding: 4px 0 8px;
+            flex-wrap: wrap;
+        }
+        .diff-btn {
+            background: #e6edf5;
+            border: 1px solid #b0c7db;
+            color: #1a2f44;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 2px 0 #7a8fa3;
+            min-height: 26px;
+        }
+        .diff-btn.active {
+            background: #003366;
+            color: white;
+            border-color: #003366;
+            box-shadow: 0 2px 0 #001a33;
+        }
+        .diff-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 0px 0 #7a8fa3;
+        }
+        /* 777 shape grid */
         .grid-wrapper {
             background: #d9e3ed;
             border-radius: 28px;
             padding: 14px 8px;
-            margin: 8px 0 10px;
+            margin: 6px 0 8px;
             box-shadow: inset 0 0 0 2px #b0c7db, 0 6px 0 #7a8fa3;
         }
         .plane-shape {
-            background: linear-gradient(180deg, #f5f9ff 0%, #dce6f2 100%);
+            background: linear-gradient(180deg, #f5f9ff, #dce6f2);
             border-radius: 36px 36px 18px 18px;
             padding: 6px 4px;
             clip-path: polygon(
-                0% 30%, 5% 16%, 20% 8%, 48% 2%, 52% 2%, 
-                80% 8%, 95% 16%, 100% 30%, 100% 70%, 
-                95% 84%, 80% 92%, 52% 98%, 48% 98%, 
+                0% 30%, 5% 16%, 20% 8%, 48% 2%, 52% 2%,
+                80% 8%, 95% 16%, 100% 30%, 100% 70%,
+                95% 84%, 80% 92%, 52% 98%, 48% 98%,
                 20% 92%, 5% 84%, 0% 70%
             );
             box-shadow: 0 4px 0 #7a8fa3;
@@ -132,34 +149,34 @@
             max-width: 360px;
             margin: 0 auto;
         }
-        /* Arrow cells with OneWorld colors */
         .cell {
             background: #eef3f9;
             border-radius: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 32px;
+            font-size: 28px;
             font-weight: 700;
             aspect-ratio: 1/1;
             cursor: pointer;
             border: 2px solid transparent;
-            position: relative;
-            transition: all 0.15s ease;
             box-shadow: inset 0 -3px 0 #b8c9db, 0 2px 6px rgba(0,0,0,0.06);
+            transition: all 0.1s;
+            position: relative;
         }
+        /* Thin colored arrows */
         .cell.arrow {
             background: white;
             box-shadow: 0 4px 0 #b0c7db, 0 6px 12px rgba(0,0,0,0.08);
             border-color: #8aa3b9;
+            font-size: 30px;
         }
-        /* Colored arrows based on direction */
         .cell.arrow[data-dir="⬆️"] { color: #003366; }
         .cell.arrow[data-dir="⬇️"] { color: #ff6600; }
         .cell.arrow[data-dir="⬅️"] { color: #cc0000; }
         .cell.arrow[data-dir="➡️"] { color: #003366; }
         .cell.arrow:active {
-            transform: scale(0.88);
+            transform: scale(0.85);
             box-shadow: 0 1px 0 #b0c7db;
         }
         .cell.empty {
@@ -167,41 +184,37 @@
             box-shadow: inset 0 -2px 0 #b0c7db;
         }
         .cell.removing {
-            animation: popOut 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+            animation: pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
-        @keyframes popOut {
+        @keyframes pop {
             0% { transform: scale(1) rotate(0deg); opacity: 1; }
             100% { transform: scale(0) rotate(180deg); opacity: 0; }
         }
-        .cell.hint-highlight {
+        .cell.hint {
             border-color: #ff6600;
-            box-shadow: 0 0 0 4px rgba(255, 102, 0, 0.3), 0 4px 0 #b0c7db;
+            box-shadow: 0 0 0 4px rgba(255,102,0,0.3), 0 4px 0 #b0c7db;
             animation: pulse 0.8s ease-in-out infinite alternate;
         }
         @keyframes pulse {
             0% { transform: scale(1); }
-            100% { transform: scale(1.06); }
+            100% { transform: scale(1.08); }
         }
         /* Controls */
         .controls {
             display: flex;
-            justify-content: space-between;
-            align-items: center;
             gap: 6px;
-            padding: 10px 2px 4px;
+            padding: 8px 2px 4px;
         }
         button {
             background: #003366;
             border: none;
             color: white;
             font-weight: 700;
-            padding: 10px 14px;
+            padding: 10px 12px;
             border-radius: 40px;
             font-size: 13px;
             box-shadow: 0 4px 0 #001a33;
-            transition: all 0.05s linear;
             flex: 1;
-            text-align: center;
             cursor: pointer;
             border: 1px solid #1a4a7a;
             min-height: 44px;
@@ -209,7 +222,7 @@
             align-items: center;
             justify-content: center;
             gap: 4px;
-            letter-spacing: 0.3px;
+            transition: 0.05s;
         }
         button:active {
             transform: translateY(3px);
@@ -227,17 +240,14 @@
             border-color: #6a7f92;
             flex: 0.5;
         }
-        .nav-btn {
-            flex: 0.7;
-        }
+        .nav-btn { flex: 0.7; }
         .message {
             text-align: center;
             font-weight: 700;
-            font-size: 15px;
-            padding: 8px 0 2px;
+            font-size: 14px;
+            padding: 6px 0 2px;
             color: #003366;
-            min-height: 36px;
-            letter-spacing: 0.2px;
+            min-height: 32px;
         }
         .message.win { color: #28a745; }
         .message.lose { color: #dc3545; }
@@ -247,64 +257,27 @@
             gap: 8px;
             font-size: 11px;
             color: #6a7f92;
-            padding-top: 8px;
+            padding-top: 6px;
         }
         .footer span {
             background: #e6edf5;
             padding: 2px 14px;
             border-radius: 40px;
         }
-        .difficulty-selector {
-            display: flex;
-            gap: 5px;
-            justify-content: center;
-            padding: 4px 0 6px;
-            flex-wrap: wrap;
-        }
-        .diff-btn {
-            background: #e6edf5;
-            color: #1a2f44;
-            box-shadow: 0 2px 0 #7a8fa3;
-            font-size: 10px;
-            padding: 4px 12px;
-            flex: 0 1 auto;
-            min-height: 28px;
-            border: 1px solid #b0c7db;
-            font-weight: 600;
-        }
-        .diff-btn.active {
-            background: #003366;
-            color: white;
-            border-color: #003366;
-            box-shadow: 0 2px 0 #001a33;
-        }
-        .diff-btn:active {
-            transform: translateY(2px);
-            box-shadow: 0 0px 0 #7a8fa3;
-        }
-        .arrow-counter {
+        .arrow-count {
             text-align: center;
             font-size: 13px;
             font-weight: 600;
             color: #1a2f44;
             padding: 2px 0;
         }
-        /* Special A7-BAF watermark */
-        .watermark {
-            text-align: center;
-            font-size: 10px;
-            color: #b0c7db;
-            letter-spacing: 3px;
-            padding-top: 4px;
-            font-weight: 600;
-        }
         @media (max-width: 400px) {
             .game-container { padding: 14px; }
-            .cell { font-size: 26px; }
+            .cell { font-size: 22px; }
             .grid { gap: 4px; padding: 6px 4px; }
-            button { font-size: 11px; padding: 8px 8px; min-height: 38px; }
-            .registration { font-size: 14px; padding: 3px 10px; }
-            .oneworld-logo { font-size: 12px; padding: 4px 12px 4px 10px; }
+            button { font-size: 10px; padding: 6px 6px; min-height: 34px; }
+            .reg { font-size: 13px; padding: 2px 8px; }
+            .oneworld { font-size: 11px; padding: 3px 10px; }
         }
     </style>
 </head>
@@ -313,21 +286,21 @@
     <!-- Header -->
     <div class="header">
         <div class="brand">
-            <span class="tail-icon">✈️</span>
-            <span class="oneworld-logo">oneworld</span>
+            <span style="font-size:20px;">✈️</span>
+            <span class="oneworld">oneworld</span>
         </div>
-        <span class="registration">A7-BAF</span>
+        <span class="reg">A7-BAF</span>
     </div>
 
-    <!-- Level Info -->
+    <!-- Level Bar -->
     <div class="level-bar">
         <span class="level-badge" id="levelDisplay">LEVEL 1</span>
-        <span class="difficulty-tag" id="diffDisplay">EASY</span>
+        <span class="diff-tag" id="diffDisplay">EASY</span>
         <span class="stars" id="starsDisplay">⭐⭐⭐</span>
     </div>
 
     <!-- Difficulty -->
-    <div class="difficulty-selector" id="diffSelector">
+    <div class="diff-row" id="diffSelector">
         <button class="diff-btn active" data-diff="0">EASY</button>
         <button class="diff-btn" data-diff="1">MEDIUM</button>
         <button class="diff-btn" data-diff="2">HARD</button>
@@ -342,12 +315,10 @@
         </div>
     </div>
 
-    <div class="arrow-counter" id="arrowCount">⬆️ 0 arrows left</div>
+    <div class="arrow-count" id="arrowCount">⬆️ 0 arrows left</div>
 
-    <!-- Message -->
-    <div class="message" id="messageDisplay">🛫 Tap an arrow to move or remove</div>
+    <div class="message" id="messageDisplay">🛫 Tap an arrow to remove it</div>
 
-    <!-- Controls -->
     <div class="controls">
         <button class="reset-btn" id="resetBtn">↺</button>
         <button class="nav-btn" id="prevBtn">◀ PREV</button>
@@ -359,11 +330,10 @@
         <span>B777 · A7-BAF</span>
         <span id="progressText">1 / 100</span>
     </div>
-    <div class="watermark">✈️ QATAR · oneworld</div>
 </div>
 
 <script>
-    // ============ ARROW DIRECTIONS ============
+    // ============ CONFIG ============
     const ARROWS = ['⬆️', '⬇️', '⬅️', '➡️'];
     const DIR = {
         '⬆️': [-1, 0],
@@ -371,16 +341,16 @@
         '⬅️': [0, -1],
         '➡️': [0, 1]
     };
-    const DIFFICULTY_NAMES = ['EASY', 'MEDIUM', 'HARD', 'EXPERT', 'INSANE'];
-    const DIFFICULTY_COLORS = ['#28a745', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1'];
+    const DIFF_NAMES = ['EASY', 'MEDIUM', 'HARD', 'EXPERT', 'INSANE'];
+    const DIFF_COLORS = ['#28a745', '#ffc107', '#fd7e14', '#dc3545', '#6f42c1'];
 
     // ============ LEVEL GENERATOR ============
-    function generateLevels(count = 100) {
+    function generateLevels(count) {
         const levels = [];
         for (let i = 0; i < count; i++) {
-            const difficulty = Math.floor(i / 20);
-            const size = 4 + Math.min(difficulty, 3);
-            let arrowCount = 4 + Math.floor(i / 7) + Math.floor(difficulty * 1.8);
+            const diff = Math.floor(i / 20);
+            const size = 4 + Math.min(diff, 3);
+            let arrowCount = 4 + Math.floor(i / 7) + Math.floor(diff * 1.8);
             arrowCount = Math.min(arrowCount, size * size - 2);
 
             const grid = Array(size).fill().map(() => Array(size).fill(null));
@@ -393,8 +363,8 @@
                 const c = Math.floor(Math.random() * size);
                 if (grid[r][c] !== null) continue;
 
-                const shuffledDirs = [...ARROWS].sort(() => Math.random() - 0.5);
-                for (const dir of shuffledDirs) {
+                const shuffled = [...ARROWS].sort(() => Math.random() - 0.5);
+                for (const dir of shuffled) {
                     const [dr, dc] = DIR[dir];
                     const nr = r + dr, nc = c + dc;
                     if (nr < 0 || nr >= size || nc < 0 || nc >= size) continue;
@@ -421,12 +391,7 @@
                 }
             }
 
-            levels.push({
-                grid: grid,
-                size: size,
-                difficulty: difficulty,
-                arrowCount: placed
-            });
+            levels.push({ grid, size, difficulty: diff, arrowCount: placed });
         }
         return levels;
     }
@@ -441,8 +406,8 @@
     let gameOver = false;
     let won = false;
 
-    // ============ DOM REFS ============
-    const gridContainer = document.getElementById('gridContainer');
+    // ============ DOM ============
+    const gridEl = document.getElementById('gridContainer');
     const levelDisplay = document.getElementById('levelDisplay');
     const diffDisplay = document.getElementById('diffDisplay');
     const starsDisplay = document.getElementById('starsDisplay');
@@ -454,7 +419,7 @@
     const nextBtn = document.getElementById('nextBtn');
     const hintBtn = document.getElementById('hintBtn');
 
-    // ============ LOAD LEVEL ============
+    // ============ LOAD ============
     function loadLevel(index) {
         const lvl = LEVELS[index % LEVELS.length];
         size = lvl.size;
@@ -466,7 +431,7 @@
 
         render();
         updateInfo();
-        messageDisplay.textContent = '🛫 Tap an arrow to move or remove';
+        messageDisplay.textContent = '🛫 Tap an arrow to remove it';
         messageDisplay.className = 'message';
         updateArrowCount();
     }
@@ -474,8 +439,8 @@
     function updateInfo() {
         const lvl = LEVELS[currentLevel % LEVELS.length];
         levelDisplay.textContent = `LEVEL ${currentLevel + 1}`;
-        diffDisplay.textContent = DIFFICULTY_NAMES[lvl.difficulty];
-        diffDisplay.style.color = DIFFICULTY_COLORS[lvl.difficulty];
+        diffDisplay.textContent = DIFF_NAMES[lvl.difficulty];
+        diffDisplay.style.color = DIFF_COLORS[lvl.difficulty];
         const stars = lvl.difficulty + 1;
         starsDisplay.textContent = '⭐'.repeat(Math.min(stars, 5));
         progressText.textContent = `${currentLevel + 1} / ${LEVELS.length}`;
@@ -497,8 +462,8 @@
     }
 
     function render() {
-        gridContainer.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
-        gridContainer.innerHTML = '';
+        gridEl.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+        gridEl.innerHTML = '';
 
         for (let r = 0; r < size; r++) {
             for (let c = 0; c < size; c++) {
@@ -515,26 +480,23 @@
                 cell.dataset.r = r;
                 cell.dataset.c = c;
                 cell.addEventListener('click', () => onCellClick(r, c));
-                gridContainer.appendChild(cell);
+                gridEl.appendChild(cell);
             }
         }
         updateArrowCount();
     }
 
-    // ============ CLICK HANDLER ============
+    // ============ CLICK ============
     function onCellClick(r, c) {
         if (gameOver || won) {
-            if (won) {
-                messageDisplay.textContent = '🎉 Level complete! Go to next.';
-            } else {
-                messageDisplay.textContent = '💔 Game over. Reset or next.';
-            }
+            if (won) messageDisplay.textContent = '🎉 Level complete! Next level.';
+            else messageDisplay.textContent = '💔 Game over. Reset or next.';
             return;
         }
 
         const val = grid[r][c];
         if (!val || !ARROWS.includes(val)) {
-            messageDisplay.textContent = 'Tap an arrow (⬆️⬇️⬅️➡️)';
+            messageDisplay.textContent = 'Tap an arrow';
             return;
         }
 
@@ -546,12 +508,11 @@
             grid[r][c] = null;
             moves++;
             animateCell(r, c);
-            render();
-            checkWin();
+            setTimeout(() => { render(); checkWin(); }, 200);
             return;
         }
 
-        // Check if arrow points to empty space (move)
+        // Check if arrow points to empty space (move there)
         if (grid[nr][nc] === null) {
             grid[nr][nc] = val;
             grid[r][c] = null;
@@ -562,9 +523,9 @@
             return;
         }
 
-        // Arrow points to another arrow - blocked
+        // Blocked by another arrow
         if (ARROWS.includes(grid[nr][nc])) {
-            messageDisplay.textContent = '🚫 Blocked by another arrow!';
+            messageDisplay.textContent = '🚫 Blocked!';
             return;
         }
 
@@ -572,7 +533,7 @@
     }
 
     function animateCell(r, c) {
-        const cells = gridContainer.children;
+        const cells = gridEl.children;
         const idx = r * size + c;
         if (cells[idx]) {
             cells[idx].classList.add('removing');
@@ -587,7 +548,7 @@
             const stars = moves <= maxMoves ? ' ⭐⭐⭐' : ' ⭐⭐';
             messageDisplay.textContent = `✨ CLEARED! ✨ 🛫 A7-BAF${stars}`;
             messageDisplay.className = 'message win';
-            arrowCountEl.textContent = '🎉 All arrows cleared!';
+            arrowCountEl.textContent = '🎉 All cleared!';
             return;
         }
 
@@ -603,8 +564,7 @@
     // ============ HINT ============
     function showHint() {
         if (won || gameOver) {
-            if (won) messageDisplay.textContent = '🎉 You already won!';
-            else messageDisplay.textContent = '💔 Game over. Reset or next.';
+            messageDisplay.textContent = won ? '🎉 You already won!' : '💔 Game over!';
             return;
         }
 
@@ -615,12 +575,12 @@
                 const [dr, dc] = DIR[val];
                 const nr = r + dr, nc = c + dc;
                 if (nr < 0 || nr >= size || nc < 0 || nc >= size || grid[nr][nc] === null) {
-                    const cells = gridContainer.children;
+                    const cells = gridEl.children;
                     const idx = r * size + c;
                     if (cells[idx]) {
-                        cells[idx].classList.add('hint-highlight');
+                        cells[idx].classList.add('hint');
                         setTimeout(() => {
-                            cells[idx].classList.remove('hint-highlight');
+                            cells[idx].classList.remove('hint');
                         }, 2000);
                     }
                     messageDisplay.textContent = `💡 Try arrow at (${r+1},${c+1})`;
@@ -628,7 +588,7 @@
                 }
             }
         }
-        messageDisplay.textContent = '💡 Move arrows toward empty spaces or edges';
+        messageDisplay.textContent = '💡 Move arrows toward edges';
     }
 
     // ============ CONTROLS ============
@@ -643,7 +603,6 @@
     });
     hintBtn.addEventListener('click', showHint);
 
-    // Difficulty buttons
     document.querySelectorAll('.diff-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('active'));
